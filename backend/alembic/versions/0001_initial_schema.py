@@ -22,25 +22,57 @@ def upgrade() -> None:
     except Exception:
         pass
 
-    # Raw SQL so IF NOT EXISTS is handled entirely by PostgreSQL, with no
-    # dependency on SQLAlchemy's introspection or transaction state.
-    op.execute("CREATE TYPE IF NOT EXISTS visibility_level  AS ENUM ('public', 'private', 'link', 'users')")
-    op.execute("CREATE TYPE IF NOT EXISTS user_role         AS ENUM ('admin', 'user')")
-    op.execute("CREATE TYPE IF NOT EXISTS osm_type          AS ENUM ('node', 'way', 'relation')")
+    # DO blocks catch duplicate_object so re-running on a partially migrated
+    # database is safe — the correct idiomatic PostgreSQL pattern for
+    # CREATE TYPE ... IF NOT EXISTS (which is not valid SQL).
     op.execute("""
-        CREATE TYPE IF NOT EXISTS place_type AS ENUM (
-            'building', 'landmark', 'monument', 'parish', 'neighbourhood',
-            'city', 'town', 'village', 'comarca', 'province', 'region', 'country'
-        )
+        DO $$ BEGIN
+            CREATE TYPE visibility_level AS ENUM ('public', 'private', 'link', 'users');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
     """)
-    op.execute("CREATE TYPE IF NOT EXISTS invite_status     AS ENUM ('pending', 'accepted', 'declined')")
     op.execute("""
-        CREATE TYPE IF NOT EXISTS notification_type AS ENUM (
-            'trip_invite', 'project_invite', 'invite_accepted',
-            'invite_declined', 'removed_from_trip', 'removed_from_project'
-        )
+        DO $$ BEGIN
+            CREATE TYPE user_role AS ENUM ('admin', 'user');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
     """)
-    op.execute("CREATE TYPE IF NOT EXISTS entity_type       AS ENUM ('trip', 'project')")
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE osm_type AS ENUM ('node', 'way', 'relation');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE place_type AS ENUM (
+                'building', 'landmark', 'monument', 'parish', 'neighbourhood',
+                'city', 'town', 'village', 'comarca', 'province', 'region', 'country'
+            );
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE invite_status AS ENUM ('pending', 'accepted', 'declined');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE notification_type AS ENUM (
+                'trip_invite', 'project_invite', 'invite_accepted',
+                'invite_declined', 'removed_from_trip', 'removed_from_project'
+            );
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE entity_type AS ENUM ('trip', 'project');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+    """)
 
     # create_type=False — the types already exist above; tell SQLAlchemy not to
     # attempt a second CREATE TYPE when processing the column definitions below.
