@@ -5,11 +5,11 @@ import os
 # All ORM models must be imported at module load time so SQLAlchemy can resolve
 # cross-model relationship strings (e.g. "Trip.creator_id") before the first
 # query fires. Mirrors the pattern used in alembic/env.py.
-import app.models.user        # noqa: F401
-import app.models.place       # noqa: F401
-import app.models.trip        # noqa: F401
-import app.models.project     # noqa: F401
-import app.models.notification  # noqa: F401
+from app.models.user import User  # noqa: F401
+from app.models.place import Place  # noqa: F401
+from app.models.trip import Trip, TripCompanion, TripPlace, TripMediaLink, TripSharedUser  # noqa: F401
+from app.models.project import Project, ProjectCollaborator, ProjectTargetPlace, ProjectSharedUser  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
 
 
 async def main() -> None:
