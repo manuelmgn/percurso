@@ -68,7 +68,7 @@ export default function SettingsPage() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Definições</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         {/* Profile */}
         <div className="glass-card p-6 space-y-4">
           <h2 className="font-semibold text-base">Perfil</h2>

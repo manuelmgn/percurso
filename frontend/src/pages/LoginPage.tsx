@@ -47,7 +47,7 @@ export default function LoginPage() {
           <p className="mt-2 text-muted-foreground">Os teus lugares, as tuas viagens</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="mb-1.5 block text-sm font-medium">
               Nome de utilizador

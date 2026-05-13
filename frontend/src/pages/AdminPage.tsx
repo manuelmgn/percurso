@@ -61,6 +61,7 @@ function CreateUserForm({ onCreated }: { onCreated: () => void }) {
           mutation.mutate({ username, email, password, display_name: username, role })
         }}
         className="space-y-3"
+        noValidate
       >
         <div className="grid sm:grid-cols-2 gap-3">
           <div>

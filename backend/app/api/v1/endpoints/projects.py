@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,7 @@ from app.models.trip import TripPlace
 from app.models.user import User
 from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectResponse, ProjectUpdate
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
@@ -112,8 +115,12 @@ async def create_project(
     db.add(project)
     await db.flush()
 
-    from app.workers.image_worker import generate_cover_image_task
-    generate_cover_image_task.delay(project.id, "project", data.title, data.description)
+    try:
+        from app.workers.image_worker import generate_cover_image_task
+        generate_cover_image_task.delay(project.id, "project", data.title, data.description)
+    except Exception:
+        logger.warning("Celery broker unavailable; skipping cover image for project %d", project.id)
+        project.cover_image_generating = False
 
     await db.refresh(project)
     project = await _load_project(db, project.id)

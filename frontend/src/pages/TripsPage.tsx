@@ -100,6 +100,7 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             mutation.mutate({ title, description })
           }}
           className="space-y-4"
+          noValidate
         >
           <div>
             <label className="mb-1.5 block text-sm font-medium">Título</label>

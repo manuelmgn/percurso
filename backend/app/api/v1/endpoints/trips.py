@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,7 @@ from app.schemas.trip import MediaLinkCreate, TripCreate, TripDetailResponse, Tr
 from app.services.og_service import fetch_og_metadata
 from app.services.storage_service import upload_cover_image
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trips", tags=["trips"])
 
 
@@ -94,9 +97,12 @@ async def create_trip(
     db.add(trip)
     await db.flush()
 
-    # Trigger AI cover generation
-    from app.workers.image_worker import generate_cover_image_task
-    generate_cover_image_task.delay(trip.id, "trip", data.title, data.description)
+    try:
+        from app.workers.image_worker import generate_cover_image_task
+        generate_cover_image_task.delay(trip.id, "trip", data.title, data.description)
+    except Exception:
+        logger.warning("Celery broker unavailable; skipping cover image for trip %d", trip.id)
+        trip.cover_image_generating = False
 
     await db.refresh(trip)
     trip = await _load_trip(db, trip.id)

@@ -1,9 +1,12 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -12,6 +15,7 @@ from app.api.v1.router import router as api_router
 from app.core.config import get_settings
 from app.core.redis import close_redis
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[f"{settings.rate_limit_default}/minute"])
@@ -44,6 +48,52 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    errors = exc.errors()
+    if not errors:
+        return JSONResponse(status_code=422, content={"detail": "Dados inválidos"})
+
+    first = errors[0]
+    loc = first.get("loc", ())
+    # loc is e.g. ("body", "title") — skip the "body" prefix, use last element
+    field = loc[-1] if len(loc) > 1 and not isinstance(loc[-1], int) else None
+    type_ = first.get("type", "")
+    ctx = first.get("ctx", {}) or {}
+    raw_msg: str = first.get("msg", "") or ""
+
+    if isinstance(ctx.get("error"), str):
+        msg = ctx["error"]
+    elif raw_msg.startswith("Value error, "):
+        msg = raw_msg[13:]
+    elif type_ == "missing":
+        msg = "campo obrigatório"
+    elif "email" in type_ or "email address" in raw_msg.lower():
+        msg = "endereço de email inválido"
+    elif "url" in type_:
+        msg = "URL inválido"
+    elif type_ == "string_too_short":
+        msg = f"mínimo {ctx.get('min_length', '?')} caracteres"
+    elif type_ == "string_too_long":
+        msg = f"máximo {ctx.get('max_length', '?')} caracteres"
+    else:
+        msg = raw_msg or "valor inválido"
+
+    detail = f"{field}: {msg}" if field else msg
+    return JSONResponse(status_code=422, content={"detail": detail})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if isinstance(exc, HTTPException):
+        return await http_exception_handler(request, exc)
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Ocorreu um erro inesperado. Por favor, tenta novamente."},
+    )
 
 
 @app.get("/health")

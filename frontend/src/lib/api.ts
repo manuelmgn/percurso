@@ -1,9 +1,16 @@
+import { useAuthStore } from "@/stores/auth"
 import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, Notification } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
 function getToken(): string | null {
   return localStorage.getItem("access_token")
+}
+
+function handleUnauthorized(): never {
+  // Update zustand in-memory state → ProtectedRoute re-renders → redirects to /entrar
+  useAuthStore.getState().logout()
+  throw new Error("Sessão expirada. Por favor, inicia sessão novamente.")
 }
 
 function extractErrorMessage(data: unknown): string {
@@ -57,12 +64,13 @@ async function request<T>(
   }
 
   if (response.status === 204) return undefined as T
+  if (response.status === 401) return handleUnauthorized()
 
   let data: unknown
   try {
     data = await response.json()
   } catch {
-    if (!response.ok) throw new Error(`Erro ${response.status}: resposta inválida do servidor`)
+    if (!response.ok) throw new Error(`Erro de servidor (${response.status}). Por favor, tenta novamente.`)
     return undefined as T
   }
 

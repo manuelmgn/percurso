@@ -75,6 +75,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
             mutation.mutate({ title, description, goal_description: goal })
           }}
           className="space-y-4"
+          noValidate
         >
           <div>
             <label className="mb-1.5 block text-sm font-medium">Título</label>
