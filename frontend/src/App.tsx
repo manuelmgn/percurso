@@ -34,13 +34,23 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { token, user, setUser, logout } = useAuthStore()
+  // If the user is already in the persisted store we can render immediately.
+  // Otherwise (first load after clearing cache) we must wait for the fetch.
   const [ready, setReady] = useState(!token || !!user)
 
   useEffect(() => {
-    if (!token || user) {
+    if (!token) {
       setReady(true)
       return
     }
+    if (user) {
+      // Render immediately with cached user; refresh in the background to
+      // keep data fresh and to detect expired tokens.
+      setReady(true)
+      usersApi.me().then(setUser).catch(() => logout())
+      return
+    }
+    // No cached user — block render until the fetch completes.
     usersApi.me()
       .then(setUser)
       .catch(() => logout())

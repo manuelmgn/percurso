@@ -18,17 +18,17 @@ async def get_stats(
     _admin=Depends(require_admin),
     db: AsyncSession = Depends(get_db_session),
 ):
-    user_count = (await db.execute(select(func.count(User.id)))).scalar()
-    trip_count = (await db.execute(select(func.count(Trip.id)))).scalar()
-    project_count = (await db.execute(select(func.count(Project.id)))).scalar()
-    place_count = (await db.execute(select(func.count(Place.id)))).scalar()
-
-    return {
-        "users": user_count,
-        "trips": trip_count,
-        "projects": project_count,
-        "unique_places": place_count,
-    }
+    # Single round-trip: four scalar subqueries in one SELECT
+    row = await db.execute(
+        select(
+            select(func.count(User.id)).scalar_subquery().label("users"),
+            select(func.count(Trip.id)).scalar_subquery().label("trips"),
+            select(func.count(Project.id)).scalar_subquery().label("projects"),
+            select(func.count(Place.id)).scalar_subquery().label("unique_places"),
+        )
+    )
+    r = row.one()
+    return {"users": r.users, "trips": r.trips, "projects": r.projects, "unique_places": r.unique_places}
 
 
 @router.get("/health")

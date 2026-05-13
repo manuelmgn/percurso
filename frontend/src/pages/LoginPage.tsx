@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/stores/auth"
-import { authApi, usersApi } from "@/lib/api"
+import { authApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
@@ -20,10 +20,9 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const token = await authApi.login(username, password)
-      setToken(token.access_token)
-      const user = await usersApi.me()
-      setUser(user)
+      const result = await authApi.login(username, password)
+      setToken(result.access_token)
+      setUser(result.user)
       navigate("/mapa")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao iniciar sessão")

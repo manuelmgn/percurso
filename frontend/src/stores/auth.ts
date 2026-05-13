@@ -25,6 +25,6 @@ export const useAuthStore = create<AuthState>()(
         set({ token: null, user: null })
       },
     }),
-    { name: "percurso-auth", partialize: (s) => ({ token: s.token }) },
+    { name: "percurso-auth", partialize: (s) => ({ token: s.token, user: s.user }) },
   ),
 )

@@ -5,14 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import LoginRequest, LoginResponse, RefreshRequest, TokenResponse
+from app.schemas.user import UserResponse
 from app.services.user_service import authenticate_user
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     data: LoginRequest,
     response: Response,
@@ -22,7 +23,7 @@ async def login(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nome de utilizador ou palavra-passe incorrectos",
+            detail="Nome de utilizador ou palavra-passe incorretos",
         )
     access_token = create_access_token(user.id, {"role": user.role})
     refresh_token = create_refresh_token(user.id)
@@ -37,9 +38,10 @@ async def login(
         path="/api/v1/auth",
     )
 
-    return TokenResponse(
+    return LoginResponse(
         access_token=access_token,
         expires_in=settings.access_token_expire_minutes * 60,
+        user=UserResponse.model_validate(user),
     )
 
 

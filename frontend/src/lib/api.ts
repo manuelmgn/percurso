@@ -84,7 +84,7 @@ async function request<T>(
 // Auth
 export const authApi = {
   login: (username: string, password: string) =>
-    request<TokenResponse>("POST", "/api/v1/auth/login", { username, password }),
+    request<TokenResponse & { user: User }>("POST", "/api/v1/auth/login", { username, password }),
   refresh: (refresh_token: string) =>
     request<TokenResponse>("POST", "/api/v1/auth/refresh", { refresh_token }),
   logout: () => request<void>("POST", "/api/v1/auth/logout"),
