@@ -6,6 +6,32 @@ function getToken(): string | null {
   return localStorage.getItem("access_token")
 }
 
+function extractErrorMessage(data: unknown): string {
+  if (!data || typeof data !== "object") return "Ocorreu um erro inesperado"
+  const d = data as Record<string, unknown>
+
+  if (Array.isArray(d.detail) && d.detail.length > 0) {
+    const item = d.detail[0] as Record<string, unknown>
+    // Pydantic v2 custom validators: real message lives in ctx.error
+    const ctx = item?.ctx as Record<string, unknown> | undefined
+    if (typeof ctx?.error === "string") return ctx.error
+    // Pydantic v2 wraps custom ValueError as "Value error, <msg>"
+    const msg = typeof item?.msg === "string" ? item.msg : null
+    if (msg?.startsWith("Value error, ")) return msg.slice(13)
+    // Map common Pydantic built-in types to pt-PT
+    const type = typeof item?.type === "string" ? item.type : ""
+    if (type === "missing") return "Campo obrigatório em falta"
+    if (type === "string_type") return "O valor deve ser texto"
+    if (type.includes("email") || msg?.includes("email address")) return "Endereço de email inválido"
+    if (type.includes("url") || msg?.includes("URL")) return "URL inválido"
+    if (msg) return msg
+    return "Ocorreu um erro inesperado"
+  }
+
+  if (typeof d.detail === "string") return d.detail
+  return "Ocorreu um erro inesperado"
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -18,22 +44,30 @@ async function request<T>(
   if (token) headers["Authorization"] = `Bearer ${token}`
   if (body && !isFormData) headers["Content-Type"] = "application/json"
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
-    credentials: "include",
-  })
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
+      credentials: "include",
+    })
+  } catch {
+    throw new Error("Não foi possível contactar o servidor. Verifica a tua ligação à internet.")
+  }
 
   if (response.status === 204) return undefined as T
 
-  const data = await response.json()
+  let data: unknown
+  try {
+    data = await response.json()
+  } catch {
+    if (!response.ok) throw new Error(`Erro ${response.status}: resposta inválida do servidor`)
+    return undefined as T
+  }
 
   if (!response.ok) {
-    const message = Array.isArray(data?.detail)
-      ? (data.detail[0]?.msg ?? data.detail[0] ?? "Ocorreu um erro inesperado")
-      : (data?.detail ?? "Ocorreu um erro inesperado")
-    throw new Error(message)
+    throw new Error(extractErrorMessage(data))
   }
 
   return data as T

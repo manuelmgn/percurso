@@ -1,9 +1,9 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -52,5 +52,23 @@ async def health():
 
 
 _static_dir = Path(__file__).parent.parent / "static"
+_static_dir_resolved = _static_dir.resolve()
+
 if _static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        # Serve actual static files (JS bundles, favicon, robots.txt, …)
+        if full_path:
+            candidate = (_static_dir / full_path).resolve()
+            try:
+                candidate.relative_to(_static_dir_resolved)
+                if candidate.is_file():
+                    return FileResponse(str(candidate))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Caminho inválido")
+        # Fall through to index.html — React Router handles client-side routing
+        index = _static_dir / "index.html"
+        if index.is_file():
+            return FileResponse(str(index))
+        raise HTTPException(status_code=404, detail="Not Found")

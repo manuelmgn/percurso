@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { Loader2 } from "lucide-react"
 import AppShell from "@/components/layout/AppShell"
 import ProtectedRoute from "@/components/shared/ProtectedRoute"
 import LoginPage from "@/pages/LoginPage"
@@ -9,6 +11,8 @@ import ProjectsPage from "@/pages/ProjectsPage"
 import NotificationsPage from "@/pages/NotificationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import AdminPage from "@/pages/AdminPage"
+import { useAuthStore } from "@/stores/auth"
+import { usersApi } from "@/lib/api"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,9 +32,36 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)
     : document.documentElement.classList.remove("dark")
 })
 
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  const { token, user, setUser, logout } = useAuthStore()
+  const [ready, setReady] = useState(!token || !!user)
+
+  useEffect(() => {
+    if (!token || user) {
+      setReady(true)
+      return
+    }
+    usersApi.me()
+      .then(setUser)
+      .catch(() => logout())
+      .finally(() => setReady(true))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthInitializer>
       <BrowserRouter>
         <Routes>
           <Route path="/entrar" element={<LoginPage />} />
@@ -61,6 +92,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/mapa" replace />} />
         </Routes>
       </BrowserRouter>
+      </AuthInitializer>
     </QueryClientProvider>
   )
 }
