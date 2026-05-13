@@ -2,8 +2,8 @@
 FROM node:22-slim AS frontend-builder
 
 WORKDIR /build
-COPY frontend/package*.json ./
-RUN npm ci
+COPY frontend/package.json ./
+RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
