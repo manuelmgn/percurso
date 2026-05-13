@@ -34,4 +34,4 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["/bin/sh", "-c", "exec /entrypoint.sh uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["/entrypoint.sh"]
