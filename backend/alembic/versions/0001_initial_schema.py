@@ -17,6 +17,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    op.execute("""
+        DROP TYPE IF EXISTS visibility_level  CASCADE;
+        DROP TYPE IF EXISTS user_role         CASCADE;
+        DROP TYPE IF EXISTS osm_type          CASCADE;
+        DROP TYPE IF EXISTS place_type        CASCADE;
+        DROP TYPE IF EXISTS invite_status     CASCADE;
+        DROP TYPE IF EXISTS notification_type CASCADE;
+        DROP TYPE IF EXISTS entity_type       CASCADE;
+    """)
+
     try:
         op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
     except Exception:
