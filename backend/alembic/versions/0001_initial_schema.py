@@ -17,27 +17,33 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+    try:
+        op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+    except Exception:
+        pass
 
-    # Enums — created explicitly so tables can reference them with create_type=False
-    sa.Enum("public", "private", "link", "users", name="visibility_level").create(op.get_bind(), checkfirst=True)
-    sa.Enum("admin", "user", name="user_role").create(op.get_bind(), checkfirst=True)
-    sa.Enum("node", "way", "relation", name="osm_type").create(op.get_bind(), checkfirst=True)
-    sa.Enum(
-        "building", "landmark", "monument", "parish", "neighbourhood",
-        "city", "town", "village", "comarca", "province", "region", "country",
-        name="place_type",
-    ).create(op.get_bind(), checkfirst=True)
-    sa.Enum("pending", "accepted", "declined", name="invite_status").create(op.get_bind(), checkfirst=True)
-    sa.Enum(
-        "trip_invite", "project_invite", "invite_accepted",
-        "invite_declined", "removed_from_trip", "removed_from_project",
-        name="notification_type",
-    ).create(op.get_bind(), checkfirst=True)
-    sa.Enum("trip", "project", name="entity_type").create(op.get_bind(), checkfirst=True)
+    # Raw SQL so IF NOT EXISTS is handled entirely by PostgreSQL, with no
+    # dependency on SQLAlchemy's introspection or transaction state.
+    op.execute("CREATE TYPE IF NOT EXISTS visibility_level  AS ENUM ('public', 'private', 'link', 'users')")
+    op.execute("CREATE TYPE IF NOT EXISTS user_role         AS ENUM ('admin', 'user')")
+    op.execute("CREATE TYPE IF NOT EXISTS osm_type          AS ENUM ('node', 'way', 'relation')")
+    op.execute("""
+        CREATE TYPE IF NOT EXISTS place_type AS ENUM (
+            'building', 'landmark', 'monument', 'parish', 'neighbourhood',
+            'city', 'town', 'village', 'comarca', 'province', 'region', 'country'
+        )
+    """)
+    op.execute("CREATE TYPE IF NOT EXISTS invite_status     AS ENUM ('pending', 'accepted', 'declined')")
+    op.execute("""
+        CREATE TYPE IF NOT EXISTS notification_type AS ENUM (
+            'trip_invite', 'project_invite', 'invite_accepted',
+            'invite_declined', 'removed_from_trip', 'removed_from_project'
+        )
+    """)
+    op.execute("CREATE TYPE IF NOT EXISTS entity_type       AS ENUM ('trip', 'project')")
 
-    # Helper aliases — create_type=False prevents SQLAlchemy from trying to CREATE
-    # the type a second time when it processes the column definitions below.
+    # create_type=False — the types already exist above; tell SQLAlchemy not to
+    # attempt a second CREATE TYPE when processing the column definitions below.
     _visibility = sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False)
     _user_role = sa.Enum("admin", "user", name="user_role", create_type=False)
     _osm_type = sa.Enum("node", "way", "relation", name="osm_type", create_type=False)
