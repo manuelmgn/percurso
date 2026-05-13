@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import AnyHttpUrl, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,8 +28,25 @@ class Settings(BaseSettings):
         return v
 
     # Database
+    # Railway injects postgresql:// — normalised to the correct driver prefix by validators below
     database_url: str
-    database_sync_url: str
+    database_sync_url: str = ""
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalise_async_scheme(cls, v: str) -> str:
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+asyncpg://" + v[len(prefix):]
+        return v
+
+    @model_validator(mode="after")
+    def derive_sync_url(self) -> "Settings":
+        if not self.database_sync_url:
+            self.database_sync_url = self.database_url.replace(
+                "postgresql+asyncpg://", "postgresql+psycopg2://", 1
+            )
+        return self
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

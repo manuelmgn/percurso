@@ -19,8 +19,23 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from environment
-database_sync_url = os.environ.get("DATABASE_SYNC_URL") or os.environ.get("INTERNAL_DATABASE_SYNC_URL")
+# Override sqlalchemy.url from environment.
+# Prefer an explicit sync URL; fall back to deriving one from DATABASE_URL
+# (Railway injects DATABASE_URL as postgresql://, Alembic needs psycopg2).
+def _to_sync_url(url: str) -> str:
+    for prefix in ("postgresql+asyncpg://", "postgres+asyncpg://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+database_sync_url = (
+    os.environ.get("DATABASE_SYNC_URL")
+    or os.environ.get("INTERNAL_DATABASE_SYNC_URL")
+    or _to_sync_url(os.environ.get("DATABASE_URL", ""))
+)
 if database_sync_url:
     config.set_main_option("sqlalchemy.url", database_sync_url)
 
