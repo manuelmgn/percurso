@@ -1,0 +1,67 @@
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import AnyHttpUrl, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Application
+    environment: Literal["development", "production", "test"] = "development"
+    secret_key: str
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 30
+    allowed_origins: list[str] = ["http://localhost:5173"]
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_origins(cls, v: str | list) -> list[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
+
+    # Database
+    database_url: str
+    database_sync_url: str
+
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+    wikipedia_cache_ttl: int = 604800  # 7 days
+
+    # Cloudflare R2
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = "percurso-media"
+    r2_public_url: str = ""
+
+    # OSM / Nominatim
+    nominatim_base_url: str = "https://nominatim.openstreetmap.org"
+    overpass_api_url: str = "https://overpass-api.de/api/interpreter"
+    osm_user_agent_email: str = ""
+
+    # Rate limiting
+    rate_limit_default: int = 60
+    rate_limit_auth: int = 10
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

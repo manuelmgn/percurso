@@ -1,0 +1,69 @@
+from typing import TYPE_CHECKING
+
+from geoalchemy2 import Geometry
+from sqlalchemy import BigInteger, Enum, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+from app.models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.trip import TripPlace
+    from app.models.project import ProjectTargetPlace
+
+
+class Place(Base, TimestampMixin):
+    __tablename__ = "places"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # OSM reference
+    osm_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    osm_type: Mapped[str] = mapped_column(
+        Enum("node", "way", "relation", name="osm_type"), nullable=False
+    )
+
+    # Place metadata
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    name_pt: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    place_type: Mapped[str] = mapped_column(
+        Enum(
+            "building",
+            "landmark",
+            "monument",
+            "parish",
+            "neighbourhood",
+            "city",
+            "town",
+            "village",
+            "comarca",
+            "province",
+            "region",
+            "country",
+            name="place_type",
+        ),
+        nullable=False,
+    )
+    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    region_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Geometry (POINT or POLYGON)
+    geometry: Mapped[object] = mapped_column(
+        Geometry(geometry_type="GEOMETRY", srid=4326), nullable=True
+    )
+    # Centroid always available for map display
+    centroid: Mapped[object] = mapped_column(
+        Geometry(geometry_type="POINT", srid=4326), nullable=True
+    )
+
+    # Wikipedia cache
+    wikipedia_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    wikipedia_language: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    wikipedia_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Relationships
+    trip_places: Mapped[list["TripPlace"]] = relationship("TripPlace", back_populates="place")
+    project_target_places: Mapped[list["ProjectTargetPlace"]] = relationship(
+        "ProjectTargetPlace", back_populates="place"
+    )
