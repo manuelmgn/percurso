@@ -9,8 +9,13 @@ fi
 echo "Running Alembic migrations..."
 alembic upgrade head
 
-echo "Provisioning admin user (if configured)..."
-python -m app.create_admin
+if [ "${FORCE_ADMIN_RESET}" = "true" ]; then
+    echo "FORCE_ADMIN_RESET=true: resetting admin user..."
+    python -m app.reset_admin
+else
+    echo "Provisioning admin user (if configured)..."
+    python -m app.create_admin
+fi
 
 echo "Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
