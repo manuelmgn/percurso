@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { VISIBILITY_LABELS } from "@/lib/utils"
 import { Loader2, Check } from "lucide-react"
-import type { Visibility } from "@/types"
+import type { Visibility, User } from "@/types"
 
 function VisibilitySelect({
   value,
@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
 
   const mutation = useMutation({
-    mutationFn: (data: unknown) => usersApi.update(data as Partial<typeof user>),
+    mutationFn: (data: unknown) => usersApi.update(data as Partial<User>),
     onSuccess: (updatedUser) => {
       setUser(updatedUser)
       setSaved(true)

@@ -4,9 +4,7 @@ import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2 } from "
 import { tripsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { formatDateRange, VISIBILITY_LABELS } from "@/lib/utils"
+import { formatDateRange } from "@/lib/utils"
 import type { Trip } from "@/types"
 
 const VISIBILITY_ICONS = {

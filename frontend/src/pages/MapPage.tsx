@@ -1,24 +1,20 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Map, List, Table2, Layers, Flame, Route } from "lucide-react"
+import { Map, List, Table2, Flame, Route } from "lucide-react"
 import { tripsApi } from "@/lib/api"
 import PlaceMap from "@/components/map/PlaceMap"
 import { useMapStore, type MapViewMode, type MapStyle } from "@/stores/map"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { formatDateRange, PLACE_TYPE_LABELS } from "@/lib/utils"
+import { PLACE_TYPE_LABELS } from "@/lib/utils"
 import type { Place } from "@/types"
 
 export default function MapPage() {
   const { viewMode, setViewMode, style, setStyle, setMarkerColour, markerColour } = useMapStore()
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [showRoute, setShowRoute] = useState(false)
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [_selectedPlace, setSelectedPlace] = useState<Place | null>(null)
 
-  const { data: trips = [] } = useQuery({
-    queryKey: ["trips"],
-    queryFn: tripsApi.list,
-  })
+  useQuery({ queryKey: ["trips"], queryFn: tripsApi.list })
 
   // Aggregate all places from all trips (mock — real implementation would fetch places per trip)
   const allPlaces: Place[] = []

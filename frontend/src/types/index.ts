@@ -8,6 +8,7 @@ export type PlaceType =
 export interface User {
   id: number
   username: string
+  email: string
   display_name: string
   avatar_url: string | null
   biography: string | null
