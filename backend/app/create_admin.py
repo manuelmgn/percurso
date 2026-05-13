@@ -16,6 +16,11 @@ async def main() -> None:
     from app.core.config import get_settings
     from app.schemas.user import UserCreate
     from app.services.user_service import create_user, get_user_by_email, get_user_by_username
+    # All models must be imported so SQLAlchemy can resolve relationship references
+    import app.models.place       # noqa: F401
+    import app.models.trip        # noqa: F401
+    import app.models.project     # noqa: F401
+    import app.models.notification  # noqa: F401
 
     # Validate inputs through the same schema the rest of the app uses.
     # UserCreate lowercases the username and validates the email with EmailStr.
