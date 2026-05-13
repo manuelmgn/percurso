@@ -97,9 +97,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          O acesso é criado pelo administrador do sistema.
-        </p>
+
       </div>
     </div>
   )
