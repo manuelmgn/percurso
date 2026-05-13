@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 import geoalchemy2
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql as pg
 from alembic import op
 
 revision: str = "0001"
@@ -34,7 +35,8 @@ def upgrade() -> None:
 
     # DO blocks are the idiomatic PostgreSQL way to create a type only if it
     # does not already exist. Every op.create_table column below uses
-    # create_type=False so SQLAlchemy never attempts a second CREATE TYPE.
+    # pg.ENUM(..., create_type=False) so the PostgreSQL dialect never attempts
+    # a second CREATE TYPE.
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE visibility_level AS ENUM ('public', 'private', 'link', 'users');
@@ -95,11 +97,11 @@ def upgrade() -> None:
         sa.Column("avatar_url", sa.String(500), nullable=True),
         sa.Column("biography", sa.Text, nullable=True),
         sa.Column("website_url", sa.String(500), nullable=True),
-        sa.Column("role", sa.Enum("admin", "user", name="user_role", create_type=False), nullable=False, server_default="user"),
+        sa.Column("role", pg.ENUM("admin", "user", name="user_role", create_type=False), nullable=False, server_default="user"),
         sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.true()),
-        sa.Column("default_trip_visibility", sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
-        sa.Column("default_project_visibility", sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
-        sa.Column("visited_places_visibility", sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
+        sa.Column("default_trip_visibility", pg.ENUM("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
+        sa.Column("default_project_visibility", pg.ENUM("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
+        sa.Column("visited_places_visibility", pg.ENUM("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -111,11 +113,11 @@ def upgrade() -> None:
         "places",
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("osm_id", sa.BigInteger, nullable=False),
-        sa.Column("osm_type", sa.Enum("node", "way", "relation", name="osm_type", create_type=False), nullable=False),
+        sa.Column("osm_type", pg.ENUM("node", "way", "relation", name="osm_type", create_type=False), nullable=False),
         sa.Column("name", sa.String(500), nullable=False),
         sa.Column("name_pt", sa.String(500), nullable=True),
         sa.Column("name_en", sa.String(500), nullable=True),
-        sa.Column("place_type", sa.Enum(
+        sa.Column("place_type", pg.ENUM(
             "building", "landmark", "monument", "parish", "neighbourhood",
             "city", "town", "village", "comarca", "province", "region", "country",
             name="place_type", create_type=False,
@@ -144,7 +146,7 @@ def upgrade() -> None:
         sa.Column("end_date", sa.Date, nullable=True),
         sa.Column("cover_image_url", sa.String(500), nullable=True),
         sa.Column("cover_image_generating", sa.Boolean, nullable=False, server_default=sa.false()),
-        sa.Column("visibility", sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
+        sa.Column("visibility", pg.ENUM("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
         sa.Column("sharing_token", sa.String(64), nullable=True, unique=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -159,7 +161,7 @@ def upgrade() -> None:
         sa.Column("trip_id", sa.Integer, sa.ForeignKey("trips.id"), nullable=False),
         sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
         sa.Column("invite_token", sa.String(64), nullable=False, unique=True),
-        sa.Column("status", sa.Enum("pending", "accepted", "declined", name="invite_status", create_type=False), nullable=False, server_default="pending"),
+        sa.Column("status", pg.ENUM("pending", "accepted", "declined", name="invite_status", create_type=False), nullable=False, server_default="pending"),
         sa.Column("hide_from_profile", sa.Boolean, nullable=False, server_default=sa.false()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -213,7 +215,7 @@ def upgrade() -> None:
         sa.Column("goal_description", sa.Text, nullable=True),
         sa.Column("cover_image_url", sa.String(500), nullable=True),
         sa.Column("cover_image_generating", sa.Boolean, nullable=False, server_default=sa.false()),
-        sa.Column("visibility", sa.Enum("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
+        sa.Column("visibility", pg.ENUM("public", "private", "link", "users", name="visibility_level", create_type=False), nullable=False, server_default="private"),
         sa.Column("sharing_token", sa.String(64), nullable=True, unique=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -227,7 +229,7 @@ def upgrade() -> None:
         sa.Column("project_id", sa.Integer, sa.ForeignKey("projects.id"), nullable=False),
         sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
         sa.Column("invite_token", sa.String(64), nullable=False, unique=True),
-        sa.Column("status", sa.Enum("pending", "accepted", "declined", name="invite_status", create_type=False), nullable=False, server_default="pending"),
+        sa.Column("status", pg.ENUM("pending", "accepted", "declined", name="invite_status", create_type=False), nullable=False, server_default="pending"),
         sa.Column("hide_from_profile", sa.Boolean, nullable=False, server_default=sa.false()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -262,13 +264,13 @@ def upgrade() -> None:
         "notifications",
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("recipient_id", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("notification_type", sa.Enum(
+        sa.Column("notification_type", pg.ENUM(
             "trip_invite", "project_invite", "invite_accepted",
             "invite_declined", "removed_from_trip", "removed_from_project",
             name="notification_type", create_type=False,
         ), nullable=False),
         sa.Column("is_read", sa.Boolean, nullable=False, server_default=sa.false()),
-        sa.Column("entity_type", sa.Enum("trip", "project", name="entity_type", create_type=False), nullable=True),
+        sa.Column("entity_type", pg.ENUM("trip", "project", name="entity_type", create_type=False), nullable=True),
         sa.Column("entity_id", sa.Integer, nullable=True),
         sa.Column("actor_id", sa.Integer, sa.ForeignKey("users.id"), nullable=True),
         sa.Column("message", sa.String(500), nullable=False),
