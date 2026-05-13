@@ -35,7 +35,7 @@ export default function MapPage() {
     <div className="flex h-full flex-col">
       {/* Header toolbar */}
       <div className="glass border-b border-border/50 px-6 py-3 flex items-center gap-3 flex-wrap">
-        <h2 className="text-lg font-semibold mr-2">Os Meus Lugares</h2>
+        <h2 className="text-lg font-semibold mr-2">Os meus lugares</h2>
 
         {/* View mode toggle */}
         <div className="glass flex rounded-xl p-1 gap-1">

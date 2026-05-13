@@ -1,7 +1,10 @@
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { adminApi, usersApi } from "@/lib/api"
-import { Loader2, Users, Map, Briefcase, FolderOpen, CheckCircle, XCircle } from "lucide-react"
+import { useAuthStore } from "@/stores/auth"
+import { Loader2, Users, Map, Briefcase, FolderOpen, CheckCircle, XCircle, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import type { User } from "@/types"
 
@@ -19,8 +22,94 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
   )
 }
 
+function CreateUserForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState<"user" | "admin">("user")
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation({
+    mutationFn: (data: unknown) => usersApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] })
+      setUsername("")
+      setEmail("")
+      setPassword("")
+      setRole("user")
+      setOpen(false)
+      onCreated()
+    },
+  })
+
+  if (!open) {
+    return (
+      <Button onClick={() => setOpen(true)} size="sm">
+        <Plus className="size-4" />
+        Criar utilizador
+      </Button>
+    )
+  }
+
+  return (
+    <div className="glass-card p-5 space-y-4">
+      <h2 className="font-semibold">Criar utilizador</h2>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          mutation.mutate({ username, email, password, display_name: username, role })
+        }}
+        className="space-y-3"
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Nome de utilizador</label>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="utilizador" required />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Email</label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" required />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Palavra-passe</label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Função</label>
+            <div className="glass flex rounded-xl p-1 gap-1 h-10">
+              {(["user", "admin"] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  className={`flex-1 rounded-lg text-xs font-medium transition-all ${
+                    role === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {r === "admin" ? "Admin" : "Utilizador"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
+        <div className="flex gap-3 pt-1">
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button type="submit" size="sm" disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 className="animate-spin" /> : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuthStore()
   const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: adminApi.stats })
   const { data: health } = useQuery({ queryKey: ["admin-health"], queryFn: adminApi.health, refetchInterval: 30_000 })
   const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["admin-users"], queryFn: usersApi.list })
@@ -36,14 +125,14 @@ export default function AdminPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Painel de Administração</h1>
+      <h1 className="text-2xl font-bold">Painel de administração</h1>
 
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon={Users} label="Utilizadores" value={stats.users} />
           <StatCard icon={Briefcase} label="Viagens" value={stats.trips} />
-          <StatCard icon={FolderOpen} label="Projectos" value={stats.projects} />
+          <StatCard icon={FolderOpen} label="Projetos" value={stats.projects} />
           <StatCard icon={Map} label="Lugares únicos" value={stats.unique_places} />
         </div>
       )}
@@ -66,6 +155,9 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Create user */}
+      <CreateUserForm onCreated={() => {}} />
+
       {/* Users table */}
       <div className="glass-card overflow-hidden">
         <div className="p-5 border-b border-border/50">
@@ -83,7 +175,7 @@ export default function AdminPage() {
                 <th className="px-5 py-3 font-medium text-muted-foreground">Email</th>
                 <th className="px-5 py-3 font-medium text-muted-foreground">Função</th>
                 <th className="px-5 py-3 font-medium text-muted-foreground">Estado</th>
-                <th className="px-5 py-3 font-medium text-muted-foreground">Acções</th>
+                <th className="px-5 py-3 font-medium text-muted-foreground">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -103,18 +195,18 @@ export default function AdminPage() {
                   </td>
                   <td className="px-5 py-3">
                     <Badge variant={user.is_active ? "purple" : "outline"}>
-                      {user.is_active ? "Activo" : "Inactivo"}
+                      {user.is_active ? "Ativo" : "Inativo"}
                     </Badge>
                   </td>
                   <td className="px-5 py-3">
-                    {user.is_active ? (
+                    {user.id === currentUser?.id ? null : user.is_active ? (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => deactivate.mutate(user.id)}
                         disabled={deactivate.isPending}
                       >
-                        Desactivar
+                        Desativar
                       </Button>
                     ) : (
                       <Button
@@ -123,7 +215,7 @@ export default function AdminPage() {
                         onClick={() => reactivate.mutate(user.id)}
                         disabled={reactivate.isPending}
                       >
-                        Reactivar
+                        Reativar
                       </Button>
                     )}
                   </td>

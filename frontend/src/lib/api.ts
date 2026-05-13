@@ -30,7 +30,9 @@ async function request<T>(
   const data = await response.json()
 
   if (!response.ok) {
-    const message = data?.detail ?? "Ocorreu um erro inesperado"
+    const message = Array.isArray(data?.detail)
+      ? (data.detail[0]?.msg ?? data.detail[0] ?? "Ocorreu um erro inesperado")
+      : (data?.detail ?? "Ocorreu um erro inesperado")
     throw new Error(message)
   }
 

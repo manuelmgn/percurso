@@ -82,7 +82,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">Website ou rede social</label>
-            <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://…" type="url" />
+            <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://…" type="text" />
           </div>
         </div>
 
@@ -94,7 +94,7 @@ export default function SettingsPage() {
             <VisibilitySelect value={tripVisibility} onChange={setTripVisibility} />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">Visibilidade predefinida dos novos projectos</label>
+            <label className="mb-2 block text-sm font-medium">Visibilidade predefinida dos novos projetos</label>
             <VisibilitySelect value={projectVisibility} onChange={setProjectVisibility} />
           </div>
           <div>

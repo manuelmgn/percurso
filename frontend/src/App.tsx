@@ -45,7 +45,7 @@ export default function App() {
             <Route index element={<Navigate to="/mapa" replace />} />
             <Route path="/mapa" element={<MapPage />} />
             <Route path="/viagens" element={<TripsPage />} />
-            <Route path="/projectos" element={<ProjectsPage />} />
+            <Route path="/projetos" element={<ProjectsPage />} />
             <Route path="/notificacoes" element={<NotificationsPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
             <Route

@@ -93,7 +93,7 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="glass-panel w-full max-w-md p-6 animate-fade-in">
-        <h2 className="text-lg font-semibold mb-4">Nova Viagem</h2>
+        <h2 className="text-lg font-semibold mb-4">Nova viagem</h2>
         <form
           onSubmit={(e) => {
             e.preventDefault()

@@ -68,7 +68,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="glass-panel w-full max-w-md p-6 animate-fade-in">
-        <h2 className="text-lg font-semibold mb-4">Novo Projecto</h2>
+        <h2 className="text-lg font-semibold mb-4">Novo projeto</h2>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -85,7 +85,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
             <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição…" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Objectivo (opcional)</label>
+            <label className="mb-1.5 block text-sm font-medium">Objetivo (opcional)</label>
             <Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Visitar todas as comarcas…" />
           </div>
           {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
@@ -112,12 +112,12 @@ export default function ProjectsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Projectos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{projects.length} projectos activos</p>
+          <h1 className="text-2xl font-bold">Projetos</h1>
+          <p className="text-sm text-muted-foreground mt-1">{projects.length} projetos ativos</p>
         </div>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="size-4" />
-          Novo projecto
+          Novo projeto
         </Button>
       </div>
 
@@ -128,11 +128,11 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <div className="glass-card p-16 text-center">
           <Target className="mx-auto mb-4 size-12 text-purple-300" />
-          <h3 className="text-lg font-semibold mb-2">Ainda sem projectos</h3>
-          <p className="text-muted-foreground mb-6">Cria um projecto para organizar as tuas metas de viagem.</p>
+          <h3 className="text-lg font-semibold mb-2">Ainda sem projetos</h3>
+          <p className="text-muted-foreground mb-6">Cria um projeto para organizar as tuas metas de viagem.</p>
           <Button onClick={() => setShowNew(true)}>
             <Plus className="size-4" />
-            Criar projecto
+            Criar projeto
           </Button>
         </div>
       ) : (

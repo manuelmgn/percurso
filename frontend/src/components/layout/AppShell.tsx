@@ -9,7 +9,7 @@ import { notificationsApi } from "@/lib/api"
 const navItems = [
   { to: "/mapa", icon: Map, label: "Mapa" },
   { to: "/viagens", icon: Briefcase, label: "Viagens" },
-  { to: "/projectos", icon: FolderOpen, label: "Projectos" },
+  { to: "/projetos", icon: FolderOpen, label: "Projetos" },
 ]
 
 export default function AppShell() {
