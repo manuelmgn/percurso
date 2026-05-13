@@ -1,7 +1,6 @@
 """Run after migrations: create an admin user from env vars if all three are set."""
 import asyncio
 import os
-import sys
 
 
 async def main() -> None:
@@ -12,11 +11,25 @@ async def main() -> None:
     if not (email and username and password):
         return
 
+    from pydantic import ValidationError
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from app.core.config import get_settings
-    from app.core.security import hash_password
-    from app.models.user import User
-    from app.services.user_service import get_user_by_email, get_user_by_username
+    from app.schemas.user import UserCreate
+    from app.services.user_service import create_user, get_user_by_email, get_user_by_username
+
+    # Validate inputs through the same schema the rest of the app uses.
+    # UserCreate lowercases the username and validates the email with EmailStr.
+    try:
+        data = UserCreate(
+            username=username,
+            email=email,
+            password=password,
+            display_name=username,
+            role="admin",
+        )
+    except ValidationError as exc:
+        print(f"Admin user env vars are invalid, skipping: {exc}", flush=True)
+        return
 
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
@@ -24,20 +37,13 @@ async def main() -> None:
 
     try:
         async with session_factory() as db:
-            if await get_user_by_email(db, email) or await get_user_by_username(db, username):
-                print(f"Admin user already exists, skipping", flush=True)
+            if await get_user_by_email(db, data.email) or await get_user_by_username(db, data.username):
+                print("Admin user already exists, skipping", flush=True)
                 return
 
-            db.add(User(
-                username=username,
-                email=email,
-                hashed_password=hash_password(password),
-                display_name=username,
-                role="admin",
-                is_active=True,
-            ))
+            await create_user(db, data)
             await db.commit()
-            print(f"Admin user created: {username}", flush=True)
+            print(f"Admin user created: {data.username}", flush=True)
     finally:
         await engine.dispose()
 
