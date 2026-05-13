@@ -2,14 +2,21 @@
 import asyncio
 import os
 
-# All ORM models must be imported at module load time so SQLAlchemy can resolve
-# cross-model relationship strings (e.g. "Trip.creator_id") before the first
-# query fires. Mirrors the pattern used in alembic/env.py.
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
+# Models must be imported before any service that imports User, so that all
+# mapped classes are registered in SQLAlchemy's registry before the mapper
+# runs its deferred relationship configuration on the first query.
 from app.models.user import User  # noqa: F401
 from app.models.place import Place  # noqa: F401
 from app.models.trip import Trip, TripCompanion, TripPlace, TripMediaLink, TripSharedUser  # noqa: F401
 from app.models.project import Project, ProjectCollaborator, ProjectTargetPlace, ProjectSharedUser  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+
+from app.services.user_service import create_user, get_user_by_email, get_user_by_username
+from app.schemas.user import UserCreate
+from app.core.config import get_settings
 
 
 async def main() -> None:
@@ -19,12 +26,6 @@ async def main() -> None:
 
     if not (email and username and password):
         return
-
-    from pydantic import ValidationError
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-    from app.core.config import get_settings
-    from app.schemas.user import UserCreate
-    from app.services.user_service import create_user, get_user_by_email, get_user_by_username
 
     try:
         data = UserCreate(
