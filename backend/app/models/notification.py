@@ -39,4 +39,12 @@ class Notification(Base, TimestampMixin):
     # Human-readable message (pt-PT, stored at creation time)
     message: Mapped[str] = mapped_column(String(500), nullable=False)
 
-    recipient: Mapped["User"] = relationship("User", back_populates="notifications", foreign_keys=[recipient_id])
+    recipient: Mapped["User"] = relationship(
+        "User",
+        back_populates="notifications",
+        foreign_keys="[Notification.recipient_id]",
+    )
+    actor: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys="[Notification.actor_id]",
+    )

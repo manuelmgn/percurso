@@ -50,4 +50,8 @@ class User(Base, TimestampMixin):
     trip_companions: Mapped[list["TripCompanion"]] = relationship("TripCompanion", back_populates="user")
     projects: Mapped[list["Project"]] = relationship("Project", back_populates="creator", foreign_keys="Project.creator_id")
     project_collaborators: Mapped[list["ProjectCollaborator"]] = relationship("ProjectCollaborator", back_populates="user")
-    notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="recipient")
+    notifications: Mapped[list["Notification"]] = relationship(
+        "Notification",
+        back_populates="recipient",
+        foreign_keys="[Notification.recipient_id]",
+    )
