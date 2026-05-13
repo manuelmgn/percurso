@@ -10,7 +10,8 @@ fi
 # Drop all custom types before Alembic runs so the migration is always idempotent.
 if [ "${ENVIRONMENT}" = "production" ]; then
     echo "Dropping orphaned enum types (if any)..."
-    psql "${DATABASE_URL}" -q -c "
+    PSQL_URL="${DATABASE_URL//+asyncpg/}"
+    psql "$PSQL_URL" -q -c "
         DROP TYPE IF EXISTS visibility_level  CASCADE;
         DROP TYPE IF EXISTS user_role         CASCADE;
         DROP TYPE IF EXISTS osm_type          CASCADE;
