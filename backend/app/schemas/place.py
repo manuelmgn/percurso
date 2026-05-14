@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -13,7 +15,6 @@ class PlaceResponse(BaseModel):
     wikipedia_summary: str | None
     wikipedia_language: str | None
     wikipedia_title: str | None
-    # Centroid as [lng, lat]
     centroid_lng: float | None
     centroid_lat: float | None
     has_polygon: bool
@@ -37,3 +38,14 @@ class NominatimMatchResult(BaseModel):
     match: PlaceSearchResult | None
     confidence: float | None
     alternatives: list[PlaceSearchResult] = []
+
+
+class TripLinkResponse(BaseModel):
+    id: int
+    title: str
+
+
+class VisitedPlaceResponse(PlaceResponse):
+    visit_count: int = 0
+    first_visited: date | None = None
+    trips: list[TripLinkResponse] = []

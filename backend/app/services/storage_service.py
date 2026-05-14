@@ -1,17 +1,13 @@
-import io
-import mimetypes
-import uuid
-from typing import Literal
+import base64
+import logging
 
-import boto3
-from botocore.config import Config
+import httpx
 
-from app.core.config import get_settings
-
-settings = get_settings()
+logger = logging.getLogger(__name__)
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+_IMGBB_URL = "https://api.imgbb.com/1/upload"
 
 
 def _detect_mime_type(data: bytes) -> str | None:
@@ -23,72 +19,45 @@ def _detect_mime_type(data: bytes) -> str | None:
         return "image/webp"
     return None
 
-EntityType = Literal["trip", "project"]
+
+async def upload_to_imgbb(image_bytes: bytes, name: str = "cover") -> tuple[str, str]:
+    """Upload raw bytes to ImgBB. Returns (url, delete_url)."""
+    from app.core.config import get_settings
+    settings = get_settings()
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                _IMGBB_URL,
+                data={"key": settings.imgbb_api_key, "image": encoded, "name": name},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        logger.error("ImgBB request failed: %s", exc)
+        raise RuntimeError("Não foi possível guardar a imagem. Tenta novamente.") from exc
+    if not data.get("success"):
+        raise RuntimeError("Não foi possível guardar a imagem. Tenta novamente.")
+    return data["data"]["url"], data["data"]["delete_url"]
 
 
-def _get_r2_client():
-    return boto3.client(
-        "s3",
-        endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
-        aws_access_key_id=settings.r2_access_key_id,
-        aws_secret_access_key=settings.r2_secret_access_key,
-        config=Config(signature_version="s3v4"),
-        region_name="auto",
-    )
-
-
-def _build_key(user_id: int, entity_type: EntityType, entity_id: int, filename: str) -> str:
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
-    unique = uuid.uuid4().hex
-    return f"{user_id}/{entity_type}/{entity_id}/{unique}.{ext}"
+async def delete_from_imgbb(delete_url: str) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.get(delete_url)
+    except Exception as exc:
+        logger.warning("ImgBB delete failed: %s", exc)
 
 
 async def upload_cover_image(
-    user_id: int,
-    entity_type: EntityType,
-    entity_id: int,
     file_content: bytes,
     original_filename: str,
-    content_type: str,
-) -> str:
+) -> tuple[str, str]:
+    """Validate and upload a cover image file. Returns (url, delete_url)."""
     if len(file_content) > MAX_FILE_SIZE_BYTES:
-        raise ValueError("O ficheiro excede o tamanho máximo de 10 MB")
+        raise ValueError("A imagem não pode ter mais de 10MB.")
     detected = _detect_mime_type(file_content)
     if detected is None or detected not in ALLOWED_MIME_TYPES:
-        raise ValueError("Tipo de ficheiro não permitido. Aceites: JPEG, PNG, WebP")
-    content_type = detected  # use detected type, not the user-supplied header
-
-    key = _build_key(user_id, entity_type, entity_id, original_filename)
-    client = _get_r2_client()
-    client.put_object(
-        Bucket=settings.r2_bucket_name,
-        Key=key,
-        Body=file_content,
-        ContentType=content_type,
-    )
-    return f"{settings.r2_public_url}/{key}"
-
-
-async def upload_bytes_as_image(
-    user_id: int,
-    entity_type: EntityType,
-    entity_id: int,
-    image_bytes: bytes,
-    filename: str = "cover.jpg",
-    content_type: str = "image/jpeg",
-) -> str:
-    key = _build_key(user_id, entity_type, entity_id, filename)
-    client = _get_r2_client()
-    client.put_object(
-        Bucket=settings.r2_bucket_name,
-        Key=key,
-        Body=image_bytes,
-        ContentType=content_type,
-    )
-    return f"{settings.r2_public_url}/{key}"
-
-
-async def delete_object(key_or_url: str) -> None:
-    key = key_or_url.removeprefix(f"{settings.r2_public_url}/")
-    client = _get_r2_client()
-    client.delete_object(Bucket=settings.r2_bucket_name, Key=key)
+        raise ValueError("Formato não suportado. Usa JPEG, PNG ou WebP.")
+    name = (original_filename.rsplit(".", 1)[0][:50] or "cover")
+    return await upload_to_imgbb(file_content, name)

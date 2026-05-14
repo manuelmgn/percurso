@@ -8,6 +8,8 @@ class PlaceSummaryResponse(BaseModel):
     place_type: str
     country_code: str | None
     region_name: str | None
+    centroid_lng: float | None = None
+    centroid_lat: float | None = None
 
     model_config = {"from_attributes": True}
 

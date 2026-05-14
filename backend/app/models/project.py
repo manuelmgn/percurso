@@ -22,6 +22,7 @@ class Project(Base, TimestampMixin):
     goal_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     cover_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cover_image_delete_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     cover_image_generating: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cover_colour: Mapped[str | None] = mapped_column(String(7), nullable=True)
 

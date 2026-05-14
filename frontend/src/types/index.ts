@@ -36,6 +36,19 @@ export interface PlaceSummary {
   place_type: PlaceType
   country_code: string | null
   region_name: string | null
+  centroid_lng: number | null
+  centroid_lat: number | null
+}
+
+export interface TripLink {
+  id: number
+  title: string
+}
+
+export interface VisitedPlace extends Place {
+  visit_count: number
+  first_visited: string | null
+  trips: TripLink[]
 }
 
 export interface Place {

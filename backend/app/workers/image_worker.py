@@ -22,7 +22,7 @@ async def _fetch_pollinations_image(prompt: str) -> bytes | None:
     encoded = prompt.replace(" ", "%20")
     url = POLLINATIONS_URL.format(prompt=encoded)
     try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             resp = await client.get(url)
             if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
                 return resp.content
@@ -32,41 +32,17 @@ async def _fetch_pollinations_image(prompt: str) -> bytes | None:
 
 
 async def _run_generation(entity_id: int, entity_type: str, title: str, description: str | None) -> None:
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from app.core.config import get_settings
+    from app.services.storage_service import upload_to_imgbb, delete_from_imgbb
 
     settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    async_session = async_sessionmaker(engine, expire_on_commit=False)
+
     prompt = _build_prompt(title, description)
     image_bytes = await _fetch_pollinations_image(prompt)
 
-    if not image_bytes:
-        engine = create_async_engine(settings.database_url)
-        async_session = async_sessionmaker(engine, expire_on_commit=False)
-        async with async_session() as db:
-            if entity_type == "trip":
-                from app.models.trip import Trip
-                entity = await db.get(Trip, entity_id)
-            else:
-                from app.models.project import Project
-                entity = await db.get(Project, entity_id)
-            if entity:
-                entity.cover_image_generating = False
-                await db.commit()
-        await engine.dispose()
-        return
-
-    from app.services.storage_service import upload_bytes_as_image
-    url = await upload_bytes_as_image(
-        user_id=0,
-        entity_type=entity_type,  # type: ignore
-        entity_id=entity_id,
-        image_bytes=image_bytes,
-        filename="ai_cover.jpg",
-        content_type="image/jpeg",
-    )
-
-    engine = create_async_engine(settings.database_url)
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
     async with async_session() as db:
         if entity_type == "trip":
             from app.models.trip import Trip
@@ -74,19 +50,35 @@ async def _run_generation(entity_id: int, entity_type: str, title: str, descript
         else:
             from app.models.project import Project
             entity = await db.get(Project, entity_id)
-        if entity:
-            old_url = entity.cover_image_url
-            entity.cover_image_url = url
+
+        if not entity:
+            await engine.dispose()
+            return
+
+        if not image_bytes:
             entity.cover_image_generating = False
             await db.commit()
+            await engine.dispose()
+            return
+
+        try:
+            url, delete_url = await upload_to_imgbb(image_bytes, "ai_cover")
+        except RuntimeError:
+            entity.cover_image_generating = False
+            await db.commit()
+            await engine.dispose()
+            return
+
+        old_delete_url = entity.cover_image_delete_url
+        entity.cover_image_url = url
+        entity.cover_image_delete_url = delete_url
+        entity.cover_image_generating = False
+        await db.commit()
+
     await engine.dispose()
 
-    if old_url:
-        from app.services.storage_service import delete_object
-        try:
-            await delete_object(old_url)
-        except Exception:
-            pass
+    if old_delete_url:
+        await delete_from_imgbb(old_delete_url)
 
 
 @celery_app.task(name="generate_cover_image", bind=True, max_retries=2)

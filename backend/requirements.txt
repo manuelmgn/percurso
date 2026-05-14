@@ -30,12 +30,8 @@ flower==2.0.1
 # HTTP client (Wikipedia, OSM, Pollinations, OGP)
 httpx==0.28.1
 
-# Object storage (Cloudflare R2 via S3-compatible API)
-boto3==1.35.81
-
 # Rate limiting
 slowapi==0.1.9
 
 # Utilities
 python-dotenv==1.0.1
-Pillow==11.0.0

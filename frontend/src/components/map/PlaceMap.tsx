@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { useMapStore } from "@/stores/map"
-import type { Place } from "@/types"
 
 const MAP_STYLES = {
   light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
@@ -10,15 +9,25 @@ const MAP_STYLES = {
   minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://tiles.openfreemap.org/styles/positron",
 }
 
+// Minimal interface satisfied by both Place and PlaceSummary (after adding centroid fields)
+export interface MapPlace {
+  id: number
+  name: string
+  name_pt: string | null
+  place_type: string
+  country_code: string | null
+  centroid_lng: number | null
+  centroid_lat: number | null
+}
+
 interface Props {
-  places: Place[]
-  onPlaceClick?: (place: Place) => void
+  places: MapPlace[]
+  onPlaceClick?: (id: number) => void
   showHeatmap?: boolean
   showRoute?: boolean
   className?: string
 }
 
-// Schedule work for when the map is ready; returns a cleanup that cancels if not yet fired.
 function whenReady(map: maplibregl.Map, fn: () => void): () => void {
   if (map.loaded()) {
     fn()
@@ -66,7 +75,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
       markersRef.current = []
       places
         .filter((p) => p.centroid_lng != null && p.centroid_lat != null)
-        .forEach((place) => {
+        .forEach((place, idx) => {
           const el = document.createElement("div")
           el.style.cssText = `
             width: 10px; height: 10px; border-radius: 50%;
@@ -78,6 +87,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
             .setPopup(
               new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(
                 `<div style="font-family:sans-serif;padding:2px 0">
+                  ${showRoute ? `<span style="font-size:10px;font-weight:600;background:${markerColour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>` : ""}
                   <strong style="font-size:13px">${place.name_pt ?? place.name}</strong><br/>
                   <span style="font-size:11px;opacity:.65">${place.place_type}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
                 </div>`,
@@ -88,7 +98,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
           if (onPlaceClick) {
             el.addEventListener("click", (e) => {
               e.stopPropagation()
-              onPlaceClick(place)
+              onPlaceClick(place.id)
             })
           }
           markersRef.current.push(marker)
@@ -96,7 +106,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
 
     return whenReady(map, updateMarkers)
-  }, [places, markerColour, onPlaceClick])
+  }, [places, markerColour, onPlaceClick, showRoute])
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {
@@ -142,13 +152,14 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     return whenReady(map, updateHeatmap)
   }, [showHeatmap, places])
 
-  // ── Effect 4: route layer ────────────────────────────────────────────────────
+  // ── Effect 4: route line layer ───────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
     function updateRoute() {
       if (map.getLayer("route-layer")) map.removeLayer("route-layer")
+      if (map.getLayer("route-arrows")) map.removeLayer("route-arrows")
       if (map.getSource("route")) map.removeSource("route")
       if (!showRoute) return
 
@@ -169,11 +180,12 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
         id: "route-layer",
         type: "line",
         source: "route",
+        layout: { "line-join": "round", "line-cap": "round" },
         paint: {
           "line-color": markerColour,
           "line-width": 2.5,
-          "line-opacity": 0.8,
-          "line-dasharray": [2, 1],
+          "line-opacity": 0.85,
+          "line-dasharray": [2, 1.5],
         },
       })
     }

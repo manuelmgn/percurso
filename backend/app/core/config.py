@@ -61,12 +61,8 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/2"
     wikipedia_cache_ttl: int = 604800  # 7 days
 
-    # Cloudflare R2
-    r2_account_id: str = ""
-    r2_access_key_id: str = ""
-    r2_secret_access_key: str = ""
-    r2_bucket_name: str = "percurso-media"
-    r2_public_url: str = ""
+    # ImgBB (image hosting)
+    imgbb_api_key: str = ""
 
     # OSM / Nominatim
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
