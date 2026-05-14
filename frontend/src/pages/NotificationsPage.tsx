@@ -86,6 +86,7 @@ export default function NotificationsPage() {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: notificationsApi.list,
+    staleTime: 30_000,
   })
 
   const markAll = useMutation({

@@ -75,10 +75,18 @@ async def _run_generation(entity_id: int, entity_type: str, title: str, descript
             from app.models.project import Project
             entity = await db.get(Project, entity_id)
         if entity:
+            old_url = entity.cover_image_url
             entity.cover_image_url = url
             entity.cover_image_generating = False
             await db.commit()
     await engine.dispose()
+
+    if old_url:
+        from app.services.storage_service import delete_object
+        try:
+            await delete_object(old_url)
+        except Exception:
+            pass
 
 
 @celery_app.task(name="generate_cover_image", bind=True, max_retries=2)

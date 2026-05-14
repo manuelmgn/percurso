@@ -139,6 +139,7 @@ export default function TripsPage() {
   const { data: trips = [], isLoading } = useQuery({
     queryKey: ["trips"],
     queryFn: tripsApi.list,
+    staleTime: 30_000,
   })
 
   return (

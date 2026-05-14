@@ -20,6 +20,7 @@ export default function AppShell() {
     queryKey: ["notifications"],
     queryFn: notificationsApi.list,
     refetchInterval: 30_000,
+    staleTime: 30_000,
   })
 
   const unreadCount = notifications?.filter((n) => !n.is_read).length ?? 0

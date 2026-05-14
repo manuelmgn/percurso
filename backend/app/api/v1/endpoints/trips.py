@@ -307,27 +307,11 @@ async def generate_trip_cover(
     if not trip or trip.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
 
-    from app.workers.image_worker import _build_prompt, _fetch_pollinations_image
-    from app.services.storage_service import upload_bytes_as_image
+    from app.workers.image_worker import generate_cover_image_task
 
-    old_url = trip.cover_image_url
-    prompt = _build_prompt(trip.title, trip.description)
-    image_bytes = await _fetch_pollinations_image(prompt)
-    if not image_bytes:
-        raise HTTPException(status_code=502, detail="Não foi possível gerar a imagem. Tenta novamente.")
-
-    url = await upload_bytes_as_image(
-        current_user.id, "trip", trip_id, image_bytes, "ai_cover.jpg", "image/jpeg"
-    )
-    trip.cover_image_url = url
-    trip.cover_image_generating = False
+    trip.cover_image_generating = True
     await db.flush()
-
-    if old_url:
-        try:
-            await delete_object(old_url)
-        except Exception:
-            logger.warning("Failed to delete old cover image: %s", old_url)
+    generate_cover_image_task.delay(trip_id, "trip", trip.title, trip.description)
 
     trip = await _load_trip(db, trip_id)
     return _trip_to_response(trip)

@@ -286,27 +286,11 @@ async def generate_project_cover(
     if not project or project.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
-    from app.workers.image_worker import _build_prompt, _fetch_pollinations_image
-    from app.services.storage_service import upload_bytes_as_image
+    from app.workers.image_worker import generate_cover_image_task
 
-    old_url = project.cover_image_url
-    prompt = _build_prompt(project.title, project.description)
-    image_bytes = await _fetch_pollinations_image(prompt)
-    if not image_bytes:
-        raise HTTPException(status_code=502, detail="Não foi possível gerar a imagem. Tenta novamente.")
-
-    url = await upload_bytes_as_image(
-        current_user.id, "project", project_id, image_bytes, "ai_cover.jpg", "image/jpeg"
-    )
-    project.cover_image_url = url
-    project.cover_image_generating = False
+    project.cover_image_generating = True
     await db.flush()
-
-    if old_url:
-        try:
-            await delete_object(old_url)
-        except Exception:
-            logger.warning("Failed to delete old cover image: %s", old_url)
+    generate_cover_image_task.delay(project_id, "project", project.title, project.description)
 
     project = await _load_project(db, project_id)
     return _project_to_response(project)
@@ -453,6 +437,8 @@ async def import_places_from_text(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Attempt to match each line to an OSM place via Nominatim. Returns matches for confirmation."""
+    import asyncio
+
     project = await db.get(Project, project_id)
     if not project or project.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
@@ -460,12 +446,18 @@ async def import_places_from_text(
     from app.services.osm_service import nominatim_to_place_data, search_nominatim
     from app.schemas.place import NominatimMatchResult, PlaceSearchResult
 
+    lines = [l.strip() for l in data.lines[:50] if l.strip()]
+
+    semaphore = asyncio.Semaphore(3)
+
+    async def lookup(line: str) -> tuple[str, list]:
+        async with semaphore:
+            return line, await search_nominatim(line, ["pt", "es"])
+
+    raw = await asyncio.gather(*[lookup(line) for line in lines])
+
     results = []
-    for line in data.lines[:50]:
-        line = line.strip()
-        if not line:
-            continue
-        osm_results = await search_nominatim(line, ["pt", "es"])
+    for line, osm_results in raw:
         if osm_results:
             best = osm_results[0]
             d = nominatim_to_place_data(best)
@@ -479,19 +471,19 @@ async def import_places_from_text(
                 centroid_lng=d["centroid_lng"],
                 centroid_lat=d["centroid_lat"],
             )
-            alternatives = [
-                PlaceSearchResult(
-                    osm_id=nominatim_to_place_data(r)["osm_id"],
-                    osm_type=nominatim_to_place_data(r)["osm_type"],
-                    name=nominatim_to_place_data(r)["name"],
-                    display_name=nominatim_to_place_data(r)["display_name"],
-                    place_type=nominatim_to_place_data(r)["place_type"],
-                    country_code=nominatim_to_place_data(r).get("country_code"),
-                    centroid_lng=nominatim_to_place_data(r)["centroid_lng"],
-                    centroid_lat=nominatim_to_place_data(r)["centroid_lat"],
-                )
-                for r in osm_results[1:4]
-            ]
+            alternatives = []
+            for r in osm_results[1:4]:
+                rd = nominatim_to_place_data(r)
+                alternatives.append(PlaceSearchResult(
+                    osm_id=rd["osm_id"],
+                    osm_type=rd["osm_type"],
+                    name=rd["name"],
+                    display_name=rd["display_name"],
+                    place_type=rd["place_type"],
+                    country_code=rd.get("country_code"),
+                    centroid_lng=rd["centroid_lng"],
+                    centroid_lat=rd["centroid_lat"],
+                ))
             results.append(NominatimMatchResult(query=line, match=match, confidence=0.9, alternatives=alternatives))
         else:
             results.append(NominatimMatchResult(query=line, match=None, confidence=None))

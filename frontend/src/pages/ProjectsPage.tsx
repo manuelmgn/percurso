@@ -106,6 +106,7 @@ export default function ProjectsPage() {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: projectsApi.list,
+    staleTime: 30_000,
   })
 
   return (
