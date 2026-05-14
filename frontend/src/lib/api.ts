@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth"
-import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, Notification } from "@/types"
+import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, Notification, VisitedPlace } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
@@ -139,7 +139,7 @@ export const authApi = {
 export const usersApi = {
   me: () => request<User>("GET", "/api/v1/users/me"),
   update: (data: Partial<User>) => request<User>("PATCH", "/api/v1/users/me", data),
-  myPlaces: () => request<Place[]>("GET", "/api/v1/users/me/places"),
+  myPlaces: () => request<VisitedPlace[]>("GET", "/api/v1/users/me/places"),
   profile: (username: string) => request<User>("GET", `/api/v1/users/${username}`),
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),
@@ -199,6 +199,7 @@ export const projectsApi = {
   getShared: (token: string) => request<Project>("GET", `/api/v1/projects/shared/${token}`),
   create: (data: unknown) => request<Project>("POST", "/api/v1/projects", data),
   update: (id: number, data: unknown) => request<Project>("PATCH", `/api/v1/projects/${id}`, data),
+  delete: (id: number) => request<void>("DELETE", `/api/v1/projects/${id}`),
   addPlace: (projectId: number, placeId: number) =>
     request<void>("POST", `/api/v1/projects/${projectId}/places/${placeId}`),
   removePlace: (projectId: number, placeId: number) =>

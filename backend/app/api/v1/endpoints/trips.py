@@ -1,7 +1,7 @@
 import logging
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -13,10 +13,32 @@ from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripS
 from app.models.user import User
 from app.schemas.trip import MediaLinkCreate, TripCreate, TripDetailResponse, TripResponse, TripUpdate
 from app.services.og_service import fetch_og_metadata
-from app.services.storage_service import delete_object, upload_cover_image
+from app.services.storage_service import delete_from_imgbb, upload_cover_image
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trips", tags=["trips"])
+
+
+def _place_to_summary(place) -> dict:
+    """Serialise a Place ORM object into a PlaceSummaryResponse-compatible dict including centroid."""
+    lng = lat = None
+    if place.centroid is not None:
+        try:
+            from geoalchemy2.shape import to_shape
+            pt = to_shape(place.centroid)
+            lng, lat = pt.x, pt.y
+        except Exception:
+            pass
+    return {
+        "id": place.id,
+        "name": place.name,
+        "name_pt": place.name_pt,
+        "place_type": place.place_type,
+        "country_code": place.country_code,
+        "region_name": place.region_name,
+        "centroid_lng": lng,
+        "centroid_lat": lat,
+    }
 
 _COVER_COLOURS = [
     "#7C3AED", "#6D28D9", "#4F46E5", "#0369A1", "#0891B2",
@@ -176,17 +198,7 @@ async def get_shared_trip(
         }
         for m in trip.media_links
     ]
-    data["places"] = [
-        {
-            "id": tp.place.id,
-            "name": tp.place.name,
-            "name_pt": tp.place.name_pt,
-            "place_type": tp.place.place_type,
-            "country_code": tp.place.country_code,
-            "region_name": tp.place.region_name,
-        }
-        for tp in trip.places
-    ]
+    data["places"] = [_place_to_summary(tp.place) for tp in trip.places]
     return data
 
 
@@ -213,17 +225,7 @@ async def get_trip(
         }
         for m in trip.media_links
     ]
-    data["places"] = [
-        {
-            "id": tp.place.id,
-            "name": tp.place.name,
-            "name_pt": tp.place.name_pt,
-            "place_type": tp.place.place_type,
-            "country_code": tp.place.country_code,
-            "region_name": tp.place.region_name,
-        }
-        for tp in trip.places
-    ]
+    data["places"] = [_place_to_summary(tp.place) for tp in trip.places]
     return data
 
 
@@ -254,6 +256,7 @@ async def update_trip(
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trip(
     trip_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -262,6 +265,8 @@ async def delete_trip(
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
     if trip.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Sem permissão")
+    if trip.cover_image_delete_url:
+        background_tasks.add_task(delete_from_imgbb, trip.cover_image_delete_url)
     await db.delete(trip)
 
 
@@ -269,6 +274,7 @@ async def delete_trip(
 async def upload_trip_cover(
     trip_id: int,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -276,22 +282,22 @@ async def upload_trip_cover(
     if not trip or trip.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
 
-    old_url = trip.cover_image_url
     content = await file.read()
-    url = await upload_cover_image(
-        current_user.id, "trip", trip_id, content,
-        file.filename or "cover.jpg",
-        file.content_type or "image/jpeg",
-    )
+    try:
+        url, delete_url = await upload_cover_image(content, file.filename or "cover.jpg")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    old_delete_url = trip.cover_image_delete_url
     trip.cover_image_url = url
+    trip.cover_image_delete_url = delete_url
     trip.cover_image_generating = False
     await db.flush()
 
-    if old_url:
-        try:
-            await delete_object(old_url)
-        except Exception:
-            logger.warning("Failed to delete old cover image: %s", old_url)
+    if old_delete_url:
+        background_tasks.add_task(delete_from_imgbb, old_delete_url)
 
     trip = await _load_trip(db, trip_id)
     return _trip_to_response(trip)
@@ -492,6 +498,24 @@ async def decline_trip_invite_as_me(
         message=f"{current_user.display_name} recusou o convite para a viagem «{trip.title}»",
     ))
     return {"detail": "Convite recusado"}
+
+
+@router.delete("/{trip_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_media_link(
+    trip_id: int,
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    result = await db.execute(
+        select(TripMediaLink).where(TripMediaLink.id == media_id, TripMediaLink.trip_id == trip_id)
+    )
+    link = result.scalar_one_or_none()
+    if link:
+        await db.delete(link)
 
 
 @router.post("/{trip_id}/media", status_code=status.HTTP_201_CREATED)

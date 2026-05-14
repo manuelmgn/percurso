@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2, Calendar, MapPin, Users } from "lucide-react"
 import { tripsApi } from "@/lib/api"
-import { formatDateRange } from "@/lib/utils"
+import { formatDateRange, PLACE_TYPE_LABELS } from "@/lib/utils"
 
 export default function SharedTripPage() {
   const { token } = useParams<{ token: string }>()
@@ -82,6 +82,23 @@ export default function SharedTripPage() {
 
         {trip.description && (
           <p className="text-foreground/80 leading-relaxed mb-6">{trip.description}</p>
+        )}
+
+        {trip.places && trip.places.length > 0 && (
+          <div>
+            <h2 className="font-semibold mb-3">Lugares</h2>
+            <ul className="space-y-1.5">
+              {trip.places.map((p) => (
+                <li key={p.id} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium">{p.name_pt ?? p.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {PLACE_TYPE_LABELS[p.place_type] ?? p.place_type}
+                    {p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>

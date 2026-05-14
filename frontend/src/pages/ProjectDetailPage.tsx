@@ -241,6 +241,8 @@ function ProjectDetailsPanel({
   isInviting,
   inviteError,
   inviteSuccess,
+  onDelete,
+  isDeleting,
 }: {
   open: boolean
   onClose: () => void
@@ -252,6 +254,8 @@ function ProjectDetailsPanel({
   isInviting: boolean
   inviteError: string | null
   inviteSuccess: boolean
+  onDelete: () => void
+  isDeleting: boolean
 }) {
   const [title, setTitle] = useState(project.title)
   const [description, setDescription] = useState(project.description ?? "")
@@ -381,10 +385,21 @@ function ProjectDetailsPanel({
           </div>
         </div>
 
-        <div className="shrink-0 p-5 border-t border-border/50">
+        <div className="shrink-0 p-5 border-t border-border/50 space-y-2">
           {saveError && <p className="mb-3 text-sm text-destructive">{saveError}</p>}
           <Button type="submit" form="project-details-form" disabled={isSaving} className="w-full">
             {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive"
+            disabled={isDeleting}
+            onClick={() => {
+              if (confirm("Tens a certeza? Esta ação é irreversível.")) onDelete()
+            }}
+          >
+            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : "Eliminar projeto"}
           </Button>
         </div>
       </div>
@@ -466,6 +481,14 @@ export default function ProjectDetailPage() {
   const inviteMutation = useMutation({
     mutationFn: (username: string) => projectsApi.inviteCollaborator(projectId, username),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: () => projectsApi.delete(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      navigate("/projetos")
+    },
   })
 
   if (isLoading) {
@@ -598,8 +621,16 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Title */}
-      <h1 className="text-2xl font-bold leading-tight">{project.title}</h1>
+      {/* Title + description */}
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold leading-tight">{project.title}</h1>
+        {project.description && (
+          <p className="text-muted-foreground leading-relaxed">{project.description}</p>
+        )}
+        {project.goal_description && (
+          <p className="text-sm text-muted-foreground italic">{project.goal_description}</p>
+        )}
+      </div>
 
       {/* Progress */}
       <div>
@@ -704,6 +735,8 @@ export default function ProjectDetailPage() {
           isInviting={inviteMutation.isPending}
           inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
           inviteSuccess={inviteMutation.isSuccess}
+          onDelete={() => deleteProjectMutation.mutate()}
+          isDeleting={deleteProjectMutation.isPending}
         />
       )}
     </div>

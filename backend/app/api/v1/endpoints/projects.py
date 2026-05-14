@@ -1,7 +1,7 @@
 import logging
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,10 +14,31 @@ from app.models.project import Project, ProjectCollaborator, ProjectTargetPlace
 from app.models.trip import Trip, TripPlace
 from app.models.user import User
 from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
-from app.services.storage_service import delete_object, upload_cover_image
+from app.services.storage_service import delete_from_imgbb, upload_cover_image
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+def _place_to_summary(place) -> dict:
+    lng = lat = None
+    if place.centroid is not None:
+        try:
+            from geoalchemy2.shape import to_shape
+            pt = to_shape(place.centroid)
+            lng, lat = pt.x, pt.y
+        except Exception:
+            pass
+    return {
+        "id": place.id,
+        "name": place.name,
+        "name_pt": place.name_pt,
+        "place_type": place.place_type,
+        "country_code": place.country_code,
+        "region_name": place.region_name,
+        "centroid_lng": lng,
+        "centroid_lat": lat,
+    }
 
 _COVER_COLOURS = [
     "#7C3AED", "#6D28D9", "#4F46E5", "#0369A1", "#0891B2",
@@ -171,7 +192,44 @@ async def list_my_projects(
         .limit(limit)
         .offset(offset)
     )
-    return [_project_to_response(p) for p in result.scalars().all()]
+    projects = result.scalars().all()
+    if not projects:
+        return []
+
+    # Batch-compute visited counts without N+1 queries.
+    # Collect all participant user IDs and target place IDs across all projects.
+    project_participants: dict[int, set[int]] = {}
+    project_target_ids: dict[int, set[int]] = {}
+    all_participant_ids: set[int] = set()
+    all_target_place_ids: set[int] = set()
+
+    for p in projects:
+        pids = {p.creator_id} | {c.user_id for c in p.collaborators if c.status == "accepted"}
+        tids = {tp.place_id for tp in p.target_places}
+        project_participants[p.id] = pids
+        project_target_ids[p.id] = tids
+        all_participant_ids.update(pids)
+        all_target_place_ids.update(tids)
+
+    visited_pairs: set[tuple[int, int]] = set()
+    if all_participant_ids and all_target_place_ids:
+        visited_result = await db.execute(
+            select(Trip.creator_id, TripPlace.place_id)
+            .join(TripPlace, TripPlace.trip_id == Trip.id)
+            .where(
+                Trip.creator_id.in_(list(all_participant_ids)),
+                TripPlace.place_id.in_(list(all_target_place_ids)),
+            )
+            .distinct()
+        )
+        visited_pairs = set(visited_result.all())
+
+    def _visited_count(p: Project) -> int:
+        pids = project_participants[p.id]
+        tids = project_target_ids[p.id]
+        return sum(1 for (uid, pid) in visited_pairs if uid in pids and pid in tids)
+
+    return [_project_to_response(p, _visited_count(p)) for p in projects]
 
 
 @router.get("/shared/{token}", response_model=ProjectDetailResponse)
@@ -184,17 +242,7 @@ async def get_shared_project(
         raise HTTPException(status_code=404, detail="Projeto não encontrado ou link inválido")
     visited = await _compute_progress(db, project.id, project)
     data = _project_to_response(project, visited)
-    data["target_places"] = [
-        {
-            "id": tp.place.id,
-            "name": tp.place.name,
-            "name_pt": tp.place.name_pt,
-            "place_type": tp.place.place_type,
-            "country_code": tp.place.country_code,
-            "region_name": tp.place.region_name,
-        }
-        for tp in project.target_places
-    ]
+    data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
     return data
 
 
@@ -211,18 +259,25 @@ async def get_project(
         raise HTTPException(status_code=403, detail="Acesso negado")
     visited = await _compute_progress(db, project_id, project)
     data = _project_to_response(project, visited, include_pending=(project.creator_id == current_user.id))
-    data["target_places"] = [
-        {
-            "id": tp.place.id,
-            "name": tp.place.name,
-            "name_pt": tp.place.name_pt,
-            "place_type": tp.place.place_type,
-            "country_code": tp.place.country_code,
-            "region_name": tp.place.region_name,
-        }
-        for tp in project.target_places
-    ]
+    data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
     return data
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if project.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    if project.cover_image_delete_url:
+        background_tasks.add_task(delete_from_imgbb, project.cover_image_delete_url)
+    await db.delete(project)
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
@@ -248,6 +303,7 @@ async def update_project(
 async def upload_project_cover(
     project_id: int,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -255,22 +311,22 @@ async def upload_project_cover(
     if not project or project.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
-    old_url = project.cover_image_url
     content = await file.read()
-    url = await upload_cover_image(
-        current_user.id, "project", project_id, content,
-        file.filename or "cover.jpg",
-        file.content_type or "image/jpeg",
-    )
+    try:
+        url, delete_url = await upload_cover_image(content, file.filename or "cover.jpg")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    old_delete_url = project.cover_image_delete_url
     project.cover_image_url = url
+    project.cover_image_delete_url = delete_url
     project.cover_image_generating = False
     await db.flush()
 
-    if old_url:
-        try:
-            await delete_object(old_url)
-        except Exception:
-            logger.warning("Failed to delete old cover image: %s", old_url)
+    if old_delete_url:
+        background_tasks.add_task(delete_from_imgbb, old_delete_url)
 
     project = await _load_project(db, project_id)
     return _project_to_response(project)

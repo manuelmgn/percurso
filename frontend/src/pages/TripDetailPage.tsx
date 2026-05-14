@@ -95,6 +95,8 @@ function TripDetailsPanel({
   isInviting,
   inviteError,
   inviteSuccess,
+  onDelete,
+  isDeleting,
 }: {
   open: boolean
   onClose: () => void
@@ -106,6 +108,8 @@ function TripDetailsPanel({
   isInviting: boolean
   inviteError: string | null
   inviteSuccess: boolean
+  onDelete: () => void
+  isDeleting: boolean
 }) {
   const [title, setTitle] = useState(trip.title)
   const [description, setDescription] = useState(trip.description ?? "")
@@ -241,10 +245,21 @@ function TripDetailsPanel({
           </div>
         </div>
 
-        <div className="shrink-0 p-5 border-t border-border/50">
+        <div className="shrink-0 p-5 border-t border-border/50 space-y-2">
           {saveError && <p className="mb-3 text-sm text-destructive">{saveError}</p>}
           <Button type="submit" form="trip-details-form" disabled={isSaving} className="w-full">
             {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive"
+            disabled={isDeleting}
+            onClick={() => {
+              if (confirm("Tens a certeza? Esta ação é irreversível.")) onDelete()
+            }}
+          >
+            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : "Eliminar viagem"}
           </Button>
         </div>
       </div>
@@ -309,6 +324,7 @@ export default function TripDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
       queryClient.invalidateQueries({ queryKey: ["trips"] })
+      queryClient.invalidateQueries({ queryKey: ["my-places"] })
     },
   })
 
@@ -329,12 +345,26 @@ export default function TripDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
+  const deleteTripMutation = useMutation({
+    mutationFn: () => tripsApi.delete(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trips"] })
+      queryClient.invalidateQueries({ queryKey: ["my-places"] })
+      navigate("/viagens")
+    },
+  })
+
   const addMediaMutation = useMutation({
     mutationFn: (url: string) => tripsApi.addMedia(tripId, url),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
       setMediaUrl("")
     },
+  })
+
+  const removeMediaMutation = useMutation({
+    mutationFn: (mediaId: number) => tripsApi.removeMedia(tripId, mediaId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
   if (isLoading) {
@@ -469,8 +499,13 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* Title */}
-      <h1 className="text-2xl font-bold leading-tight">{trip.title}</h1>
+      {/* Title + description */}
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold leading-tight">{trip.title}</h1>
+        {trip.description && (
+          <p className="text-muted-foreground leading-relaxed">{trip.description}</p>
+        )}
+      </div>
 
       {/* Places */}
       <div className="glass-card p-5">
@@ -539,14 +574,27 @@ export default function TripDetailPage() {
                     <p className="text-xs text-muted-foreground mt-0.5">{m.og_site_name}</p>
                   )}
                 </div>
-                <a
-                  href={m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary transition-colors"
-                >
-                  <ExternalLink className="size-3.5" />
-                </a>
+                <div className="flex items-center gap-1 shrink-0">
+                  <a
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded p-1 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => removeMediaMutation.mutate(m.id)}
+                      disabled={removeMediaMutation.isPending}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover link"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -607,6 +655,8 @@ export default function TripDetailPage() {
           isInviting={inviteMutation.isPending}
           inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
           inviteSuccess={inviteMutation.isSuccess}
+          onDelete={() => deleteTripMutation.mutate()}
+          isDeleting={deleteTripMutation.isPending}
         />
       )}
     </div>

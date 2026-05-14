@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2, MapPin, Users, Target } from "lucide-react"
 import { projectsApi } from "@/lib/api"
+import { PLACE_TYPE_LABELS } from "@/lib/utils"
 
 export default function SharedProjectPage() {
   const { token } = useParams<{ token: string }>()
@@ -96,11 +97,28 @@ export default function SharedProjectPage() {
         )}
 
         {project.goal_description && (
-          <div className="glass-card p-4">
+          <div className="glass-card p-4 mb-4">
             <h2 className="font-semibold mb-1 flex items-center gap-2">
               <MapPin className="size-4" /> Objetivo
             </h2>
             <p className="text-muted-foreground text-sm">{project.goal_description}</p>
+          </div>
+        )}
+
+        {project.target_places && project.target_places.length > 0 && (
+          <div>
+            <h2 className="font-semibold mb-3">Lugares alvo</h2>
+            <ul className="space-y-1.5">
+              {project.target_places.map((p) => (
+                <li key={p.id} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium">{p.name_pt ?? p.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {PLACE_TYPE_LABELS[p.place_type] ?? p.place_type}
+                    {p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

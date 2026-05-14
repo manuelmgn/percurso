@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +9,7 @@ from app.core.dependencies import get_current_user, require_admin
 from app.models.place import Place
 from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
-from app.schemas.place import PlaceResponse
+from app.schemas.place import VisitedPlaceResponse
 from app.schemas.user import UserCreate, UserPublicResponse, UserResponse, UserUpdate
 from app.services.user_service import (
     create_user,
@@ -27,35 +29,77 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/me/places", response_model=list[PlaceResponse])
+@router.get("/me/places", response_model=list[VisitedPlaceResponse])
 async def get_my_visited_places(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Return all distinct places the user has visited across their trips and accepted companion trips."""
-    result = await db.execute(
-        select(Place)
-        .join(TripPlace, TripPlace.place_id == Place.id)
-        .join(Trip, Trip.id == TripPlace.trip_id)
-        .outerjoin(
-            TripCompanion,
-            and_(
-                TripCompanion.trip_id == Trip.id,
-                TripCompanion.user_id == current_user.id,
-                TripCompanion.status == "accepted",
-            ),
-        )
-        .where(
-            or_(
-                Trip.creator_id == current_user.id,
-                TripCompanion.id.isnot(None),
+    """Return distinct visited places with per-place visit stats."""
+    # Step 1: fetch (place_id, trip_id, trip_title, trip_start_date) without any geometry columns.
+    # Using a plain join on integer columns avoids the DISTINCT-on-geometry problem that
+    # caused silent 500 errors in the previous select(Place).distinct() approach.
+    rows = (
+        await db.execute(
+            select(
+                TripPlace.place_id,
+                Trip.id.label("trip_id"),
+                Trip.title.label("trip_title"),
+                Trip.start_date.label("trip_start"),
+            )
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .outerjoin(
+                TripCompanion,
+                and_(
+                    TripCompanion.trip_id == Trip.id,
+                    TripCompanion.user_id == current_user.id,
+                    TripCompanion.status == "accepted",
+                ),
+            )
+            .where(
+                or_(
+                    Trip.creator_id == current_user.id,
+                    TripCompanion.id.isnot(None),
+                )
             )
         )
-        .distinct()
+    ).all()
+
+    if not rows:
+        return []
+
+    # Group by place_id, deduplicating trips per place
+    place_trips: dict[int, list[dict]] = defaultdict(list)
+    for row in rows:
+        seen_ids = {t["id"] for t in place_trips[row.place_id]}
+        if row.trip_id not in seen_ids:
+            place_trips[row.place_id].append({
+                "id": row.trip_id,
+                "title": row.trip_title,
+                "start_date": row.trip_start,
+            })
+
+    # Step 2: load Place objects by ID — no geometry in GROUP BY or DISTINCT
+    place_result = await db.execute(
+        select(Place)
+        .where(Place.id.in_(list(place_trips.keys())))
         .order_by(Place.name)
     )
+    places = place_result.scalars().all()
+
     from app.api.v1.endpoints.places import _place_to_response
-    return [_place_to_response(p) for p in result.scalars().all()]
+
+    output = []
+    for place in places:
+        base = _place_to_response(place)
+        trips = place_trips[place.id]
+        dates = [t["start_date"] for t in trips if t["start_date"] is not None]
+        output.append({
+            **base,
+            "visit_count": len(trips),
+            "first_visited": min(dates) if dates else None,
+            "trips": [{"id": t["id"], "title": t["title"]} for t in trips],
+        })
+    return output
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -110,7 +154,7 @@ async def deactivate(
     db: AsyncSession = Depends(get_db_session),
 ):
     if user_id == admin.id:
-        raise HTTPException(status_code=400, detail="Não pode desactivar a sua própria conta")
+        raise HTTPException(status_code=400, detail="Não pode desativar a sua própria conta")
     from app.services.user_service import get_user_by_id
     user = await get_user_by_id(db, user_id)
     if not user:
