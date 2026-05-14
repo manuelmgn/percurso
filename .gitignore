@@ -51,3 +51,7 @@ backend/alembic/versions/__pycache__/
 # Uploads (never commit user uploads)
 uploads/
 media/
+
+# Claude
+CLAUDE.md
+.claude/
