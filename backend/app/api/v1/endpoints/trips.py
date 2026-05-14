@@ -407,6 +407,36 @@ async def invite_companion(
     return {"detail": "Convite enviado"}
 
 
+@router.delete("/{trip_id}/companions/{companion_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_companion(
+    trip_id: int,
+    companion_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    result = await db.execute(
+        select(TripCompanion).where(TripCompanion.id == companion_id, TripCompanion.trip_id == trip_id)
+    )
+    companion = result.scalar_one_or_none()
+    if not companion:
+        raise HTTPException(status_code=404, detail="Acompanhante não encontrado")
+
+    from app.models.notification import Notification
+    if companion.status == "accepted":
+        db.add(Notification(
+            recipient_id=companion.user_id,
+            notification_type="removed_from_trip",
+            entity_type="trip",
+            entity_id=trip_id,
+            actor_id=current_user.id,
+            message=f"Foste removido da viagem «{trip.title}»",
+        ))
+    await db.delete(companion)
+
+
 @router.post("/{trip_id}/companions/accept/{invite_token}", status_code=status.HTTP_200_OK)
 async def accept_trip_invite(
     trip_id: int,

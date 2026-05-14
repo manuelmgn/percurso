@@ -173,6 +173,8 @@ export const tripsApi = {
     request<void>("DELETE", `/api/v1/trips/${tripId}/places/${placeId}`),
   inviteCompanion: (tripId: number, username: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/${username}`),
+  removeCompanion: (tripId: number, companionId: number) =>
+    request<void>("DELETE", `/api/v1/trips/${tripId}/companions/${companionId}`),
   acceptInvite: (tripId: number, token: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/accept/${token}`),
   acceptInviteAsMe: (tripId: number) =>
@@ -206,6 +208,8 @@ export const projectsApi = {
     request<void>("DELETE", `/api/v1/projects/${projectId}/places/${placeId}`),
   inviteCollaborator: (projectId: number, username: string) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/${username}`),
+  removeCollaborator: (projectId: number, collaboratorId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/collaborators/${collaboratorId}`),
   acceptInviteAsMe: (projectId: number) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/accept-me`),
   declineInviteAsMe: (projectId: number) =>

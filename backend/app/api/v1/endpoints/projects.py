@@ -427,6 +427,38 @@ async def invite_collaborator(
     return {"detail": "Convite enviado"}
 
 
+@router.delete("/{project_id}/collaborators/{collaborator_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_collaborator(
+    project_id: int,
+    collaborator_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    result = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.id == collaborator_id,
+            ProjectCollaborator.project_id == project_id,
+        )
+    )
+    collaborator = result.scalar_one_or_none()
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Colaborador não encontrado")
+
+    if collaborator.status == "accepted":
+        db.add(Notification(
+            recipient_id=collaborator.user_id,
+            notification_type="removed_from_project",
+            entity_type="project",
+            entity_id=project_id,
+            actor_id=current_user.id,
+            message=f"Foste removido do projeto «{project.title}»",
+        ))
+    await db.delete(collaborator)
+
+
 @router.post("/{project_id}/collaborators/accept-me", status_code=status.HTTP_200_OK)
 async def accept_project_invite_as_me(
     project_id: int,

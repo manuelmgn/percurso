@@ -241,6 +241,8 @@ function ProjectDetailsPanel({
   isInviting,
   inviteError,
   inviteSuccess,
+  onRemoveCollaborator,
+  isRemovingCollaborator,
   onDelete,
   isDeleting,
 }: {
@@ -254,6 +256,8 @@ function ProjectDetailsPanel({
   isInviting: boolean
   inviteError: string | null
   inviteSuccess: boolean
+  onRemoveCollaborator: (collaboratorId: number) => void
+  isRemovingCollaborator: boolean
   onDelete: () => void
   isDeleting: boolean
 }) {
@@ -354,7 +358,7 @@ function ProjectDetailsPanel({
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
                       {c.display_name[0]?.toUpperCase()}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <span className="font-medium">{c.display_name}</span>
                       <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
                       {c.status !== "accepted" && (
@@ -363,6 +367,15 @@ function ProjectDetailsPanel({
                         </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveCollaborator(c.id)}
+                      disabled={isRemovingCollaborator}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover colaborador"
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -480,6 +493,11 @@ export default function ProjectDetailPage() {
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => projectsApi.inviteCollaborator(projectId, username),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+
+  const removeCollaboratorMutation = useMutation({
+    mutationFn: (collaboratorId: number) => projectsApi.removeCollaborator(projectId, collaboratorId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
@@ -735,6 +753,8 @@ export default function ProjectDetailPage() {
           isInviting={inviteMutation.isPending}
           inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
           inviteSuccess={inviteMutation.isSuccess}
+          onRemoveCollaborator={(id) => removeCollaboratorMutation.mutate(id)}
+          isRemovingCollaborator={removeCollaboratorMutation.isPending}
           onDelete={() => deleteProjectMutation.mutate()}
           isDeleting={deleteProjectMutation.isPending}
         />

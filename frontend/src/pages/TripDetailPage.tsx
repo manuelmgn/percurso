@@ -95,6 +95,8 @@ function TripDetailsPanel({
   isInviting,
   inviteError,
   inviteSuccess,
+  onRemoveCompanion,
+  isRemovingCompanion,
   onDelete,
   isDeleting,
 }: {
@@ -108,6 +110,8 @@ function TripDetailsPanel({
   isInviting: boolean
   inviteError: string | null
   inviteSuccess: boolean
+  onRemoveCompanion: (companionId: number) => void
+  isRemovingCompanion: boolean
   onDelete: () => void
   isDeleting: boolean
 }) {
@@ -214,7 +218,7 @@ function TripDetailsPanel({
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
                       {c.display_name[0]?.toUpperCase()}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <span className="font-medium">{c.display_name}</span>
                       <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
                       {c.status !== "accepted" && (
@@ -223,6 +227,15 @@ function TripDetailsPanel({
                         </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveCompanion(c.id)}
+                      disabled={isRemovingCompanion}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover acompanhante"
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -342,6 +355,11 @@ export default function TripDetailPage() {
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => tripsApi.inviteCompanion(tripId, username),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
+  })
+
+  const removeCompanionMutation = useMutation({
+    mutationFn: (companionId: number) => tripsApi.removeCompanion(tripId, companionId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
@@ -655,6 +673,8 @@ export default function TripDetailPage() {
           isInviting={inviteMutation.isPending}
           inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
           inviteSuccess={inviteMutation.isSuccess}
+          onRemoveCompanion={(id) => removeCompanionMutation.mutate(id)}
+          isRemovingCompanion={removeCompanionMutation.isPending}
           onDelete={() => deleteTripMutation.mutate()}
           isDeleting={deleteTripMutation.isPending}
         />
