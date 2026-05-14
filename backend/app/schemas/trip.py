@@ -21,6 +21,17 @@ class TripUpdate(BaseModel):
     cover_colour: str | None = None
 
 
+class PlaceSummaryResponse(BaseModel):
+    id: int
+    name: str
+    name_pt: str | None
+    place_type: str
+    country_code: str | None
+    region_name: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class TripCompanionResponse(BaseModel):
     id: int
     user_id: int
@@ -69,3 +80,4 @@ class TripResponse(BaseModel):
 
 class TripDetailResponse(TripResponse):
     media_links: list[MediaLinkResponse] = []
+    places: list[PlaceSummaryResponse] = []

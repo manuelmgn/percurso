@@ -13,7 +13,7 @@ from app.models.notification import Notification
 from app.models.project import Project, ProjectCollaborator, ProjectTargetPlace
 from app.models.trip import Trip, TripPlace
 from app.models.user import User
-from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
 from app.services.storage_service import delete_object, upload_cover_image
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ async def _load_project(db: AsyncSession, project_id: int) -> Project | None:
         .options(
             selectinload(Project.creator),
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
-            selectinload(Project.target_places),
+            selectinload(Project.target_places).selectinload(ProjectTargetPlace.place),
             selectinload(Project.shared_with),
         )
         .where(Project.id == project_id)
@@ -46,7 +46,7 @@ async def _load_project_by_token(db: AsyncSession, token: str) -> Project | None
         .options(
             selectinload(Project.creator),
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
-            selectinload(Project.target_places),
+            selectinload(Project.target_places).selectinload(ProjectTargetPlace.place),
             selectinload(Project.shared_with),
         )
         .where(Project.sharing_token == token, Project.visibility == "link")
@@ -174,7 +174,7 @@ async def list_my_projects(
     return [_project_to_response(p) for p in result.scalars().all()]
 
 
-@router.get("/shared/{token}", response_model=ProjectResponse)
+@router.get("/shared/{token}", response_model=ProjectDetailResponse)
 async def get_shared_project(
     token: str,
     db: AsyncSession = Depends(get_db_session),
@@ -183,10 +183,22 @@ async def get_shared_project(
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado ou link inválido")
     visited = await _compute_progress(db, project.id, project)
-    return _project_to_response(project, visited)
+    data = _project_to_response(project, visited)
+    data["target_places"] = [
+        {
+            "id": tp.place.id,
+            "name": tp.place.name,
+            "name_pt": tp.place.name_pt,
+            "place_type": tp.place.place_type,
+            "country_code": tp.place.country_code,
+            "region_name": tp.place.region_name,
+        }
+        for tp in project.target_places
+    ]
+    return data
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
+@router.get("/{project_id}", response_model=ProjectDetailResponse)
 async def get_project(
     project_id: int,
     current_user: User = Depends(get_current_user),
@@ -198,7 +210,19 @@ async def get_project(
     if not _check_project_access(project, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado")
     visited = await _compute_progress(db, project_id, project)
-    return _project_to_response(project, visited)
+    data = _project_to_response(project, visited)
+    data["target_places"] = [
+        {
+            "id": tp.place.id,
+            "name": tp.place.name,
+            "name_pt": tp.place.name_pt,
+            "place_type": tp.place.place_type,
+            "country_code": tp.place.country_code,
+            "region_name": tp.place.region_name,
+        }
+        for tp in project.target_places
+    ]
+    return data
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
@@ -211,7 +235,7 @@ async def update_project(
     project = await _load_project(db, project_id)
     if not project or project.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(project, field, value)
     if project.visibility == "link" and not project.sharing_token:
         project.sharing_token = generate_sharing_token()
@@ -307,6 +331,27 @@ async def add_target_place(
     if existing.scalar_one_or_none():
         return
     db.add(ProjectTargetPlace(project_id=project_id, place_id=place_id))
+
+
+@router.delete("/{project_id}/places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_target_place(
+    project_id: int,
+    place_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    result = await db.execute(
+        select(ProjectTargetPlace).where(
+            ProjectTargetPlace.project_id == project_id,
+            ProjectTargetPlace.place_id == place_id,
+        )
+    )
+    tp = result.scalar_one_or_none()
+    if tp:
+        await db.delete(tp)
 
 
 @router.post("/{project_id}/collaborators/{username}", status_code=status.HTTP_201_CREATED)

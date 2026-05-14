@@ -29,6 +29,15 @@ export interface UserPublic {
   website_url: string | null
 }
 
+export interface PlaceSummary {
+  id: number
+  name: string
+  name_pt: string | null
+  place_type: PlaceType
+  country_code: string | null
+  region_name: string | null
+}
+
 export interface Place {
   id: number
   osm_id: number
@@ -91,6 +100,7 @@ export interface Trip {
   creator_display_name: string
   companions: Companion[]
   place_count: number
+  places?: PlaceSummary[]
   media_links?: MediaLink[]
 }
 
@@ -110,6 +120,7 @@ export interface Project {
   collaborators: Companion[]
   target_place_count: number
   visited_place_count: number
+  target_places?: PlaceSummary[]
 }
 
 export interface Notification {

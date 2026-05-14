@@ -76,7 +76,7 @@ async def _load_trip(db: AsyncSession, trip_id: int) -> Trip | None:
         .options(
             selectinload(Trip.creator),
             selectinload(Trip.companions).selectinload(TripCompanion.user),
-            selectinload(Trip.places),
+            selectinload(Trip.places).selectinload(TripPlace.place),
             selectinload(Trip.media_links),
             selectinload(Trip.shared_with),
         )
@@ -91,7 +91,7 @@ async def _load_trip_by_token(db: AsyncSession, token: str) -> Trip | None:
         .options(
             selectinload(Trip.creator),
             selectinload(Trip.companions).selectinload(TripCompanion.user),
-            selectinload(Trip.places),
+            selectinload(Trip.places).selectinload(TripPlace.place),
             selectinload(Trip.media_links),
             selectinload(Trip.shared_with),
         )
@@ -176,6 +176,17 @@ async def get_shared_trip(
         }
         for m in trip.media_links
     ]
+    data["places"] = [
+        {
+            "id": tp.place.id,
+            "name": tp.place.name,
+            "name_pt": tp.place.name_pt,
+            "place_type": tp.place.place_type,
+            "country_code": tp.place.country_code,
+            "region_name": tp.place.region_name,
+        }
+        for tp in trip.places
+    ]
     return data
 
 
@@ -202,6 +213,17 @@ async def get_trip(
         }
         for m in trip.media_links
     ]
+    data["places"] = [
+        {
+            "id": tp.place.id,
+            "name": tp.place.name,
+            "name_pt": tp.place.name_pt,
+            "place_type": tp.place.place_type,
+            "country_code": tp.place.country_code,
+            "region_name": tp.place.region_name,
+        }
+        for tp in trip.places
+    ]
     return data
 
 
@@ -218,7 +240,7 @@ async def update_trip(
     if trip.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Apenas o criador pode editar a viagem")
 
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(trip, field, value)
 
     if trip.visibility == "link" and not trip.sharing_token:

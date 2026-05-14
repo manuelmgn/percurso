@@ -194,6 +194,8 @@ export const projectsApi = {
   update: (id: number, data: unknown) => request<Project>("PATCH", `/api/v1/projects/${id}`, data),
   addPlace: (projectId: number, placeId: number) =>
     request<void>("POST", `/api/v1/projects/${projectId}/places/${placeId}`),
+  removePlace: (projectId: number, placeId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/places/${placeId}`),
   inviteCollaborator: (projectId: number, username: string) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/${username}`),
   importPlaces: (projectId: number, lines: string[]) =>

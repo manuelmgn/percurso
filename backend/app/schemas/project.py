@@ -1,6 +1,17 @@
 from pydantic import BaseModel
 
 
+class PlaceSummaryResponse(BaseModel):
+    id: int
+    name: str
+    name_pt: str | None
+    place_type: str
+    country_code: str | None
+    region_name: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class ProjectCreate(BaseModel):
     title: str
     description: str | None = None
@@ -46,6 +57,10 @@ class ProjectResponse(BaseModel):
     visited_place_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class ProjectDetailResponse(ProjectResponse):
+    target_places: list[PlaceSummaryResponse] = []
 
 
 class PlaceImportLine(BaseModel):
