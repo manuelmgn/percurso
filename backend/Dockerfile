@@ -20,8 +20,13 @@ COPY . .
 # ---- production image ----
 FROM base AS production
 
+RUN adduser --disabled-password --gecos "" appuser && \
+    chown -R appuser:appuser /app
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+USER appuser
 
 EXPOSE 8000
 

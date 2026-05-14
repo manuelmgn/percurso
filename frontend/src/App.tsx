@@ -11,13 +11,21 @@ import ProjectsPage from "@/pages/ProjectsPage"
 import NotificationsPage from "@/pages/NotificationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import AdminPage from "@/pages/AdminPage"
+import TripDetailPage from "@/pages/TripDetailPage"
+import ProjectDetailPage from "@/pages/ProjectDetailPage"
+import SharedTripPage from "@/pages/SharedTripPage"
+import SharedProjectPage from "@/pages/SharedProjectPage"
 import { useAuthStore } from "@/stores/auth"
 import { usersApi } from "@/lib/api"
+import type { User } from "@/types"
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      // Never retry after a 401 — the user has been logged out already.
+      retry: (failureCount, error) =>
+        !(error instanceof Error && error.message.includes("Sessão expirada")) &&
+        failureCount < 1,
       staleTime: 30_000,
     },
   },
@@ -31,6 +39,27 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)
     ? document.documentElement.classList.add("dark")
     : document.documentElement.classList.remove("dark")
 })
+
+// Background token refresh: retries once before logging out.
+// handleUnauthorized() clears the token immediately on the first 401, so we
+// check for it before retrying to avoid a pointless second request.
+async function refreshUser(setUser: (user: User) => void, logout: () => void) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      setUser(await usersApi.me())
+      return
+    } catch {
+      if (attempt === 0) {
+        // Wait briefly, then check if the token was already cleared by
+        // handleUnauthorized before deciding to retry.
+        await new Promise<void>((r) => setTimeout(r, 1500))
+        if (!useAuthStore.getState().token) return // already logged out
+      } else {
+        logout()
+      }
+    }
+  }
+}
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { token, user, setUser, logout } = useAuthStore()
@@ -47,14 +76,11 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
       // Render immediately with cached user; refresh in the background to
       // keep data fresh and to detect expired tokens.
       setReady(true)
-      usersApi.me().then(setUser).catch(() => logout())
+      refreshUser(setUser, logout)
       return
     }
     // No cached user — block render until the fetch completes.
-    usersApi.me()
-      .then(setUser)
-      .catch(() => logout())
-      .finally(() => setReady(true))
+    refreshUser(setUser, logout).finally(() => setReady(true))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) {
@@ -75,6 +101,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/entrar" element={<LoginPage />} />
+          {/* Public shared-link routes — no auth required */}
+          <Route path="/viagens/partilhada/:token" element={<SharedTripPage />} />
+          <Route path="/projetos/partilhada/:token" element={<SharedProjectPage />} />
 
           <Route
             element={
@@ -86,7 +115,9 @@ export default function App() {
             <Route index element={<Navigate to="/mapa" replace />} />
             <Route path="/mapa" element={<MapPage />} />
             <Route path="/viagens" element={<TripsPage />} />
+            <Route path="/viagens/:id" element={<TripDetailPage />} />
             <Route path="/projetos" element={<ProjectsPage />} />
+            <Route path="/projetos/:id" element={<ProjectDetailPage />} />
             <Route path="/notificacoes" element={<NotificationsPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
             <Route

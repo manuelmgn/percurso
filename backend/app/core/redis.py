@@ -25,3 +25,20 @@ async def close_redis() -> None:
     if _redis_client is not None:
         await _redis_client.aclose()
         _redis_client = None
+
+
+async def store_refresh_jti(jti: str, ttl_seconds: int) -> None:
+    redis = await get_redis()
+    await redis.setex(f"jti:refresh:{jti}", ttl_seconds, "1")
+
+
+async def verify_and_revoke_refresh_jti(jti: str) -> bool:
+    """Atomically check existence and delete. Returns True if the JTI was valid."""
+    redis = await get_redis()
+    result = await redis.getdel(f"jti:refresh:{jti}")
+    return result is not None
+
+
+async def revoke_refresh_jti(jti: str) -> None:
+    redis = await get_redis()
+    await redis.delete(f"jti:refresh:{jti}")

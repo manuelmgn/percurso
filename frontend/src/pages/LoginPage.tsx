@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { useAuthStore } from "@/stores/auth"
 import { authApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const { setToken, setUser } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? "/mapa"
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -23,7 +25,7 @@ export default function LoginPage() {
       const result = await authApi.login(username, password)
       setToken(result.access_token)
       setUser(result.user)
-      navigate("/mapa")
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao iniciar sessão")
     } finally {

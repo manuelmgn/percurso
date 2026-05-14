@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, HttpUrl, field_validator
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, field_validator
 
 
 class UserCreate(BaseModel):
@@ -28,16 +28,31 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     display_name: str | None = None
     biography: str | None = None
-    website_url: str | None = None
-    avatar_url: str | None = None
+    website_url: AnyHttpUrl | None = None
+    avatar_url: AnyHttpUrl | None = None
     default_trip_visibility: str | None = None
     default_project_visibility: str | None = None
     visited_places_visibility: str | None = None
+
+    @field_validator("display_name")
+    @classmethod
+    def display_name_length(cls, v: str | None) -> str | None:
+        if v is not None and len(v) > 100:
+            raise ValueError("O nome de apresentação não pode ter mais de 100 caracteres")
+        return v
+
+    @field_validator("biography")
+    @classmethod
+    def biography_length(cls, v: str | None) -> str | None:
+        if v is not None and len(v) > 500:
+            raise ValueError("A biografia não pode ter mais de 500 caracteres")
+        return v
 
 
 class UserResponse(BaseModel):
     id: int
     username: str
+    email: str
     display_name: str
     avatar_url: str | None
     biography: str | None

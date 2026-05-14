@@ -1,6 +1,9 @@
 import httpx
 
+from app.core.config import get_settings
 from app.core.redis import get_redis
+
+settings = get_settings()
 
 LANGUAGE_PRIORITY = ["pt", "gl", "en", "es"]
 WIKIPEDIA_API = "https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}"
@@ -22,13 +25,14 @@ async def fetch_wikipedia_summary(place_name: str, cache_key: str) -> tuple[str,
         result = await _search_wikipedia(lang, place_name)
         if result:
             summary, lang_code = result
-            ttl = 604800  # 7 days
-            await redis.setex(cache_key, ttl, f"{lang_code}|{summary}")
+            await redis.setex(cache_key, settings.wikipedia_cache_ttl, f"{lang_code}|{summary}")
             return summary, lang_code
     return None
 
 
 async def _search_wikipedia(lang: str, query: str) -> tuple[str, str] | None:
+    contact = settings.osm_user_agent_email or "contact@percurso.app"
+    headers = {"User-Agent": f"Percurso/1.0 (travel app; {contact})"}
     params = {
         "action": "query",
         "list": "search",
@@ -36,7 +40,6 @@ async def _search_wikipedia(lang: str, query: str) -> tuple[str, str] | None:
         "format": "json",
         "srlimit": 1,
     }
-    headers = {"User-Agent": "Percurso/1.0 (travel app)"}
     async with httpx.AsyncClient(timeout=8.0) as client:
         try:
             search_resp = await client.get(

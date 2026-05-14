@@ -1,11 +1,15 @@
+import logging
+import time as _time
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError
+from jose import JWTError, jwt as jose_jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.security import decode_token
 
+logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer()
 
 
@@ -25,7 +29,17 @@ async def get_current_user_id(
         if user_id_str is None:
             raise credentials_exception
         return int(user_id_str)
-    except (JWTError, ValueError):
+    except (JWTError, ValueError) as exc:
+        try:
+            claims = jose_jwt.get_unverified_claims(credentials.credentials)
+            exp = claims.get("exp", 0)
+            now = int(_time.time())
+            logger.warning(
+                "Token rejected [%s]: exp=%s now=%s diff=%+ds sub=%s",
+                type(exc).__name__, exp, now, exp - now, claims.get("sub"),
+            )
+        except Exception:
+            logger.warning("Token rejected [%s]: could not inspect payload", type(exc).__name__)
         raise credentials_exception
 
 

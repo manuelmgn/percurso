@@ -1,3 +1,6 @@
+import json
+import hashlib
+
 import httpx
 
 from app.core.config import get_settings
@@ -29,6 +32,8 @@ PLACE_TYPE_KEYWORDS = {
     "country": "country",
 }
 
+_NOMINATIM_CACHE_TTL = 3600  # 1 hour
+
 
 def _infer_place_type(nominatim_result: dict) -> str:
     osm_class = nominatim_result.get("class", "")
@@ -39,7 +44,19 @@ def _infer_place_type(nominatim_result: dict) -> str:
     return "landmark"
 
 
+def _search_cache_key(query: str, country_codes: list[str] | None) -> str:
+    raw = f"{query}:{','.join(sorted(country_codes or []))}"
+    return f"nominatim:search:{hashlib.md5(raw.encode()).hexdigest()}"
+
+
 async def search_nominatim(query: str, country_codes: list[str] | None = None) -> list[dict]:
+    from app.core.redis import get_redis
+    redis = await get_redis()
+    cache_key = _search_cache_key(query, country_codes)
+    cached = await redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     params: dict = {
         "q": query,
         "format": "jsonv2",
@@ -59,18 +76,14 @@ async def search_nominatim(query: str, country_codes: list[str] | None = None) -
             f"{settings.nominatim_base_url}/search", params=params, headers=headers
         )
         response.raise_for_status()
-        return response.json()
+        results = response.json()
+
+    await redis.setex(cache_key, _NOMINATIM_CACHE_TTL, json.dumps(results))
+    return results
 
 
 async def get_osm_details(osm_id: int, osm_type: str) -> dict | None:
     type_prefix = {"node": "N", "way": "W", "relation": "R"}.get(osm_type, "N")
-    params = {
-        "osmtype": type_prefix,
-        "osmid": osm_id,
-        "format": "jsonv2",
-        "polygon_geojson": 1,
-        "addressdetails": 1,
-    }
     headers = {
         "User-Agent": f"Percurso/1.0 ({settings.osm_user_agent_email})",
     }
@@ -89,7 +102,6 @@ def nominatim_to_place_data(result: dict) -> dict:
     lng = float(result.get("lon", 0))
     lat = float(result.get("lat", 0))
     address = result.get("address", {})
-    osm_type_raw = result.get("osm_type", "node")[0].upper()
     return {
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),

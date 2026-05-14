@@ -6,6 +6,35 @@ if [ -z "${DATABASE_URL}" ]; then
     exit 1
 fi
 
+# Wait for the database to be ready before running migrations
+echo "Waiting for database to be ready..."
+MAX_RETRIES=30
+RETRY=0
+until python -c "
+import asyncio, sys
+from sqlalchemy.ext.asyncio import create_async_engine
+from app.core.config import get_settings
+async def check():
+    engine = create_async_engine(get_settings().database_url)
+    try:
+        async with engine.connect():
+            pass
+        await engine.dispose()
+    except Exception as e:
+        await engine.dispose()
+        sys.exit(1)
+asyncio.run(check())
+" 2>/dev/null; do
+    RETRY=$((RETRY + 1))
+    if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+        echo "ERROR: Database not reachable after ${MAX_RETRIES} attempts. Giving up." >&2
+        exit 1
+    fi
+    echo "Database not ready yet (attempt ${RETRY}/${MAX_RETRIES}). Retrying in 2s..."
+    sleep 2
+done
+echo "Database is ready."
+
 echo "Running Alembic migrations..."
 alembic upgrade head
 

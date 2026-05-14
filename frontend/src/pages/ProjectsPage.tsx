@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import { Plus, Loader2, Target } from "lucide-react"
 import { projectsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -25,18 +26,15 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
 }
 
 function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+  const colour = project.cover_colour ?? "#7C3AED"
   return (
     <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
-      <div className="relative h-28 bg-gradient-to-br from-purple-100 to-violet-200 dark:from-purple-900/30 dark:to-violet-800/30">
+      <div className="relative h-28 overflow-hidden" style={project.cover_image_url ? {} : { backgroundColor: colour }}>
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
-        ) : project.cover_image_generating ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-purple-400" />
-          </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <Target className="size-10 text-purple-300" />
+          <div className="flex h-full items-end p-3">
+            <span className="text-white font-bold text-sm leading-tight line-clamp-2 drop-shadow">{project.title}</span>
           </div>
         )}
       </div>
@@ -104,6 +102,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 
 export default function ProjectsPage() {
   const [showNew, setShowNew] = useState(false)
+  const navigate = useNavigate()
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: projectsApi.list,
@@ -139,7 +138,7 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} onClick={() => {}} />
+            <ProjectCard key={p.id} project={p} onClick={() => navigate(`/projetos/${p.id}`)} />
           ))}
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2 } from "lucide-react"
 import { tripsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -16,20 +17,16 @@ const VISIBILITY_ICONS = {
 
 function TripCard({ trip, onClick }: { trip: Trip; onClick: () => void }) {
   const Icon = VISIBILITY_ICONS[trip.visibility]
+  const colour = trip.cover_colour ?? "#7C3AED"
   return (
     <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
-      {/* Cover image */}
-      <div className="relative h-36 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30">
+      {/* Cover */}
+      <div className="relative h-36 overflow-hidden" style={trip.cover_image_url ? {} : { backgroundColor: colour }}>
         {trip.cover_image_url ? (
           <img src={trip.cover_image_url} alt={trip.title} className="h-full w-full object-cover" />
-        ) : trip.cover_image_generating ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-purple-400" />
-            <span className="ml-2 text-xs text-purple-400">A gerar imagem…</span>
-          </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <Briefcase className="size-10 text-purple-300" />
+          <div className="flex h-full items-end p-4">
+            <span className="text-white font-bold text-base leading-tight line-clamp-3 drop-shadow">{trip.title}</span>
           </div>
         )}
       </div>
@@ -138,6 +135,7 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
 export default function TripsPage() {
   const [showNew, setShowNew] = useState(false)
+  const navigate = useNavigate()
   const { data: trips = [], isLoading } = useQuery({
     queryKey: ["trips"],
     queryFn: tripsApi.list,
@@ -173,7 +171,7 @@ export default function TripsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} onClick={() => {}} />
+            <TripCard key={trip.id} trip={trip} onClick={() => navigate(`/viagens/${trip.id}`)} />
           ))}
         </div>
       )}

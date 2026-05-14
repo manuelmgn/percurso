@@ -1,7 +1,8 @@
 import logging
+import random
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,10 +13,16 @@ from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripS
 from app.models.user import User
 from app.schemas.trip import MediaLinkCreate, TripCreate, TripDetailResponse, TripResponse, TripUpdate
 from app.services.og_service import fetch_og_metadata
-from app.services.storage_service import upload_cover_image
+from app.services.storage_service import delete_object, upload_cover_image
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trips", tags=["trips"])
+
+_COVER_COLOURS = [
+    "#7C3AED", "#6D28D9", "#4F46E5", "#0369A1", "#0891B2",
+    "#0D9488", "#059669", "#65A30D", "#B45309", "#C2410C",
+    "#BE185D", "#7E22CE",
+]
 
 
 def _check_trip_access(trip: Trip, current_user: User) -> bool:
@@ -42,6 +49,7 @@ def _trip_to_response(trip: Trip) -> dict:
         "end_date": trip.end_date,
         "cover_image_url": trip.cover_image_url,
         "cover_image_generating": trip.cover_image_generating,
+        "cover_colour": trip.cover_colour,
         "visibility": trip.visibility,
         "sharing_token": trip.sharing_token if trip.visibility in ("link", "users") else None,
         "creator_id": trip.creator_id,
@@ -77,6 +85,21 @@ async def _load_trip(db: AsyncSession, trip_id: int) -> Trip | None:
     return result.scalar_one_or_none()
 
 
+async def _load_trip_by_token(db: AsyncSession, token: str) -> Trip | None:
+    result = await db.execute(
+        select(Trip)
+        .options(
+            selectinload(Trip.creator),
+            selectinload(Trip.companions).selectinload(TripCompanion.user),
+            selectinload(Trip.places),
+            selectinload(Trip.media_links),
+            selectinload(Trip.shared_with),
+        )
+        .where(Trip.sharing_token == token, Trip.visibility == "link")
+    )
+    return result.scalar_one_or_none()
+
+
 @router.post("", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 async def create_trip(
     data: TripCreate,
@@ -90,27 +113,20 @@ async def create_trip(
         start_date=data.start_date,
         end_date=data.end_date,
         visibility=data.visibility or current_user.default_trip_visibility,
-        cover_image_generating=True,
+        cover_colour=random.choice(_COVER_COLOURS),
     )
     if trip.visibility in ("link",):
         trip.sharing_token = generate_sharing_token()
     db.add(trip)
     await db.flush()
-
-    try:
-        from app.workers.image_worker import generate_cover_image_task
-        generate_cover_image_task.delay(trip.id, "trip", data.title, data.description)
-    except Exception:
-        logger.warning("Celery broker unavailable; skipping cover image for trip %d", trip.id)
-        trip.cover_image_generating = False
-
-    await db.refresh(trip)
     trip = await _load_trip(db, trip.id)
     return _trip_to_response(trip)
 
 
 @router.get("", response_model=list[TripResponse])
 async def list_my_trips(
+    limit: int = 100,
+    offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -121,11 +137,46 @@ async def list_my_trips(
             selectinload(Trip.companions).selectinload(TripCompanion.user),
             selectinload(Trip.places),
         )
-        .where(Trip.creator_id == current_user.id)
+        .where(
+            or_(
+                Trip.creator_id == current_user.id,
+                Trip.id.in_(
+                    select(TripCompanion.trip_id).where(
+                        TripCompanion.user_id == current_user.id,
+                        TripCompanion.status == "accepted",
+                    )
+                ),
+            )
+        )
         .order_by(Trip.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     trips = result.scalars().all()
     return [_trip_to_response(t) for t in trips]
+
+
+@router.get("/shared/{token}", response_model=TripDetailResponse)
+async def get_shared_trip(
+    token: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await _load_trip_by_token(db, token)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada ou link inválido")
+    data = _trip_to_response(trip)
+    data["media_links"] = [
+        {
+            "id": m.id,
+            "url": m.url,
+            "og_title": m.og_title,
+            "og_description": m.og_description,
+            "og_image_url": m.og_image_url,
+            "og_site_name": m.og_site_name,
+        }
+        for m in trip.media_links
+    ]
+    return data
 
 
 @router.get("/{trip_id}", response_model=TripDetailResponse)
@@ -203,6 +254,7 @@ async def upload_trip_cover(
     if not trip or trip.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
 
+    old_url = trip.cover_image_url
     content = await file.read()
     url = await upload_cover_image(
         current_user.id, "trip", trip_id, content,
@@ -212,6 +264,49 @@ async def upload_trip_cover(
     trip.cover_image_url = url
     trip.cover_image_generating = False
     await db.flush()
+
+    if old_url:
+        try:
+            await delete_object(old_url)
+        except Exception:
+            logger.warning("Failed to delete old cover image: %s", old_url)
+
+    trip = await _load_trip(db, trip_id)
+    return _trip_to_response(trip)
+
+
+@router.post("/{trip_id}/generate-cover", response_model=TripResponse)
+async def generate_trip_cover(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    from app.workers.image_worker import _build_prompt, _fetch_pollinations_image
+    from app.services.storage_service import upload_bytes_as_image
+
+    old_url = trip.cover_image_url
+    prompt = _build_prompt(trip.title, trip.description)
+    image_bytes = await _fetch_pollinations_image(prompt)
+    if not image_bytes:
+        raise HTTPException(status_code=502, detail="Não foi possível gerar a imagem. Tenta novamente.")
+
+    url = await upload_bytes_as_image(
+        current_user.id, "trip", trip_id, image_bytes, "ai_cover.jpg", "image/jpeg"
+    )
+    trip.cover_image_url = url
+    trip.cover_image_generating = False
+    await db.flush()
+
+    if old_url:
+        try:
+            await delete_object(old_url)
+        except Exception:
+            logger.warning("Failed to delete old cover image: %s", old_url)
+
     trip = await _load_trip(db, trip_id)
     return _trip_to_response(trip)
 

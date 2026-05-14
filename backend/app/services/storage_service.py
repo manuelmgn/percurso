@@ -13,6 +13,16 @@ settings = get_settings()
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
+
+def _detect_mime_type(data: bytes) -> str | None:
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
 EntityType = Literal["trip", "project"]
 
 
@@ -41,10 +51,12 @@ async def upload_cover_image(
     original_filename: str,
     content_type: str,
 ) -> str:
-    if content_type not in ALLOWED_MIME_TYPES:
-        raise ValueError(f"Tipo de ficheiro não permitido: {content_type}")
     if len(file_content) > MAX_FILE_SIZE_BYTES:
         raise ValueError("O ficheiro excede o tamanho máximo de 10 MB")
+    detected = _detect_mime_type(file_content)
+    if detected is None or detected not in ALLOWED_MIME_TYPES:
+        raise ValueError("Tipo de ficheiro não permitido. Aceites: JPEG, PNG, WebP")
+    content_type = detected  # use detected type, not the user-supplied header
 
     key = _build_key(user_id, entity_type, entity_id, original_filename)
     client = _get_r2_client()

@@ -6,6 +6,7 @@ class ProjectCreate(BaseModel):
     description: str | None = None
     goal_description: str | None = None
     visibility: str = "private"
+    cover_colour: str | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -13,6 +14,7 @@ class ProjectUpdate(BaseModel):
     description: str | None = None
     goal_description: str | None = None
     visibility: str | None = None
+    cover_colour: str | None = None
 
 
 class ProjectCollaboratorResponse(BaseModel):
@@ -33,6 +35,7 @@ class ProjectResponse(BaseModel):
     goal_description: str | None
     cover_image_url: str | None
     cover_image_generating: bool
+    cover_colour: str | None
     visibility: str
     sharing_token: str | None
     creator_id: int

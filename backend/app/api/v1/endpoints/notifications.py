@@ -10,10 +10,6 @@ from app.models.user import User
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-class NotificationResponse:
-    pass
-
-
 @router.get("")
 async def list_notifications(
     current_user: User = Depends(get_current_user),

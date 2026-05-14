@@ -20,5 +20,3 @@ class LoginResponse(TokenResponse):
     user: UserResponse
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str

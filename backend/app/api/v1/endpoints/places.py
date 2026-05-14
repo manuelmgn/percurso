@@ -7,10 +7,12 @@ from app.core.dependencies import get_current_user
 from app.models.place import Place
 from app.models.user import User
 from app.schemas.place import PlaceResponse, PlaceSearchResult
-from app.services.osm_service import nominatim_to_place_data, search_nominatim
+from app.services.osm_service import get_osm_details, nominatim_to_place_data, search_nominatim
 from app.services.wikipedia_service import fetch_wikipedia_summary
 
 router = APIRouter(prefix="/places", tags=["places"])
+
+_VALID_OSM_TYPES = {"node", "way", "relation"}
 
 
 async def _upsert_place(db: AsyncSession, data: dict) -> Place:
@@ -76,10 +78,13 @@ async def import_place(
     _current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    results = await search_nominatim(f"{osm_type[0].upper()}{osm_id}")
-    if not results:
+    if osm_type not in _VALID_OSM_TYPES:
+        raise HTTPException(status_code=400, detail=f"osm_type inválido. Aceites: {', '.join(sorted(_VALID_OSM_TYPES))}")
+
+    result = await get_osm_details(osm_id, osm_type)
+    if not result:
         raise HTTPException(status_code=404, detail="Local não encontrado no OSM")
-    data = nominatim_to_place_data(results[0])
+    data = nominatim_to_place_data(result)
     place = await _upsert_place(db, data)
     return _place_to_response(place)
 
@@ -94,7 +99,6 @@ async def get_place(
     if not place:
         raise HTTPException(status_code=404, detail="Local não encontrado")
 
-    # Fetch Wikipedia if not cached in DB
     if not place.wikipedia_summary:
         cache_key = f"wiki:place:{place.id}"
         result = await fetch_wikipedia_summary(place.name, cache_key)

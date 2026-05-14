@@ -35,6 +35,7 @@ async def update_me(
 @router.get("/{username}", response_model=UserPublicResponse)
 async def get_user_profile(
     username: str,
+    _current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     user = await get_user_by_username(db, username)
@@ -70,9 +71,11 @@ async def create_new_user(
 @router.post("/{user_id}/deactivate", response_model=UserResponse)
 async def deactivate(
     user_id: int,
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db_session),
 ):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Não pode desactivar a sua própria conta")
     from app.services.user_service import get_user_by_id
     user = await get_user_by_id(db, user_id)
     if not user:

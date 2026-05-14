@@ -16,8 +16,15 @@ class Settings(BaseSettings):
     # Application
     environment: Literal["development", "production", "test"] = "development"
     secret_key: str
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 30
+
+    @field_validator("access_token_expire_minutes")
+    @classmethod
+    def ensure_minimum_token_lifetime(cls, v: int) -> int:
+        if v < 30:
+            raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be at least 30")
+        return v
     allowed_origins: list[str] = ["http://localhost:5173"]
 
     @field_validator("allowed_origins", mode="before")

@@ -26,6 +26,7 @@ class Trip(Base, TimestampMixin):
     # Cover image
     cover_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     cover_image_generating: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cover_colour: Mapped[str | None] = mapped_column(String(7), nullable=True)
 
     # Privacy
     visibility: Mapped[str] = mapped_column(

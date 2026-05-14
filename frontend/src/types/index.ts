@@ -83,6 +83,7 @@ export interface Trip {
   end_date: string | null
   cover_image_url: string | null
   cover_image_generating: boolean
+  cover_colour: string | null
   visibility: Visibility
   sharing_token: string | null
   creator_id: number
@@ -100,6 +101,7 @@ export interface Project {
   goal_description: string | null
   cover_image_url: string | null
   cover_image_generating: boolean
+  cover_colour: string | null
   visibility: Visibility
   sharing_token: string | null
   creator_id: number

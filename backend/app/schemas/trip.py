@@ -9,6 +9,7 @@ class TripCreate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     visibility: str = "private"
+    cover_colour: str | None = None
 
 
 class TripUpdate(BaseModel):
@@ -17,6 +18,7 @@ class TripUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     visibility: str | None = None
+    cover_colour: str | None = None
 
 
 class TripCompanionResponse(BaseModel):
@@ -53,6 +55,7 @@ class TripResponse(BaseModel):
     end_date: date | None
     cover_image_url: str | None
     cover_image_generating: bool
+    cover_colour: str | None
     visibility: str
     sharing_token: str | None
     creator_id: int

@@ -31,7 +31,9 @@ def create_access_token(subject: str | int, extra: dict[str, Any] | None = None)
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
-def create_refresh_token(subject: str | int) -> str:
+def create_refresh_token(subject: str | int) -> tuple[str, str]:
+    """Returns (encoded_token, jti). Caller must store jti in Redis."""
+    jti = secrets.token_hex(16)
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.refresh_token_expire_days
     )
@@ -39,13 +41,18 @@ def create_refresh_token(subject: str | int) -> str:
         "sub": str(subject),
         "exp": expire,
         "type": "refresh",
-        "jti": secrets.token_hex(16),
+        "jti": jti,
     }
-    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM), jti
 
 
 def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    return jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[ALGORITHM],
+        options={"leeway": 30},  # tolerate 30 s of clock skew
+    )
 
 
 def generate_sharing_token() -> str:
