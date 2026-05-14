@@ -39,8 +39,8 @@ def _check_trip_access(trip: Trip, current_user: User) -> bool:
     return False
 
 
-def _trip_to_response(trip: Trip) -> dict:
-    accepted_companions = [c for c in trip.companions if c.status == "accepted"]
+def _trip_to_response(trip: Trip, include_pending: bool = False) -> dict:
+    companions_list = trip.companions if include_pending else [c for c in trip.companions if c.status == "accepted"]
     return {
         "id": trip.id,
         "title": trip.title,
@@ -64,7 +64,7 @@ def _trip_to_response(trip: Trip) -> dict:
                 "avatar_url": c.user.avatar_url,
                 "status": c.status,
             }
-            for c in accepted_companions
+            for c in companions_list
         ],
         "place_count": len(trip.places),
     }
@@ -201,7 +201,7 @@ async def get_trip(
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
     if not _check_trip_access(trip, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado a esta viagem")
-    data = _trip_to_response(trip)
+    data = _trip_to_response(trip, include_pending=(trip.creator_id == current_user.id))
     data["media_links"] = [
         {
             "id": m.id,
@@ -448,6 +448,66 @@ async def accept_trip_invite(
     )
     db.add(notification)
     return {"detail": "Convite aceite"}
+
+
+@router.post("/{trip_id}/companions/accept-me", status_code=status.HTTP_200_OK)
+async def accept_trip_invite_as_me(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(TripCompanion).where(
+            TripCompanion.trip_id == trip_id,
+            TripCompanion.user_id == current_user.id,
+            TripCompanion.status == "pending",
+        )
+    )
+    companion = result.scalar_one_or_none()
+    if not companion:
+        raise HTTPException(status_code=404, detail="Convite pendente não encontrado")
+    companion.status = "accepted"
+    trip = await db.get(Trip, trip_id)
+    from app.models.notification import Notification
+    db.add(Notification(
+        recipient_id=trip.creator_id,
+        notification_type="invite_accepted",
+        entity_type="trip",
+        entity_id=trip_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} aceitou o convite para a viagem «{trip.title}»",
+    ))
+    return {"detail": "Convite aceite"}
+
+
+@router.post("/{trip_id}/companions/decline-me", status_code=status.HTTP_200_OK)
+async def decline_trip_invite_as_me(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(TripCompanion).where(
+            TripCompanion.trip_id == trip_id,
+            TripCompanion.user_id == current_user.id,
+            TripCompanion.status == "pending",
+        )
+    )
+    companion = result.scalar_one_or_none()
+    if not companion:
+        raise HTTPException(status_code=404, detail="Convite pendente não encontrado")
+    companion.status = "declined"
+    trip = await db.get(Trip, trip_id)
+    from app.models.notification import Notification
+    db.add(Notification(
+        recipient_id=trip.creator_id,
+        notification_type="invite_declined",
+        entity_type="trip",
+        entity_id=trip_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} recusou o convite para a viagem «{trip.title}»",
+    ))
+    return {"detail": "Convite recusado"}
 
 
 @router.post("/{trip_id}/media", status_code=status.HTTP_201_CREATED)

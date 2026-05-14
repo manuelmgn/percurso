@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user, require_admin
+from app.models.place import Place
+from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
+from app.schemas.place import PlaceResponse
 from app.schemas.user import UserCreate, UserPublicResponse, UserResponse, UserUpdate
 from app.services.user_service import (
     create_user,
@@ -21,6 +25,37 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/me/places", response_model=list[PlaceResponse])
+async def get_my_visited_places(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Return all distinct places the user has visited across their trips and accepted companion trips."""
+    result = await db.execute(
+        select(Place)
+        .join(TripPlace, TripPlace.place_id == Place.id)
+        .join(Trip, Trip.id == TripPlace.trip_id)
+        .outerjoin(
+            TripCompanion,
+            and_(
+                TripCompanion.trip_id == Trip.id,
+                TripCompanion.user_id == current_user.id,
+                TripCompanion.status == "accepted",
+            ),
+        )
+        .where(
+            or_(
+                Trip.creator_id == current_user.id,
+                TripCompanion.id.isnot(None),
+            )
+        )
+        .distinct()
+        .order_by(Place.name)
+    )
+    from app.api.v1.endpoints.places import _place_to_response
+    return [_place_to_response(p) for p in result.scalars().all()]
 
 
 @router.patch("/me", response_model=UserResponse)

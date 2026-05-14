@@ -139,6 +139,7 @@ export const authApi = {
 export const usersApi = {
   me: () => request<User>("GET", "/api/v1/users/me"),
   update: (data: Partial<User>) => request<User>("PATCH", "/api/v1/users/me", data),
+  myPlaces: () => request<Place[]>("GET", "/api/v1/users/me/places"),
   profile: (username: string) => request<User>("GET", `/api/v1/users/${username}`),
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),
@@ -174,6 +175,12 @@ export const tripsApi = {
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/${username}`),
   acceptInvite: (tripId: number, token: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/accept/${token}`),
+  acceptInviteAsMe: (tripId: number) =>
+    request<unknown>("POST", `/api/v1/trips/${tripId}/companions/accept-me`),
+  declineInviteAsMe: (tripId: number) =>
+    request<unknown>("POST", `/api/v1/trips/${tripId}/companions/decline-me`),
+  removeMedia: (tripId: number, mediaId: number) =>
+    request<void>("DELETE", `/api/v1/trips/${tripId}/media/${mediaId}`),
   uploadCover: (tripId: number, file: File) => {
     const fd = new FormData()
     fd.append("file", file)
@@ -198,6 +205,10 @@ export const projectsApi = {
     request<void>("DELETE", `/api/v1/projects/${projectId}/places/${placeId}`),
   inviteCollaborator: (projectId: number, username: string) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/${username}`),
+  acceptInviteAsMe: (projectId: number) =>
+    request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/accept-me`),
+  declineInviteAsMe: (projectId: number) =>
+    request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/decline-me`),
   importPlaces: (projectId: number, lines: string[]) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/import-places`, { lines }),
   uploadCover: (projectId: number, file: File) => {

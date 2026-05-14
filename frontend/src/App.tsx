@@ -15,6 +15,7 @@ import TripDetailPage from "@/pages/TripDetailPage"
 import ProjectDetailPage from "@/pages/ProjectDetailPage"
 import SharedTripPage from "@/pages/SharedTripPage"
 import SharedProjectPage from "@/pages/SharedProjectPage"
+import PlaceDetailPage from "@/pages/PlaceDetailPage"
 import { useAuthStore } from "@/stores/auth"
 import { usersApi } from "@/lib/api"
 import type { User } from "@/types"
@@ -118,6 +119,7 @@ export default function App() {
             <Route path="/viagens/:id" element={<TripDetailPage />} />
             <Route path="/projetos" element={<ProjectsPage />} />
             <Route path="/projetos/:id" element={<ProjectDetailPage />} />
+            <Route path="/lugares/:id" element={<PlaceDetailPage />} />
             <Route path="/notificacoes" element={<NotificationsPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
             <Route

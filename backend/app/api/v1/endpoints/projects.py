@@ -89,8 +89,8 @@ async def _compute_progress(db: AsyncSession, project_id: int, project: Project)
     return result.scalar() or 0
 
 
-def _project_to_response(project: Project, visited_count: int = 0) -> dict:
-    accepted = [c for c in project.collaborators if c.status == "accepted"]
+def _project_to_response(project: Project, visited_count: int = 0, include_pending: bool = False) -> dict:
+    collaborators_list = project.collaborators if include_pending else [c for c in project.collaborators if c.status == "accepted"]
     return {
         "id": project.id,
         "title": project.title,
@@ -113,7 +113,7 @@ def _project_to_response(project: Project, visited_count: int = 0) -> dict:
                 "avatar_url": c.user.avatar_url,
                 "status": c.status,
             }
-            for c in accepted
+            for c in collaborators_list
         ],
         "target_place_count": len(project.target_places),
         "visited_place_count": visited_count,
@@ -210,7 +210,7 @@ async def get_project(
     if not _check_project_access(project, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado")
     visited = await _compute_progress(db, project_id, project)
-    data = _project_to_response(project, visited)
+    data = _project_to_response(project, visited, include_pending=(project.creator_id == current_user.id))
     data["target_places"] = [
         {
             "id": tp.place.id,
@@ -385,6 +385,64 @@ async def invite_collaborator(
         message=f"{current_user.display_name} convidou-o para o projeto «{project.title}»",
     ))
     return {"detail": "Convite enviado"}
+
+
+@router.post("/{project_id}/collaborators/accept-me", status_code=status.HTTP_200_OK)
+async def accept_project_invite_as_me(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.project_id == project_id,
+            ProjectCollaborator.user_id == current_user.id,
+            ProjectCollaborator.status == "pending",
+        )
+    )
+    collaborator = result.scalar_one_or_none()
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Convite pendente não encontrado")
+    collaborator.status = "accepted"
+    project = await db.get(Project, project_id)
+    db.add(Notification(
+        recipient_id=project.creator_id,
+        notification_type="invite_accepted",
+        entity_type="project",
+        entity_id=project_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} aceitou o convite para o projeto «{project.title}»",
+    ))
+    return {"detail": "Convite aceite"}
+
+
+@router.post("/{project_id}/collaborators/decline-me", status_code=status.HTTP_200_OK)
+async def decline_project_invite_as_me(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.project_id == project_id,
+            ProjectCollaborator.user_id == current_user.id,
+            ProjectCollaborator.status == "pending",
+        )
+    )
+    collaborator = result.scalar_one_or_none()
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Convite pendente não encontrado")
+    collaborator.status = "declined"
+    project = await db.get(Project, project_id)
+    db.add(Notification(
+        recipient_id=project.creator_id,
+        notification_type="invite_declined",
+        entity_type="project",
+        entity_id=project_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} recusou o convite para o projeto «{project.title}»",
+    ))
+    return {"detail": "Convite recusado"}
 
 
 @router.post("/{project_id}/import-places", status_code=status.HTTP_202_ACCEPTED)
