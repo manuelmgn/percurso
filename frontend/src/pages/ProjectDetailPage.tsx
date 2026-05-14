@@ -3,13 +3,13 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Target, Search, X,
-  UserPlus, FileText, Check, AlertCircle,
+  UserPlus, FileText, Check, AlertCircle, Pencil,
 } from "lucide-react"
 import { projectsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth"
-import type { PlaceSearchResult, Visibility } from "@/types"
+import type { PlaceSearchResult, Project, Visibility } from "@/types"
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -84,7 +84,6 @@ function PlaceSearchAdd({
   )
 }
 
-// Nominatim match result shape from the backend
 interface MatchResult {
   query: string
   match: PlaceSearchResult | null
@@ -109,7 +108,6 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
     try {
       const results = await projectsApi.importPlaces(projectId, lines) as MatchResult[]
       setMatches(results)
-      // Pre-select all matched results
       const initial: Record<number, PlaceSearchResult> = {}
       results.forEach((r, i) => { if (r.match) initial[i] = r.match })
       setSelected(initial)
@@ -125,8 +123,7 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
     setImporting(true)
     setError(null)
     try {
-      const toAdd = Object.values(selected)
-      for (const result of toAdd) {
+      for (const result of Object.values(selected)) {
         const place = await placesApi.import(result.osm_id, result.osm_type)
         await projectsApi.addPlace(projectId, place.id)
       }
@@ -206,11 +203,7 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
           <Button variant="outline" className="flex-1" onClick={() => { setMatches(null); setSelected({}) }}>
             Voltar
           </Button>
-          <Button
-            className="flex-1"
-            disabled={importing || selectedCount === 0}
-            onClick={handleImport}
-          >
+          <Button className="flex-1" disabled={importing || selectedCount === 0} onClick={handleImport}>
             {importing ? <Loader2 className="size-4 animate-spin" /> : null}
             Adicionar {selectedCount} {selectedCount === 1 ? "lugar" : "lugares"}
           </Button>
@@ -237,6 +230,168 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
   )
 }
 
+function ProjectDetailsPanel({
+  open,
+  onClose,
+  project,
+  onSave,
+  isSaving,
+  saveError,
+  onInvite,
+  isInviting,
+  inviteError,
+  inviteSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  project: Project
+  onSave: (data: object) => void
+  isSaving: boolean
+  saveError: string | null
+  onInvite: (username: string) => void
+  isInviting: boolean
+  inviteError: string | null
+  inviteSuccess: boolean
+}) {
+  const [title, setTitle] = useState(project.title)
+  const [description, setDescription] = useState(project.description ?? "")
+  const [goal, setGoal] = useState(project.goal_description ?? "")
+  const [visibility, setVisibility] = useState<Visibility>(project.visibility)
+  const [inviteUsername, setInviteUsername] = useState("")
+
+  useEffect(() => {
+    if (open) {
+      setTitle(project.title)
+      setDescription(project.description ?? "")
+      setGoal(project.goal_description ?? "")
+      setVisibility(project.visibility)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onSave({
+      title,
+      description: description || null,
+      goal_description: goal || null,
+      visibility,
+    })
+  }
+
+  function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (inviteUsername.trim()) {
+      onInvite(inviteUsername.trim())
+      setInviteUsername("")
+    }
+  }
+
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`fixed right-0 top-0 h-full w-full max-w-md z-50 flex flex-col bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 shrink-0">
+          <h2 className="font-semibold">Editar detalhes</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <form id="project-details-form" onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Título</label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Descrição</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Breve descrição…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Objetivo</label>
+              <Input
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="Visitar todas as comarcas…"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Visibilidade</label>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as Visibility)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {(Object.entries(VISIBILITY_LABELS) as [Visibility, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </form>
+
+          <div className="pt-4 border-t border-border/50 space-y-3">
+            <h3 className="text-sm font-medium">Colaboradores</h3>
+            {project.collaborators.length > 0 ? (
+              <ul className="space-y-2">
+                {project.collaborators.map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 text-sm">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
+                      {c.display_name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="font-medium">{c.display_name}</span>
+                      <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
+                      {c.status !== "accepted" && (
+                        <span className={`ml-2 text-xs ${c.status === "declined" ? "text-destructive" : "text-amber-500"}`}>
+                          · {STATUS_LABELS[c.status]}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ainda sem colaboradores.</p>
+            )}
+            <form onSubmit={handleInvite} className="flex gap-2 pt-1">
+              <Input
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+                placeholder="Nome de utilizador…"
+                className="flex-1"
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={isInviting || !inviteUsername.trim()}>
+                {isInviting ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+              </Button>
+            </form>
+            {inviteSuccess && <p className="text-xs text-green-600">Convite enviado.</p>}
+            {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
+          </div>
+        </div>
+
+        <div className="shrink-0 p-5 border-t border-border/50">
+          {saveError && <p className="mb-3 text-sm text-destructive">{saveError}</p>}
+          <Button type="submit" form="project-details-form" disabled={isSaving} className="w-full">
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
+          </Button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const projectId = Number(id)
@@ -245,53 +400,37 @@ export default function ProjectDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { user } = useAuthStore()
 
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [addPlaceError, setAddPlaceError] = useState<string | null>(null)
-  const [inviteUsername, setInviteUsername] = useState("")
+  const [showDetails, setShowDetails] = useState(false)
+  const [coverHover, setCoverHover] = useState(false)
+  const [coverTap, setCoverTap] = useState(false)
+  const [aiHint, setAiHint] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
-
-  const [editTitle, setEditTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
-  const [editGoal, setEditGoal] = useState("")
-  const [editVisibility, setEditVisibility] = useState<Visibility>("private")
-  const [formReady, setFormReady] = useState(false)
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => projectsApi.get(projectId),
     enabled: !!projectId,
+    staleTime: 10_000,
+    refetchInterval: project?.cover_image_generating ? 3000 : false,
   })
 
-  useEffect(() => {
-    if (project && !formReady) {
-      setEditTitle(project.title)
-      setEditDescription(project.description ?? "")
-      setEditGoal(project.goal_description ?? "")
-      setEditVisibility(project.visibility)
-      setFormReady(true)
-    }
-  }, [project, formReady])
-
   const isCreator = project?.creator_id === user?.id
+  const overlayVisible = coverHover || coverTap
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => projectsApi.uploadCover(projectId, file),
     onSuccess: (updated) => {
-      queryClient.setQueryData(["project", projectId], (old: typeof project) =>
-        old ? { ...old, cover_image_url: updated.cover_image_url } : old,
+      queryClient.setQueryData(["project", projectId], (old: Project | undefined) =>
+        old ? { ...old, cover_image_url: updated.cover_image_url, cover_image_generating: false } : old,
       )
       queryClient.invalidateQueries({ queryKey: ["projects"] })
-      setUploadError(null)
     },
-    onError: (err: Error) => setUploadError(err.message),
   })
 
   const generateMutation = useMutation({
     mutationFn: () => projectsApi.generateCover(projectId),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(["project", projectId], (old: typeof project) =>
-        old ? { ...old, cover_image_url: updated.cover_image_url } : old,
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
       queryClient.invalidateQueries({ queryKey: ["projects"] })
     },
   })
@@ -301,6 +440,7 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project", projectId] })
       queryClient.invalidateQueries({ queryKey: ["projects"] })
+      setShowDetails(false)
     },
   })
 
@@ -320,17 +460,12 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project", projectId] })
       queryClient.invalidateQueries({ queryKey: ["projects"] })
-      setAddPlaceError(null)
     },
-    onError: (err: Error) => setAddPlaceError(err.message),
   })
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => projectsApi.inviteCollaborator(projectId, username),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
-      setInviteUsername("")
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
   if (isLoading) {
@@ -346,8 +481,7 @@ export default function ProjectDetailPage() {
   }
 
   const colour = project.cover_colour ?? "#7C3AED"
-  const savedDescWords = wordCount(project.description ?? "")
-  const canGenerate = savedDescWords >= 8
+  const descWords = wordCount(project.description ?? "")
   const pct = project.target_place_count === 0
     ? 0
     : Math.round((project.visited_place_count / project.target_place_count) * 100)
@@ -358,35 +492,42 @@ export default function ProjectDetailPage() {
     e.target.value = ""
   }
 
-  function handleUpdate(e: React.FormEvent) {
-    e.preventDefault()
-    updateMutation.mutate({
-      title: editTitle,
-      description: editDescription || null,
-      goal_description: editGoal || null,
-      visibility: editVisibility,
-    })
-  }
-
-  function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (inviteUsername.trim()) inviteMutation.mutate(inviteUsername.trim())
+  function handleCoverAI() {
+    if (descWords < 5) {
+      setAiHint(true)
+      setTimeout(() => setAiHint(false), 4000)
+      return
+    }
+    setAiHint(false)
+    generateMutation.mutate()
   }
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <button
-        onClick={() => navigate("/projetos")}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Projetos
-      </button>
+      {/* Top bar */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate("/projetos")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Projetos
+        </button>
+        {isCreator && (
+          <Button variant="outline" size="sm" onClick={() => setShowDetails(true)}>
+            <Pencil className="size-3.5" />
+            Editar detalhes
+          </Button>
+        )}
+      </div>
 
-      {/* Cover */}
+      {/* Cover with interactive overlay */}
       <div
-        className="relative h-40 rounded-2xl overflow-hidden"
+        className="relative h-48 rounded-2xl overflow-hidden"
         style={project.cover_image_url ? {} : { backgroundColor: colour }}
+        onMouseEnter={() => { setCoverHover(true); setCoverTap(false) }}
+        onMouseLeave={() => { setCoverHover(false); setCoverTap(false); setAiHint(false) }}
+        onClick={() => setCoverTap((v) => !v)}
       >
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
@@ -395,7 +536,70 @@ export default function ProjectDetailPage() {
             <span className="text-white font-bold text-xl leading-tight drop-shadow">{project.title}</span>
           </div>
         )}
+
+        {/* Generating state */}
+        {project.cover_image_generating && (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 backdrop-blur-sm">
+            <Loader2 className="size-5 animate-spin text-white" />
+            <span className="text-sm text-white font-medium">A gerar imagem…</span>
+          </div>
+        )}
+
+        {/* Controls overlay */}
+        {isCreator && !project.cover_image_generating && (
+          <div
+            className={`absolute inset-0 flex items-center justify-center gap-3 bg-black/20 backdrop-blur-[2px] transition-opacity duration-200 ${overlayVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Upload pill */}
+            <button
+              className="group/btn inline-flex items-center h-9 px-2.5 rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-black/75 transition-all duration-200 disabled:opacity-40"
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending
+                ? <Loader2 className="size-4 animate-spin shrink-0" />
+                : <Upload className="size-4 shrink-0" />
+              }
+              <span className="max-w-0 group-hover/btn:max-w-[9rem] overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-200 group-hover/btn:ml-2">
+                Carregar imagem
+              </span>
+            </button>
+
+            {/* AI generate pill + hint */}
+            <div className="relative">
+              <button
+                className="group/btn inline-flex items-center h-9 px-2.5 rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-black/75 transition-all duration-200 disabled:opacity-40"
+                onClick={(e) => { e.stopPropagation(); handleCoverAI() }}
+                disabled={generateMutation.isPending}
+              >
+                {generateMutation.isPending
+                  ? <Loader2 className="size-4 animate-spin shrink-0" />
+                  : <Sparkles className="size-4 shrink-0" />
+                }
+                <span className="max-w-0 group-hover/btn:max-w-[7rem] overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-200 group-hover/btn:ml-2">
+                  Gerar com IA
+                </span>
+              </button>
+              {aiHint && (
+                <p className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs bg-black/80 text-white rounded-lg px-3 py-1.5 pointer-events-none z-10">
+                  Melhora a descrição para gerar uma imagem
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Title */}
+      <h1 className="text-2xl font-bold leading-tight">{project.title}</h1>
 
       {/* Progress */}
       <div>
@@ -411,47 +615,7 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Detalhes */}
-      {isCreator && (
-        <div className="glass-card p-5">
-          <h2 className="font-semibold mb-4">Detalhes</h2>
-          <form onSubmit={handleUpdate} className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Título</label>
-              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Descrição</label>
-              <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Breve descrição…" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Objetivo</label>
-              <Input value={editGoal} onChange={(e) => setEditGoal(e.target.value)} placeholder="Visitar todas as comarcas…" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Visibilidade</label>
-              <select
-                value={editVisibility}
-                onChange={(e) => setEditVisibility(e.target.value as Visibility)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {(Object.entries(VISIBILITY_LABELS) as [Visibility, string][]).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            {updateMutation.error && (
-              <p className="text-sm text-destructive">{(updateMutation.error as Error).message}</p>
-            )}
-            {updateMutation.isSuccess && <p className="text-sm text-green-600">Alterações guardadas.</p>}
-            <Button type="submit" disabled={updateMutation.isPending} className="w-full">
-              {updateMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
-            </Button>
-          </form>
-        </div>
-      )}
-
-      {/* Lugares objetivo */}
+      {/* Target places */}
       <div className="glass-card p-5">
         <h2 className="font-semibold mb-4">
           Lugares objetivo <span className="text-sm font-normal text-muted-foreground">({project.target_place_count})</span>
@@ -485,7 +649,6 @@ export default function ProjectDetailPage() {
 
         {isCreator && (
           <div className="space-y-3">
-            {/* Toggle between search and bulk import */}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -506,7 +669,9 @@ export default function ProjectDetailPage() {
             {!showBulkImport ? (
               <>
                 <PlaceSearchAdd onAdd={(r) => addPlaceMutation.mutate(r)} isPending={addPlaceMutation.isPending} />
-                {addPlaceError && <p className="text-sm text-destructive">{addPlaceError}</p>}
+                {addPlaceMutation.error && (
+                  <p className="text-sm text-destructive">{(addPlaceMutation.error as Error).message}</p>
+                )}
                 {addPlaceMutation.isPending && (
                   <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Loader2 className="size-3.5 animate-spin" /> A adicionar lugar…
@@ -526,94 +691,20 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Colaboradores */}
-      <div className="glass-card p-5">
-        <h2 className="font-semibold mb-4">Colaboradores</h2>
-
-        {project.collaborators.length > 0 ? (
-          <ul className="mb-4 space-y-2">
-            {project.collaborators.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 text-sm">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
-                  {c.display_name[0]?.toUpperCase()}
-                </div>
-                <div>
-                  <span className="font-medium">{c.display_name}</span>
-                  <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
-                  {c.status !== "accepted" && (
-                    <span className={`ml-2 text-xs ${c.status === "declined" ? "text-destructive" : "text-amber-500"}`}>
-                      · {STATUS_LABELS[c.status]}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mb-4 text-sm text-muted-foreground">Ainda sem colaboradores.</p>
-        )}
-
-        {isCreator && (
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <Input
-              value={inviteUsername}
-              onChange={(e) => setInviteUsername(e.target.value)}
-              placeholder="Nome de utilizador…"
-              className="flex-1"
-            />
-            <Button type="submit" variant="outline" disabled={inviteMutation.isPending || !inviteUsername.trim()}>
-              {inviteMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-              Convidar
-            </Button>
-          </form>
-        )}
-        {inviteMutation.error && (
-          <p className="mt-2 text-sm text-destructive">{(inviteMutation.error as Error).message}</p>
-        )}
-        {inviteMutation.isSuccess && (
-          <p className="mt-2 text-sm text-green-600">Convite enviado.</p>
-        )}
-      </div>
-
-      {/* Imagem de capa */}
+      {/* Details slide-over */}
       {isCreator && (
-        <div className="glass-card p-5">
-          <h2 className="font-semibold mb-4">Imagem de capa</h2>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
-              {uploadMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              Carregar imagem
-            </Button>
-            <div className="flex-1">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => generateMutation.mutate()}
-                disabled={!canGenerate || generateMutation.isPending}
-              >
-                {generateMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                Gerar com IA
-              </Button>
-              {!canGenerate && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  A descrição precisa de pelo menos 8 palavras ({savedDescWords}/8)
-                </p>
-              )}
-            </div>
-          </div>
-          {(uploadError || generateMutation.error) && (
-            <p className="mt-3 text-sm text-destructive">
-              {uploadError ?? (generateMutation.error as Error)?.message}
-            </p>
-          )}
-        </div>
+        <ProjectDetailsPanel
+          open={showDetails}
+          onClose={() => setShowDetails(false)}
+          project={project}
+          onSave={(data) => updateMutation.mutate(data)}
+          isSaving={updateMutation.isPending}
+          saveError={updateMutation.error ? (updateMutation.error as Error).message : null}
+          onInvite={(username) => inviteMutation.mutate(username)}
+          isInviting={inviteMutation.isPending}
+          inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
+          inviteSuccess={inviteMutation.isSuccess}
+        />
       )}
     </div>
   )

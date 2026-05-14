@@ -3,13 +3,13 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Search, X, UserPlus, Link2,
-  ExternalLink, Clock,
+  ExternalLink, Clock, Pencil,
 } from "lucide-react"
 import { tripsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth"
-import type { PlaceSearchResult, Visibility } from "@/types"
+import type { PlaceSearchResult, Trip, Visibility } from "@/types"
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -84,6 +84,174 @@ function PlaceSearchAdd({
   )
 }
 
+function TripDetailsPanel({
+  open,
+  onClose,
+  trip,
+  onSave,
+  isSaving,
+  saveError,
+  onInvite,
+  isInviting,
+  inviteError,
+  inviteSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  trip: Trip
+  onSave: (data: object) => void
+  isSaving: boolean
+  saveError: string | null
+  onInvite: (username: string) => void
+  isInviting: boolean
+  inviteError: string | null
+  inviteSuccess: boolean
+}) {
+  const [title, setTitle] = useState(trip.title)
+  const [description, setDescription] = useState(trip.description ?? "")
+  const [startDate, setStartDate] = useState(trip.start_date ?? "")
+  const [endDate, setEndDate] = useState(trip.end_date ?? "")
+  const [visibility, setVisibility] = useState<Visibility>(trip.visibility)
+  const [inviteUsername, setInviteUsername] = useState("")
+
+  // Re-initialise from latest trip data each time the panel opens
+  useEffect(() => {
+    if (open) {
+      setTitle(trip.title)
+      setDescription(trip.description ?? "")
+      setStartDate(trip.start_date ?? "")
+      setEndDate(trip.end_date ?? "")
+      setVisibility(trip.visibility)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onSave({
+      title,
+      description: description || null,
+      start_date: startDate || null,
+      end_date: endDate || null,
+      visibility,
+    })
+  }
+
+  function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (inviteUsername.trim()) {
+      onInvite(inviteUsername.trim())
+      setInviteUsername("")
+    }
+  }
+
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`fixed right-0 top-0 h-full w-full max-w-md z-50 flex flex-col bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 shrink-0">
+          <h2 className="font-semibold">Editar detalhes</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <form id="trip-details-form" onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Título</label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Descrição</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Breve descrição…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Data de início</label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Data de fim</label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Visibilidade</label>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as Visibility)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {(Object.entries(VISIBILITY_LABELS) as [Visibility, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </form>
+
+          <div className="pt-4 border-t border-border/50 space-y-3">
+            <h3 className="text-sm font-medium">Acompanhantes</h3>
+            {trip.companions.length > 0 ? (
+              <ul className="space-y-2">
+                {trip.companions.map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 text-sm">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
+                      {c.display_name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="font-medium">{c.display_name}</span>
+                      <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
+                      {c.status !== "accepted" && (
+                        <span className={`ml-2 text-xs ${c.status === "declined" ? "text-destructive" : "text-amber-500"}`}>
+                          · {STATUS_LABELS[c.status]}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ainda sem acompanhantes.</p>
+            )}
+            <form onSubmit={handleInvite} className="flex gap-2 pt-1">
+              <Input
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+                placeholder="Nome de utilizador…"
+                className="flex-1"
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={isInviting || !inviteUsername.trim()}>
+                {isInviting ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+              </Button>
+            </form>
+            {inviteSuccess && <p className="text-xs text-green-600">Convite enviado.</p>}
+            {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
+          </div>
+        </div>
+
+        <div className="shrink-0 p-5 border-t border-border/50">
+          {saveError && <p className="mb-3 text-sm text-destructive">{saveError}</p>}
+          <Button type="submit" form="trip-details-form" disabled={isSaving} className="w-full">
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
+          </Button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>()
   const tripId = Number(id)
@@ -92,55 +260,37 @@ export default function TripDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { user } = useAuthStore()
 
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [addPlaceError, setAddPlaceError] = useState<string | null>(null)
-  const [inviteUsername, setInviteUsername] = useState("")
+  const [showDetails, setShowDetails] = useState(false)
+  const [coverHover, setCoverHover] = useState(false)
+  const [coverTap, setCoverTap] = useState(false)
+  const [aiHint, setAiHint] = useState(false)
   const [mediaUrl, setMediaUrl] = useState("")
-
-  const [editTitle, setEditTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
-  const [editStartDate, setEditStartDate] = useState("")
-  const [editEndDate, setEditEndDate] = useState("")
-  const [editVisibility, setEditVisibility] = useState<Visibility>("private")
-  const [formReady, setFormReady] = useState(false)
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ["trip", tripId],
     queryFn: () => tripsApi.get(tripId),
     enabled: !!tripId,
+    staleTime: 10_000,
+    refetchInterval: trip?.cover_image_generating ? 3000 : false,
   })
 
-  useEffect(() => {
-    if (trip && !formReady) {
-      setEditTitle(trip.title)
-      setEditDescription(trip.description ?? "")
-      setEditStartDate(trip.start_date ?? "")
-      setEditEndDate(trip.end_date ?? "")
-      setEditVisibility(trip.visibility)
-      setFormReady(true)
-    }
-  }, [trip, formReady])
-
   const isCreator = trip?.creator_id === user?.id
+  const overlayVisible = coverHover || coverTap
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => tripsApi.uploadCover(tripId, file),
     onSuccess: (updated) => {
-      queryClient.setQueryData(["trip", tripId], (old: typeof trip) =>
-        old ? { ...old, cover_image_url: updated.cover_image_url } : old,
+      queryClient.setQueryData(["trip", tripId], (old: Trip | undefined) =>
+        old ? { ...old, cover_image_url: updated.cover_image_url, cover_image_generating: false } : old,
       )
       queryClient.invalidateQueries({ queryKey: ["trips"] })
-      setUploadError(null)
     },
-    onError: (err: Error) => setUploadError(err.message),
   })
 
   const generateMutation = useMutation({
     mutationFn: () => tripsApi.generateCover(tripId),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(["trip", tripId], (old: typeof trip) =>
-        old ? { ...old, cover_image_url: updated.cover_image_url } : old,
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
       queryClient.invalidateQueries({ queryKey: ["trips"] })
     },
   })
@@ -150,12 +300,16 @@ export default function TripDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
       queryClient.invalidateQueries({ queryKey: ["trips"] })
+      setShowDetails(false)
     },
   })
 
   const removePlaceMutation = useMutation({
     mutationFn: (placeId: number) => tripsApi.removePlace(tripId, placeId),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["trip", tripId] }); queryClient.invalidateQueries({ queryKey: ["trips"] }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
+      queryClient.invalidateQueries({ queryKey: ["trips"] })
+    },
   })
 
   const addPlaceMutation = useMutation({
@@ -167,17 +321,12 @@ export default function TripDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
       queryClient.invalidateQueries({ queryKey: ["trips"] })
       queryClient.invalidateQueries({ queryKey: ["my-places"] })
-      setAddPlaceError(null)
     },
-    onError: (err: Error) => setAddPlaceError(err.message),
   })
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => tripsApi.inviteCompanion(tripId, username),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
-      setInviteUsername("")
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
   const addMediaMutation = useMutation({
@@ -201,8 +350,7 @@ export default function TripDetailPage() {
   }
 
   const colour = trip.cover_colour ?? "#7C3AED"
-  const savedDescWords = wordCount(trip.description ?? "")
-  const canGenerate = savedDescWords >= 8
+  const descWords = wordCount(trip.description ?? "")
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -210,20 +358,14 @@ export default function TripDetailPage() {
     e.target.value = ""
   }
 
-  function handleUpdate(e: React.FormEvent) {
-    e.preventDefault()
-    updateMutation.mutate({
-      title: editTitle,
-      description: editDescription || null,
-      start_date: editStartDate || null,
-      end_date: editEndDate || null,
-      visibility: editVisibility,
-    })
-  }
-
-  function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (inviteUsername.trim()) inviteMutation.mutate(inviteUsername.trim())
+  function handleCoverAI() {
+    if (descWords < 5) {
+      setAiHint(true)
+      setTimeout(() => setAiHint(false), 4000)
+      return
+    }
+    setAiHint(false)
+    generateMutation.mutate()
   }
 
   function handleAddMedia(e: React.FormEvent) {
@@ -233,18 +375,30 @@ export default function TripDetailPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <button
-        onClick={() => navigate("/viagens")}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Viagens
-      </button>
+      {/* Top bar */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate("/viagens")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Viagens
+        </button>
+        {isCreator && (
+          <Button variant="outline" size="sm" onClick={() => setShowDetails(true)}>
+            <Pencil className="size-3.5" />
+            Editar detalhes
+          </Button>
+        )}
+      </div>
 
-      {/* Cover */}
+      {/* Cover with interactive overlay */}
       <div
         className="relative h-52 rounded-2xl overflow-hidden"
         style={trip.cover_image_url ? {} : { backgroundColor: colour }}
+        onMouseEnter={() => { setCoverHover(true); setCoverTap(false) }}
+        onMouseLeave={() => { setCoverHover(false); setCoverTap(false); setAiHint(false) }}
+        onClick={() => setCoverTap((v) => !v)}
       >
         {trip.cover_image_url ? (
           <img src={trip.cover_image_url} alt={trip.title} className="h-full w-full object-cover" />
@@ -253,55 +407,72 @@ export default function TripDetailPage() {
             <span className="text-white font-bold text-xl leading-tight drop-shadow">{trip.title}</span>
           </div>
         )}
+
+        {/* Generating state */}
+        {trip.cover_image_generating && (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 backdrop-blur-sm">
+            <Loader2 className="size-5 animate-spin text-white" />
+            <span className="text-sm text-white font-medium">A gerar imagem…</span>
+          </div>
+        )}
+
+        {/* Controls overlay — only for creator and when not generating */}
+        {isCreator && !trip.cover_image_generating && (
+          <div
+            className={`absolute inset-0 flex items-center justify-center gap-3 bg-black/20 backdrop-blur-[2px] transition-opacity duration-200 ${overlayVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Upload pill */}
+            <button
+              className="group/btn inline-flex items-center h-9 px-2.5 rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-black/75 transition-all duration-200 disabled:opacity-40"
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending
+                ? <Loader2 className="size-4 animate-spin shrink-0" />
+                : <Upload className="size-4 shrink-0" />
+              }
+              <span className="max-w-0 group-hover/btn:max-w-[9rem] overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-200 group-hover/btn:ml-2">
+                Carregar imagem
+              </span>
+            </button>
+
+            {/* AI generate pill + hint */}
+            <div className="relative">
+              <button
+                className="group/btn inline-flex items-center h-9 px-2.5 rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-black/75 transition-all duration-200 disabled:opacity-40"
+                onClick={(e) => { e.stopPropagation(); handleCoverAI() }}
+                disabled={generateMutation.isPending}
+              >
+                {generateMutation.isPending
+                  ? <Loader2 className="size-4 animate-spin shrink-0" />
+                  : <Sparkles className="size-4 shrink-0" />
+                }
+                <span className="max-w-0 group-hover/btn:max-w-[7rem] overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-200 group-hover/btn:ml-2">
+                  Gerar com IA
+                </span>
+              </button>
+              {aiHint && (
+                <p className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs bg-black/80 text-white rounded-lg px-3 py-1.5 pointer-events-none z-10">
+                  Melhora a descrição para gerar uma imagem
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Detalhes */}
-      {isCreator && (
-        <div className="glass-card p-5">
-          <h2 className="font-semibold mb-4">Detalhes</h2>
-          <form onSubmit={handleUpdate} className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Título</label>
-              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Descrição</label>
-              <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Breve descrição…" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Data de início</label>
-                <Input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Data de fim</label>
-                <Input type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Visibilidade</label>
-              <select
-                value={editVisibility}
-                onChange={(e) => setEditVisibility(e.target.value as Visibility)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {(Object.entries(VISIBILITY_LABELS) as [Visibility, string][]).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            {updateMutation.error && (
-              <p className="text-sm text-destructive">{(updateMutation.error as Error).message}</p>
-            )}
-            {updateMutation.isSuccess && <p className="text-sm text-green-600">Alterações guardadas.</p>}
-            <Button type="submit" disabled={updateMutation.isPending} className="w-full">
-              {updateMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : "Guardar alterações"}
-            </Button>
-          </form>
-        </div>
-      )}
+      {/* Title */}
+      <h1 className="text-2xl font-bold leading-tight">{trip.title}</h1>
 
-      {/* Lugares */}
+      {/* Places */}
       <div className="glass-card p-5">
         <h2 className="font-semibold mb-4">
           Lugares <span className="text-sm font-normal text-muted-foreground">({trip.place_count})</span>
@@ -336,7 +507,9 @@ export default function TripDetailPage() {
         {isCreator && (
           <>
             <PlaceSearchAdd onAdd={(r) => addPlaceMutation.mutate(r)} isPending={addPlaceMutation.isPending} />
-            {addPlaceError && <p className="mt-2 text-sm text-destructive">{addPlaceError}</p>}
+            {addPlaceMutation.error && (
+              <p className="mt-2 text-sm text-destructive">{(addPlaceMutation.error as Error).message}</p>
+            )}
             {addPlaceMutation.isPending && (
               <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" /> A adicionar lugar…
@@ -346,56 +519,7 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* Acompanhantes */}
-      <div className="glass-card p-5">
-        <h2 className="font-semibold mb-4">Acompanhantes</h2>
-
-        {trip.companions.length > 0 ? (
-          <ul className="mb-4 space-y-2">
-            {trip.companions.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 text-sm">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
-                  {c.display_name[0]?.toUpperCase()}
-                </div>
-                <div>
-                  <span className="font-medium">{c.display_name}</span>
-                  <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
-                  {c.status !== "accepted" && (
-                    <span className={`ml-2 text-xs ${c.status === "declined" ? "text-destructive" : "text-amber-500"}`}>
-                      · {STATUS_LABELS[c.status]}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mb-4 text-sm text-muted-foreground">Ainda sem acompanhantes.</p>
-        )}
-
-        {isCreator && (
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <Input
-              value={inviteUsername}
-              onChange={(e) => setInviteUsername(e.target.value)}
-              placeholder="Nome de utilizador…"
-              className="flex-1"
-            />
-            <Button type="submit" variant="outline" disabled={inviteMutation.isPending || !inviteUsername.trim()}>
-              {inviteMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-              Convidar
-            </Button>
-          </form>
-        )}
-        {inviteMutation.error && (
-          <p className="mt-2 text-sm text-destructive">{(inviteMutation.error as Error).message}</p>
-        )}
-        {inviteMutation.isSuccess && (
-          <p className="mt-2 text-sm text-green-600">Convite enviado.</p>
-        )}
-      </div>
-
-      {/* Ligações */}
+      {/* Media links */}
       <div className="glass-card p-5">
         <h2 className="font-semibold mb-4">Ligações</h2>
 
@@ -448,48 +572,7 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* Imagem de capa */}
-      {isCreator && (
-        <div className="glass-card p-5">
-          <h2 className="font-semibold mb-4">Imagem de capa</h2>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
-              {uploadMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              Carregar imagem
-            </Button>
-            <div className="flex-1">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => generateMutation.mutate()}
-                disabled={!canGenerate || generateMutation.isPending}
-              >
-                {generateMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                Gerar com IA
-              </Button>
-              {!canGenerate && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  A descrição precisa de pelo menos 8 palavras ({savedDescWords}/8)
-                </p>
-              )}
-            </div>
-          </div>
-          {(uploadError || generateMutation.error) && (
-            <p className="mt-3 text-sm text-destructive">
-              {uploadError ?? (generateMutation.error as Error)?.message}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Link de partilha */}
+      {/* Sharing link */}
       {trip.sharing_token && (
         <div className="glass-card p-4 flex items-center gap-3 text-sm">
           <Clock className="size-4 shrink-0 text-muted-foreground" />
@@ -509,6 +592,22 @@ export default function TripDetailPage() {
             Copiar
           </button>
         </div>
+      )}
+
+      {/* Details slide-over */}
+      {isCreator && (
+        <TripDetailsPanel
+          open={showDetails}
+          onClose={() => setShowDetails(false)}
+          trip={trip}
+          onSave={(data) => updateMutation.mutate(data)}
+          isSaving={updateMutation.isPending}
+          saveError={updateMutation.error ? (updateMutation.error as Error).message : null}
+          onInvite={(username) => inviteMutation.mutate(username)}
+          isInviting={inviteMutation.isPending}
+          inviteError={inviteMutation.error ? (inviteMutation.error as Error).message : null}
+          inviteSuccess={inviteMutation.isSuccess}
+        />
       )}
     </div>
   )
