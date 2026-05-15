@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -522,6 +522,10 @@ export default function ProjectDetailPage() {
     prevCoverUrlRef.current = currentUrl
   }, [project?.cover_image_generating, project?.cover_image_url])
 
+  useEffect(() => {
+    setCoverLoaded(false)
+  }, [project?.cover_image_url])
+
   const isCreator = project?.creator_id === user?.id
   const overlayVisible = coverHover || coverTap
 
@@ -622,14 +626,6 @@ export default function ProjectDetailPage() {
     if (file) uploadMutation.mutate(file)
     e.target.value = ""
   }
-
-  const handleCoverUrlChange = useCallback(() => {
-    setCoverLoaded(false)
-  }, [])
-
-  useEffect(() => {
-    handleCoverUrlChange()
-  }, [project?.cover_image_url, handleCoverUrlChange])
 
   function handleCoverAI() {
     if (descWords < 5) {
