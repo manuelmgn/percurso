@@ -22,6 +22,7 @@ class User(Base, TimestampMixin):
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     avatar_delete_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    visited_places_sharing_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
     biography: Mapped[str | None] = mapped_column(Text, nullable=True)
     website_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     role: Mapped[str] = mapped_column(

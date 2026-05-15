@@ -1,7 +1,7 @@
 import logging
 import time as _time
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt as jose_jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,6 +56,29 @@ async def get_current_user(
             detail="Utilizador não encontrado ou inactivo",
         )
     return user
+
+
+async def get_optional_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Returns the authenticated user or None — never raises 401."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
+        from app.services.user_service import get_user_by_id
+        user = await get_user_by_id(db, int(user_id_str))
+        return user if user and user.is_active else None
+    except Exception:
+        return None
 
 
 async def require_admin(current_user=Depends(get_current_user)):

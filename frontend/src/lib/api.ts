@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth"
-import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, Notification, VisitedPlace } from "@/types"
+import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
@@ -148,6 +148,10 @@ export const usersApi = {
     return request<User>("POST", "/api/v1/users/me/avatar", fd, true)
   },
   profile: (username: string) => request<UserProfile>("GET", `/api/v1/users/${username}`),
+  userPlaces: (username: string, token?: string) => {
+    const params = token ? `?token=${encodeURIComponent(token)}` : ""
+    return request<VisitedPlacePublic[]>("GET", `/api/v1/users/${username}/places${params}`)
+  },
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),
   deactivate: (id: number) => request<User>("POST", `/api/v1/users/${id}/deactivate`),

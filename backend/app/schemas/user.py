@@ -64,6 +64,7 @@ class UserResponse(BaseModel):
     default_trip_visibility: str
     default_project_visibility: str
     visited_places_visibility: str
+    visited_places_sharing_token: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -98,10 +99,20 @@ class ProjectPublicSummary(BaseModel):
     visited_place_count: int
 
 
+class VisitedPlacePublic(BaseModel):
+    id: int
+    name: str
+    name_pt: str | None
+    place_type: str
+    country_code: str | None
+    region_name: str | None
+
+
 class UserProfileResponse(UserPublicResponse):
     trips: list[TripPublicSummary] = []
     projects: list[ProjectPublicSummary] = []
     visited_place_count: int | None = None
+    visited_places: list[VisitedPlacePublic] = []
 
 
 class PasswordReset(BaseModel):

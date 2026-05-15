@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, Loader2, Globe, MapPin, Briefcase, FolderOpen } from "lucide-react"
 import { usersApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
+import { PLACE_TYPE_LABELS } from "@/lib/utils"
 import type { TripPublicSummary, ProjectPublicSummary } from "@/types"
 
 function CoverCard({ colour, imageUrl }: { colour: string | null; imageUrl: string | null }) {
@@ -174,7 +175,29 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {profile.trips.length === 0 && profile.projects.length === 0 && (
+      {/* Visited places (public only) */}
+      {profile.visited_places.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-semibold">Lugares visitados</h2>
+          <ul className="space-y-1.5">
+            {profile.visited_places.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+              >
+                <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="font-medium">{p.name_pt ?? p.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {PLACE_TYPE_LABELS[p.place_type] ?? p.place_type}
+                  {p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {profile.trips.length === 0 && profile.projects.length === 0 && profile.visited_places.length === 0 && (
         <p className="text-sm text-muted-foreground">Este utilizador ainda não tem conteúdo público.</p>
       )}
     </div>

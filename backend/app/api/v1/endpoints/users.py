@@ -5,13 +5,13 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import get_current_user, get_optional_current_user, require_admin
 from app.models.place import Place
 from app.models.project import Project, ProjectTargetPlace
 from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
 from app.schemas.place import VisitedPlaceResponse
-from app.schemas.user import UserCreate, UserProfileResponse, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest
+from app.schemas.user import UserCreate, UserProfileResponse, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest, VisitedPlacePublic
 from app.services.user_service import (
     create_user,
     deactivate_user,
@@ -109,7 +109,12 @@ async def update_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    return await update_user(db, current_user, data)
+    updated = await update_user(db, current_user, data)
+    if updated.visited_places_visibility == "link" and not updated.visited_places_sharing_token:
+        from app.core.security import generate_sharing_token
+        updated.visited_places_sharing_token = generate_sharing_token()
+        await db.flush()
+    return updated
 
 
 @router.post("/me/avatar", response_model=UserResponse)
@@ -149,6 +154,62 @@ async def change_my_password(
     await _change_password(db, current_user, data.new_password)
 
 
+async def _load_visited_places_public(db: AsyncSession, user_id: int) -> list[dict]:
+    """Load a user's distinct visited places without dates or trip details."""
+    from sqlalchemy import func
+    rows = (
+        await db.execute(
+            select(TripPlace.place_id)
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .where(Trip.creator_id == user_id)
+            .distinct()
+        )
+    ).all()
+    if not rows:
+        return []
+    place_ids = [r.place_id for r in rows]
+    place_result = await db.execute(
+        select(Place).where(Place.id.in_(place_ids)).order_by(Place.name)
+    )
+    places = place_result.scalars().all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "name_pt": p.name_pt,
+            "place_type": p.place_type,
+            "country_code": p.country_code,
+            "region_name": p.region_name,
+        }
+        for p in places
+    ]
+
+
+@router.get("/{username}/places", response_model=list[VisitedPlacePublic])
+async def get_user_visited_places(
+    username: str,
+    token: str | None = None,
+    requesting_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    user = await get_user_by_username(db, username)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado")
+
+    is_owner = requesting_user is not None and requesting_user.id == user.id
+    vis = user.visited_places_visibility
+
+    if not is_owner:
+        if vis == "public":
+            pass  # allowed
+        elif vis == "link" and token and token == user.visited_places_sharing_token:
+            pass  # allowed
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado")
+
+    return await _load_visited_places_public(db, user.id)
+
+
 @router.get("/{username}", response_model=UserProfileResponse)
 async def get_user_profile(
     username: str,
@@ -160,7 +221,6 @@ async def get_user_profile(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
 
     from sqlalchemy import func
-    from sqlalchemy.orm import selectinload
 
     # Public trips
     trips_result = await db.execute(
@@ -231,15 +291,12 @@ async def get_user_profile(
             "visited_place_count": visited_count,
         })
 
-    # Visited places count (if public)
-    visited_place_count = None
+    # Visited places (if public)
+    visited_places: list[dict] = []
+    visited_place_count: int | None = None
     if user.visited_places_visibility == "public":
-        vp_result = await db.execute(
-            select(func.count(TripPlace.place_id.distinct()))
-            .join(Trip, Trip.id == TripPlace.trip_id)
-            .where(Trip.creator_id == user.id)
-        )
-        visited_place_count = vp_result.scalar() or 0
+        visited_places = await _load_visited_places_public(db, user.id)
+        visited_place_count = len(visited_places)
 
     return {
         "id": user.id,
@@ -251,6 +308,7 @@ async def get_user_profile(
         "trips": trips_summary,
         "projects": projects_summary,
         "visited_place_count": visited_place_count,
+        "visited_places": visited_places,
     }
 
 

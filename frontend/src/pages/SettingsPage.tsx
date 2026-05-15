@@ -175,6 +175,25 @@ export default function SettingsPage() {
           <div>
             <label className="mb-2 block text-sm font-medium">Visibilidade da lista de lugares visitados</label>
             <VisibilitySelect value={placesVisibility} onChange={setPlacesVisibility} />
+            {placesVisibility === "link" && user?.visited_places_sharing_token && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+                <span className="text-muted-foreground truncate flex-1">
+                  {window.location.origin}/perfil/{user.username}/lugares?token={user.visited_places_sharing_token}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-primary hover:underline"
+                  onClick={() => navigator.clipboard.writeText(
+                    `${window.location.origin}/perfil/${user.username}/lugares?token=${user.visited_places_sharing_token}`
+                  )}
+                >
+                  Copiar
+                </button>
+              </div>
+            )}
+            {placesVisibility === "link" && !user?.visited_places_sharing_token && (
+              <p className="mt-1.5 text-xs text-muted-foreground">Guarda as alterações para gerar o link de partilha.</p>
+            )}
           </div>
         </div>
 

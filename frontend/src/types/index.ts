@@ -18,6 +18,16 @@ export interface User {
   default_trip_visibility: Visibility
   default_project_visibility: Visibility
   visited_places_visibility: Visibility
+  visited_places_sharing_token: string | null
+}
+
+export interface VisitedPlacePublic {
+  id: number
+  name: string
+  name_pt: string | null
+  place_type: PlaceType
+  country_code: string | null
+  region_name: string | null
 }
 
 export interface UserPublic {
@@ -52,6 +62,7 @@ export interface UserProfile extends UserPublic {
   trips: TripPublicSummary[]
   projects: ProjectPublicSummary[]
   visited_place_count: number | null
+  visited_places: VisitedPlacePublic[]
 }
 
 export interface PlaceSummary {
