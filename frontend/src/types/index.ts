@@ -29,6 +29,31 @@ export interface UserPublic {
   website_url: string | null
 }
 
+export interface TripPublicSummary {
+  id: number
+  title: string
+  start_date: string | null
+  end_date: string | null
+  cover_image_url: string | null
+  cover_colour: string | null
+  place_count: number
+}
+
+export interface ProjectPublicSummary {
+  id: number
+  title: string
+  cover_image_url: string | null
+  cover_colour: string | null
+  target_place_count: number
+  visited_place_count: number
+}
+
+export interface UserProfile extends UserPublic {
+  trips: TripPublicSummary[]
+  projects: ProjectPublicSummary[]
+  visited_place_count: number | null
+}
+
 export interface PlaceSummary {
   id: number
   name: string

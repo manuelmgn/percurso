@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user, require_admin
 from app.models.place import Place
+from app.models.project import Project, ProjectTargetPlace
 from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
 from app.schemas.place import VisitedPlaceResponse
-from app.schemas.user import UserCreate, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest
+from app.schemas.user import UserCreate, UserProfileResponse, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest
 from app.services.user_service import (
     create_user,
     deactivate_user,
@@ -124,7 +125,7 @@ async def change_my_password(
     await _change_password(db, current_user, data.new_password)
 
 
-@router.get("/{username}", response_model=UserPublicResponse)
+@router.get("/{username}", response_model=UserProfileResponse)
 async def get_user_profile(
     username: str,
     _current_user: User = Depends(get_current_user),
@@ -133,7 +134,100 @@ async def get_user_profile(
     user = await get_user_by_username(db, username)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
-    return user
+
+    from sqlalchemy import func
+    from sqlalchemy.orm import selectinload
+
+    # Public trips
+    trips_result = await db.execute(
+        select(Trip)
+        .where(Trip.creator_id == user.id, Trip.visibility == "public")
+        .order_by(Trip.start_date.desc().nullslast())
+    )
+    trips_rows = trips_result.scalars().all()
+
+    # Place counts for each trip
+    trip_place_counts: dict[int, int] = {}
+    if trips_rows:
+        counts_result = await db.execute(
+            select(TripPlace.trip_id, func.count(TripPlace.place_id).label("cnt"))
+            .where(TripPlace.trip_id.in_([t.id for t in trips_rows]))
+            .group_by(TripPlace.trip_id)
+        )
+        trip_place_counts = {row.trip_id: row.cnt for row in counts_result.all()}
+
+    trips_summary = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "start_date": t.start_date,
+            "end_date": t.end_date,
+            "cover_image_url": t.cover_image_url,
+            "cover_colour": t.cover_colour,
+            "place_count": trip_place_counts.get(t.id, 0),
+        }
+        for t in trips_rows
+    ]
+
+    # Public projects
+    projects_result = await db.execute(
+        select(Project)
+        .where(Project.creator_id == user.id, Project.visibility == "public")
+        .order_by(Project.id.desc())
+    )
+    projects_rows = projects_result.scalars().all()
+
+    projects_summary = []
+    for p in projects_rows:
+        target_count_result = await db.execute(
+            select(func.count(ProjectTargetPlace.place_id)).where(ProjectTargetPlace.project_id == p.id)
+        )
+        target_count = target_count_result.scalar() or 0
+
+        visited_count_result = await db.execute(
+            select(func.count()).select_from(
+                select(TripPlace.place_id).distinct()
+                .join(Trip, Trip.id == TripPlace.trip_id)
+                .join(ProjectTargetPlace, ProjectTargetPlace.place_id == TripPlace.place_id)
+                .where(
+                    ProjectTargetPlace.project_id == p.id,
+                    Trip.creator_id == user.id,
+                )
+                .subquery()
+            )
+        )
+        visited_count = visited_count_result.scalar() or 0
+
+        projects_summary.append({
+            "id": p.id,
+            "title": p.title,
+            "cover_image_url": p.cover_image_url,
+            "cover_colour": p.cover_colour,
+            "target_place_count": target_count,
+            "visited_place_count": visited_count,
+        })
+
+    # Visited places count (if public)
+    visited_place_count = None
+    if user.visited_places_visibility == "public":
+        vp_result = await db.execute(
+            select(func.count(TripPlace.place_id.distinct()))
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .where(Trip.creator_id == user.id)
+        )
+        visited_place_count = vp_result.scalar() or 0
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": user.display_name,
+        "avatar_url": user.avatar_url,
+        "biography": user.biography,
+        "website_url": user.website_url,
+        "trips": trips_summary,
+        "projects": projects_summary,
+        "visited_place_count": visited_place_count,
+    }
 
 
 # Admin-only endpoints

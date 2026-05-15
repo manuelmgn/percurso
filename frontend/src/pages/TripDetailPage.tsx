@@ -220,7 +220,7 @@ function TripDetailsPanel({
                     </div>
                     <div className="flex-1">
                       <span className="font-medium">{c.display_name}</span>
-                      <span className="ml-1.5 text-xs text-muted-foreground">@{c.username}</span>
+                      <Link to={`/perfil/${c.username}`} className="ml-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">@{c.username}</Link>
                       {c.status !== "accepted" && (
                         <span className={`ml-2 text-xs ${c.status === "declined" ? "text-destructive" : "text-amber-500"}`}>
                           · {STATUS_LABELS[c.status]}

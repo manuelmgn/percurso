@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import AnyHttpUrl, BaseModel, EmailStr, field_validator
 
 
@@ -75,6 +77,31 @@ class UserPublicResponse(BaseModel):
     website_url: str | None
 
     model_config = {"from_attributes": True}
+
+
+class TripPublicSummary(BaseModel):
+    id: int
+    title: str
+    start_date: date | None
+    end_date: date | None
+    cover_image_url: str | None
+    cover_colour: str | None
+    place_count: int
+
+
+class ProjectPublicSummary(BaseModel):
+    id: int
+    title: str
+    cover_image_url: str | None
+    cover_colour: str | None
+    target_place_count: int
+    visited_place_count: int
+
+
+class UserProfileResponse(UserPublicResponse):
+    trips: list[TripPublicSummary] = []
+    projects: list[ProjectPublicSummary] = []
+    visited_place_count: int | None = None
 
 
 class PasswordReset(BaseModel):

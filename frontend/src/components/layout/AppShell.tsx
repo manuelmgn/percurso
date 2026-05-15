@@ -120,12 +120,23 @@ export default function AppShell() {
 
           {/* User info + logout */}
           <div className="glass-card mt-2 flex items-center gap-3 p-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-semibold">
-              {user?.display_name[0]?.toUpperCase()}
-            </div>
+            <NavLink
+              to={`/perfil/${user?.username}`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-semibold overflow-hidden hover:ring-2 hover:ring-primary/40 transition-all"
+            >
+              {user?.avatar_url
+                ? <img src={user.avatar_url} alt={user.display_name} className="h-full w-full object-cover" />
+                : user?.display_name[0]?.toUpperCase()
+              }
+            </NavLink>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{user?.display_name}</p>
-              <p className="truncate text-xs text-muted-foreground">@{user?.username}</p>
+              <NavLink
+                to={`/perfil/${user?.username}`}
+                className="truncate text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                @{user?.username}
+              </NavLink>
             </div>
             <button
               onClick={handleLogout}
