@@ -6,6 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.workers.celery_app import celery_app
+from app.models.user import User  # noqa: F401
+from app.models.place import Place  # noqa: F401
+from app.models.trip import Trip
+from app.models.project import Project
+from app.models.notification import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -110,16 +115,10 @@ def _delete_from_imgbb(delete_url: str) -> None:
 
 
 def _write_failure(entity_id: int, entity_type: str, title: str) -> None:
-    from app.models.notification import Notification
     entity_word = "viagem" if entity_type == "trip" else "projeto"
     SessionLocal = _get_session_factory()
     with SessionLocal() as session:
-        if entity_type == "trip":
-            from app.models.trip import Trip
-            entity = session.get(Trip, entity_id)
-        else:
-            from app.models.project import Project
-            entity = session.get(Project, entity_id)
+        entity = session.get(Trip if entity_type == "trip" else Project, entity_id)
         if entity:
             entity.cover_image_generating = False
             session.add(Notification(
@@ -155,12 +154,7 @@ def _run_generation(entity_id: int, entity_type: str, title: str, description: s
 
     SessionLocal = _get_session_factory()
     with SessionLocal() as session:
-        if entity_type == "trip":
-            from app.models.trip import Trip
-            entity = session.get(Trip, entity_id)
-        else:
-            from app.models.project import Project
-            entity = session.get(Project, entity_id)
+        entity = session.get(Trip if entity_type == "trip" else Project, entity_id)
 
         if not entity:
             return
