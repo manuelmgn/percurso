@@ -17,8 +17,6 @@ celery_app = Celery(
     include=["app.workers.image_worker"],
 )
 
-logger.info("Celery app initialised. Broker: %s", _mask_url(settings.celery_broker_url))
-
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
@@ -33,6 +31,9 @@ celery_app.conf.update(
 
 def _mask_url(url: str) -> str:
     return re.sub(r"(:)[^@/]+(.*@)", r"\1***\2", url)
+
+
+logger.info("Celery app initialised. Broker: %s", _mask_url(settings.celery_broker_url))
 
 
 @worker_ready.connect
