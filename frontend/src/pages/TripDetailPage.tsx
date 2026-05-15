@@ -576,16 +576,12 @@ export default function TripDetailPage() {
           </div>
         )}
 
-        {/* Generating state — pulsing skeleton */}
+        {/* Generating state */}
         {trip.cover_image_generating && (
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="h-full w-full animate-pulse bg-gradient-to-br from-primary/30 via-primary/15 to-primary/5" />
-            <div className="absolute inset-0 flex items-end p-5 space-y-2">
-              <div className="w-full space-y-2">
-                <div className="h-4 w-2/3 rounded-md bg-white/25 animate-pulse" />
-                <div className="h-3 w-1/2 rounded-md bg-white/15 animate-pulse" />
-              </div>
-            </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+            <Loader2 className="size-8 animate-spin text-white mb-3" />
+            <p className="text-white font-medium text-sm">A gerar imagem...</p>
+            <p className="text-white/70 text-xs mt-1">Isto pode demorar alguns segundos</p>
           </div>
         )}
 

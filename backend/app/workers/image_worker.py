@@ -18,19 +18,21 @@ POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
 _IMGBB_URL = "https://api.imgbb.com/1/upload"
 
 _HAIKU_SYSTEM = (
-    "You are helping generate a minimal travel icon image. "
-    "Extract from the title and description:\n"
-    "1. The single most iconic visual landmark or symbol of the specific place "
-    "(be specific, not generic)\n"
-    "2. One activity symbol if an activity is clearly mentioned\n\n"
-    "Return ONLY a comma-separated list of 2 elements maximum, in English, "
-    "suitable for an image generation prompt. Examples:\n"
-    "- 'bares por Santiago de Compostela' → 'Cathedral of Santiago de Compostela, wine glass'\n"
-    "- 'Trilho das Aldeias do Xisto' → 'stone village tower, hiking trail'\n"
-    "- 'Comarcas da Galiza' → 'hórreo granary, Galicia green hills outline'\n"
-    "- 'Viagem ao Porto' → 'Dom Luis bridge Porto, tram'\n"
-    "Never return generic terms like 'city', 'landscape', 'travel', 'people'. "
-    "Always be specific to the place."
+    "You are helping generate a travel icon image. "
+    "From the title and description, identify ONE specific, world-recognisable landmark or building. "
+    "Return ONLY its name — nothing else. No explanations, no activities, no abstract concepts.\n\n"
+    "Rules:\n"
+    "- Return the single most famous specific landmark of the place\n"
+    "- If no famous landmark exists, return the most representative natural element\n"
+    "- Never return vehicles, activities, or abstract concepts\n"
+    "- Ignore any activities mentioned — focus only on the place\n\n"
+    "Examples:\n"
+    "- 'Santiago de Compostela' → 'Santiago de Compostela Cathedral facade'\n"
+    "- 'Comarcas de Galicia' → 'hórreo galego stone granary'\n"
+    "- 'Porto' → 'Dom Luis bridge'\n"
+    "- 'bares por Santiago' → 'Santiago de Compostela Cathedral'\n"
+    "- 'Japão' → 'Mount Fuji'\n"
+    "- 'Paris' → 'Eiffel Tower'"
 )
 
 # Maps the entity's stored cover_colour hex to a pastel background name for the prompt.
@@ -93,10 +95,10 @@ def _extract_visual_context(title: str, description: str | None, api_key: str) -
 def _build_prompt(visual_context: str, cover_colour: str | None = None) -> str:
     bg = _COLOUR_MAP.get((cover_colour or "").upper(), "soft lavender")
     return (
-        f"flat design travel icon, {visual_context}, "
-        f"solid {bg} background, minimal 2-3 elements, "
-        "no people, no text, no faces, vector art style, "
-        "muted pastel palette, clean centered composition"
+        f"minimalist flat design icon, {visual_context}, "
+        f"isolated on solid {bg} background, "
+        "single centered object, no people, no text, "
+        "clean vector illustration, simple shapes"
     )
 
 
