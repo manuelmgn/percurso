@@ -1,5 +1,6 @@
 import logging
 import random
+import traceback
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
@@ -414,27 +415,33 @@ async def generate_project_cover(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    project = await db.get(Project, project_id)
-    if not project or project.creator_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
-
-    from app.workers.celery_app import celery_app
-
-    project.cover_image_generating = True
-    await db.flush()
-
     try:
-        celery_app.send_task(
-            "generate_cover_image",
-            args=[project_id, "project", project.title, project.description],
-        )
-    except Exception as exc:
-        logger.error("Failed to dispatch cover generation task for project %d: %s", project_id, exc)
-        project.cover_image_generating = False
+        project = await db.get(Project, project_id)
+        if not project or project.creator_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+        from app.workers.celery_app import celery_app
+
+        project.cover_image_generating = True
         await db.flush()
 
-    project = await _load_project(db, project_id)
-    return _project_to_response(project)
+        try:
+            celery_app.send_task(
+                "generate_cover_image",
+                args=[project_id, "project", project.title, project.description],
+            )
+        except Exception as exc:
+            logger.error("Failed to dispatch cover generation task for project %d: %s", project_id, exc)
+            project.cover_image_generating = False
+            await db.flush()
+
+        project = await _load_project(db, project_id)
+        return _project_to_response(project)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("generate_project_cover error: %s", traceback.format_exc())
+        raise
 
 
 @router.post("/{project_id}/places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)

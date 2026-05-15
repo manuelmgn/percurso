@@ -1,5 +1,6 @@
 import logging
 import random
+import traceback
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
@@ -332,27 +333,33 @@ async def generate_trip_cover(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    trip = await db.get(Trip, trip_id)
-    if not trip or trip.creator_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Viagem não encontrada")
-
-    from app.workers.celery_app import celery_app
-
-    trip.cover_image_generating = True
-    await db.flush()
-
     try:
-        celery_app.send_task(
-            "generate_cover_image",
-            args=[trip_id, "trip", trip.title, trip.description],
-        )
-    except Exception as exc:
-        logger.error("Failed to dispatch cover generation task for trip %d: %s", trip_id, exc)
-        trip.cover_image_generating = False
+        trip = await db.get(Trip, trip_id)
+        if not trip or trip.creator_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+        from app.workers.celery_app import celery_app
+
+        trip.cover_image_generating = True
         await db.flush()
 
-    trip = await _load_trip(db, trip_id)
-    return _trip_to_response(trip)
+        try:
+            celery_app.send_task(
+                "generate_cover_image",
+                args=[trip_id, "trip", trip.title, trip.description],
+            )
+        except Exception as exc:
+            logger.error("Failed to dispatch cover generation task for trip %d: %s", trip_id, exc)
+            trip.cover_image_generating = False
+            await db.flush()
+
+        trip = await _load_trip(db, trip_id)
+        return _trip_to_response(trip)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("generate_trip_cover error: %s", traceback.format_exc())
+        raise
 
 
 @router.post("/{trip_id}/places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
