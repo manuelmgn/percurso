@@ -299,7 +299,7 @@ export default function TripDetailPage() {
     queryFn: () => tripsApi.get(tripId),
     enabled: !!tripId,
     staleTime: 10_000,
-    refetchInterval: trip?.cover_image_generating ? 3000 : false,
+    refetchInterval: (query) => query.state.data?.cover_image_generating ? 3000 : false,
   })
 
   const isCreator = trip?.creator_id === user?.id

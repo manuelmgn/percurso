@@ -67,8 +67,9 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
 
   // ── Effect 2: update point markers ──────────────────────────────────────────
   useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
+    const _map = mapRef.current
+    if (!_map) return
+    const map: maplibregl.Map = _map
 
     function updateMarkers() {
       markersRef.current.forEach((m) => m.remove())
@@ -110,8 +111,9 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
+    const _map = mapRef.current
+    if (!_map) return
+    const map: maplibregl.Map = _map
 
     function updateHeatmap() {
       if (map.getLayer("heatmap-layer")) map.removeLayer("heatmap-layer")
@@ -154,8 +156,9 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
 
   // ── Effect 4: route line layer ───────────────────────────────────────────────
   useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
+    const _map = mapRef.current
+    if (!_map) return
+    const map: maplibregl.Map = _map
 
     function updateRoute() {
       if (map.getLayer("route-layer")) map.removeLayer("route-layer")

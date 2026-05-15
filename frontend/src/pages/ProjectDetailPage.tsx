@@ -439,7 +439,7 @@ export default function ProjectDetailPage() {
     queryFn: () => projectsApi.get(projectId),
     enabled: !!projectId,
     staleTime: 10_000,
-    refetchInterval: project?.cover_image_generating ? 3000 : false,
+    refetchInterval: (query) => query.state.data?.cover_image_generating ? 3000 : false,
   })
 
   const isCreator = project?.creator_id === user?.id
