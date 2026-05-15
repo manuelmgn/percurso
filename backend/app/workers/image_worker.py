@@ -17,6 +17,38 @@ logger = logging.getLogger(__name__)
 POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
 _IMGBB_URL = "https://api.imgbb.com/1/upload"
 
+_HAIKU_SYSTEM = (
+    "You are helping generate a minimal travel icon image. "
+    "Extract from the title and description:\n"
+    "1. The single most iconic visual landmark or symbol of the specific place "
+    "(be specific, not generic)\n"
+    "2. One activity symbol if an activity is clearly mentioned\n\n"
+    "Return ONLY a comma-separated list of 2 elements maximum, in English, "
+    "suitable for an image generation prompt. Examples:\n"
+    "- 'bares por Santiago de Compostela' → 'Cathedral of Santiago de Compostela, wine glass'\n"
+    "- 'Trilho das Aldeias do Xisto' → 'stone village tower, hiking trail'\n"
+    "- 'Comarcas da Galiza' → 'hórreo granary, Galicia green hills outline'\n"
+    "- 'Viagem ao Porto' → 'Dom Luis bridge Porto, tram'\n"
+    "Never return generic terms like 'city', 'landscape', 'travel', 'people'. "
+    "Always be specific to the place."
+)
+
+# Maps the entity's stored cover_colour hex to a pastel background name for the prompt.
+_COLOUR_MAP: dict[str, str] = {
+    "#7C3AED": "soft lavender",
+    "#6D28D9": "soft lavender",
+    "#7E22CE": "soft lavender",
+    "#4F46E5": "pale sky blue",
+    "#0369A1": "pale sky blue",
+    "#0891B2": "soft teal",
+    "#0D9488": "mint green",
+    "#059669": "soft sage green",
+    "#65A30D": "soft sage green",
+    "#B45309": "warm peach",
+    "#C2410C": "light coral",
+    "#BE185D": "soft rose",
+}
+
 # Module-level engine and session factory, created once on first use.
 _engine = None
 _SessionLocal = None
@@ -45,17 +77,9 @@ def _extract_visual_context(title: str, description: str | None, api_key: str) -
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=80,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "Extract key visual elements from this travel title and description for a cover image prompt. "
-                    "Reply with ONLY a short phrase (max 10 words) describing: location, season or time of year, "
-                    "mode of transport if mentioned, and overall mood. "
-                    "Example: 'Lisbon Portugal, sunny summer, tram, vibrant'.\n\n"
-                    + text
-                ),
-            }],
+            max_tokens=60,
+            system=_HAIKU_SYSTEM,
+            messages=[{"role": "user", "content": text}],
         )
         result = message.content[0].text.strip()
         if result:
@@ -66,11 +90,13 @@ def _extract_visual_context(title: str, description: str | None, api_key: str) -
     return title
 
 
-def _build_prompt(visual_context: str) -> str:
+def _build_prompt(visual_context: str, cover_colour: str | None = None) -> str:
+    bg = _COLOUR_MAP.get((cover_colour or "").upper(), "soft lavender")
     return (
-        f"travel cover image, {visual_context}, "
-        "simple flat illustration, clean composition, muted pastel colours, "
-        "no text, no people's faces, 16:9 aspect ratio, thumbnail style"
+        f"flat design travel icon, {visual_context}, "
+        f"solid {bg} background, minimal 2-3 elements, "
+        "no people, no text, no faces, vector art style, "
+        "muted pastel palette, clean centered composition"
     )
 
 
@@ -135,8 +161,14 @@ def _run_generation(entity_id: int, entity_type: str, title: str, description: s
     from app.core.config import get_settings
     settings = get_settings()
 
+    # Read cover_colour before generation so the prompt background matches the entity's palette.
+    SessionLocal = _get_session_factory()
+    with SessionLocal() as session:
+        _entity = session.get(Trip if entity_type == "trip" else Project, entity_id)
+        cover_colour = _entity.cover_colour if _entity else None
+
     visual_context = _extract_visual_context(title, description, settings.anthropic_api_key)
-    prompt = _build_prompt(visual_context)
+    prompt = _build_prompt(visual_context, cover_colour)
     logger.info("Cover prompt for %s %d: %s", entity_type, entity_id, prompt)
 
     image_bytes = _fetch_pollinations_image(prompt)
