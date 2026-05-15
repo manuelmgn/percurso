@@ -1,17 +1,33 @@
-import asyncio
+import base64
 import logging
 
 import httpx
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
 POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
+_IMGBB_URL = "https://api.imgbb.com/1/upload"
+
+# Module-level engine and session factory, created once on first use.
+_engine = None
+_SessionLocal = None
 
 
-async def _extract_visual_context(title: str, description: str | None, api_key: str) -> str:
-    """Use Claude Haiku to extract a short visual-context phrase from title+description."""
+def _get_session_factory():
+    global _engine, _SessionLocal
+    if _SessionLocal is None:
+        from app.core.config import get_settings
+        settings = get_settings()
+        _engine = create_engine(settings.database_sync_url, pool_pre_ping=True)
+        _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
+    return _SessionLocal
+
+
+def _extract_visual_context(title: str, description: str | None, api_key: str) -> str:
     if not api_key:
         return title
 
@@ -21,8 +37,8 @@ async def _extract_visual_context(title: str, description: str | None, api_key: 
 
     try:
         import anthropic
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        message = await client.messages.create(
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=80,
             messages=[{
@@ -53,12 +69,12 @@ def _build_prompt(visual_context: str) -> str:
     )
 
 
-async def _fetch_pollinations_image(prompt: str) -> bytes | None:
+def _fetch_pollinations_image(prompt: str) -> bytes | None:
     encoded = prompt.replace(" ", "%20").replace(",", "%2C")
     url = POLLINATIONS_URL.format(prompt=encoded)
     try:
-        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as client:
-            resp = await client.get(url)
+        with httpx.Client(timeout=90.0, follow_redirects=True) as client:
+            resp = client.get(url)
             if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
                 return resp.content
             logger.warning("Pollinations returned status %d for prompt: %s", resp.status_code, prompt)
@@ -67,98 +83,96 @@ async def _fetch_pollinations_image(prompt: str) -> bytes | None:
     return None
 
 
-async def _write_failure(entity_id: int, entity_type: str, session_factory, title: str) -> None:
+def _upload_to_imgbb(image_bytes: bytes, api_key: str) -> tuple[str, str]:
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                _IMGBB_URL,
+                data={"key": api_key, "image": encoded, "name": "ai_cover"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        logger.error("ImgBB request failed: %s", exc)
+        raise RuntimeError("Não foi possível guardar a imagem.") from exc
+    if not data.get("success"):
+        raise RuntimeError("Não foi possível guardar a imagem.")
+    return data["data"]["url"], data["data"]["delete_url"]
+
+
+def _delete_from_imgbb(delete_url: str) -> None:
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            client.get(delete_url)
+    except Exception as exc:
+        logger.warning("ImgBB delete failed: %s", exc)
+
+
+def _write_failure(entity_id: int, entity_type: str, title: str) -> None:
     from app.models.notification import Notification
     entity_word = "viagem" if entity_type == "trip" else "projeto"
-    async with session_factory() as db:
+    SessionLocal = _get_session_factory()
+    with SessionLocal() as session:
         if entity_type == "trip":
             from app.models.trip import Trip
-            entity = await db.get(Trip, entity_id)
+            entity = session.get(Trip, entity_id)
         else:
             from app.models.project import Project
-            entity = await db.get(Project, entity_id)
-
+            entity = session.get(Project, entity_id)
         if entity:
             entity.cover_image_generating = False
-            db.add(Notification(
+            session.add(Notification(
                 recipient_id=entity.creator_id,
                 notification_type="cover_generation_failed",
                 entity_type=entity_type,
                 entity_id=entity_id,
                 message=f"Não foi possível gerar a capa para {entity_word} «{title}»",
             ))
-            await db.commit()
+            session.commit()
 
 
-async def _run_generation(entity_id: int, entity_type: str, title: str, description: str | None) -> None:
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+def _run_generation(entity_id: int, entity_type: str, title: str, description: str | None) -> None:
     from app.core.config import get_settings
-    from app.services.storage_service import upload_to_imgbb, delete_from_imgbb
-
     settings = get_settings()
-    engine = create_async_engine(settings.database_url)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    visual_context = _extract_visual_context(title, description, settings.anthropic_api_key)
+    prompt = _build_prompt(visual_context)
+    logger.info("Cover prompt for %s %d: %s", entity_type, entity_id, prompt)
+
+    image_bytes = _fetch_pollinations_image(prompt)
+
+    if not image_bytes:
+        _write_failure(entity_id, entity_type, title)
+        return
 
     try:
-        visual_context = await _extract_visual_context(title, description, settings.anthropic_api_key)
-        prompt = _build_prompt(visual_context)
-        logger.info("Cover prompt for %s %d: %s", entity_type, entity_id, prompt)
+        url, delete_url = _upload_to_imgbb(image_bytes, settings.imgbb_api_key)
+    except RuntimeError as exc:
+        logger.error("ImgBB upload failed: %s", exc)
+        _write_failure(entity_id, entity_type, title)
+        return
 
-        image_bytes = await _fetch_pollinations_image(prompt)
+    SessionLocal = _get_session_factory()
+    with SessionLocal() as session:
+        if entity_type == "trip":
+            from app.models.trip import Trip
+            entity = session.get(Trip, entity_id)
+        else:
+            from app.models.project import Project
+            entity = session.get(Project, entity_id)
 
-        async with session_factory() as db:
-            if entity_type == "trip":
-                from app.models.trip import Trip
-                entity = await db.get(Trip, entity_id)
-            else:
-                from app.models.project import Project
-                entity = await db.get(Project, entity_id)
+        if not entity:
+            return
 
-            if not entity:
-                return
+        old_delete_url = entity.cover_image_delete_url
+        entity.cover_image_url = url
+        entity.cover_image_delete_url = delete_url
+        entity.cover_image_generating = False
+        session.commit()
 
-            if not image_bytes:
-                entity.cover_image_generating = False
-                from app.models.notification import Notification
-                entity_word = "viagem" if entity_type == "trip" else "projeto"
-                db.add(Notification(
-                    recipient_id=entity.creator_id,
-                    notification_type="cover_generation_failed",
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    message=f"Não foi possível gerar a capa para {entity_word} «{entity.title}»",
-                ))
-                await db.commit()
-                return
-
-            try:
-                url, delete_url = await upload_to_imgbb(image_bytes, "ai_cover")
-            except RuntimeError as exc:
-                logger.error("ImgBB upload failed: %s", exc)
-                entity.cover_image_generating = False
-                from app.models.notification import Notification
-                entity_word = "viagem" if entity_type == "trip" else "projeto"
-                db.add(Notification(
-                    recipient_id=entity.creator_id,
-                    notification_type="cover_generation_failed",
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    message=f"Não foi possível gerar a capa para {entity_word} «{entity.title}»",
-                ))
-                await db.commit()
-                return
-
-            old_delete_url = entity.cover_image_delete_url
-            entity.cover_image_url = url
-            entity.cover_image_delete_url = delete_url
-            entity.cover_image_generating = False
-            await db.commit()
-
-        if old_delete_url:
-            await delete_from_imgbb(old_delete_url)
-
-    finally:
-        await engine.dispose()
+    if old_delete_url:
+        _delete_from_imgbb(old_delete_url)
 
 
 @celery_app.task(name="generate_cover_image", bind=True, max_retries=2)
@@ -171,7 +185,7 @@ def generate_cover_image_task(
 ) -> None:
     logger.info(f"TASK STARTED: {entity_type} {entity_id}")
     try:
-        asyncio.run(_run_generation(entity_id, entity_type, title, description))
+        _run_generation(entity_id, entity_type, title, description)
     except Exception as exc:
         logger.exception(
             "Cover generation attempt %d/%d failed for %s %d",
@@ -179,39 +193,7 @@ def generate_cover_image_task(
         )
         if self.request.retries < self.max_retries:
             raise self.retry(exc=exc, countdown=30)
-
-        # All retries exhausted — mark failure in DB.
-        async def _mark_failed() -> None:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-            from app.core.config import get_settings
-            from app.models.notification import Notification
-
-            settings = get_settings()
-            engine = create_async_engine(settings.database_url)
-            session_factory = async_sessionmaker(engine, expire_on_commit=False)
-            entity_word = "viagem" if entity_type == "trip" else "projeto"
-            try:
-                async with session_factory() as db:
-                    if entity_type == "trip":
-                        from app.models.trip import Trip
-                        entity = await db.get(Trip, entity_id)
-                    else:
-                        from app.models.project import Project
-                        entity = await db.get(Project, entity_id)
-                    if entity:
-                        entity.cover_image_generating = False
-                        db.add(Notification(
-                            recipient_id=entity.creator_id,
-                            notification_type="cover_generation_failed",
-                            entity_type=entity_type,
-                            entity_id=entity_id,
-                            message=f"Não foi possível gerar a capa para {entity_word} «{entity.title}»",
-                        ))
-                        await db.commit()
-            finally:
-                await engine.dispose()
-
         try:
-            asyncio.run(_mark_failed())
+            _write_failure(entity_id, entity_type, title)
         except Exception:
             logger.exception("Failed to record cover generation failure for %s %d", entity_type, entity_id)
