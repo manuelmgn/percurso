@@ -1,3 +1,6 @@
+import asyncio
+import re
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,4 +58,49 @@ async def health_check(
     return {
         "database": "ok" if db_ok else "error",
         "redis": "ok" if redis_ok else "error",
+    }
+
+
+@router.get("/debug/celery-status")
+async def celery_debug_status(_admin=Depends(require_admin)):
+    from app.workers.celery_app import celery_app
+    from app.core.config import get_settings
+
+    settings = get_settings()
+
+    # Ping Redis
+    redis_ok = False
+    redis_error = None
+    try:
+        redis = await get_redis()
+        await redis.ping()
+        redis_ok = True
+    except Exception as exc:
+        redis_error = str(exc)
+
+    # Registered tasks from the local task registry (no broker connection needed)
+    registered_tasks = sorted(celery_app.tasks.keys())
+
+    # Inspect active workers via broker (run in thread so it doesn't block the event loop)
+    worker_ping: dict | None = None
+    worker_error: str | None = None
+    try:
+        def _ping():
+            inspect = celery_app.control.inspect(timeout=3.0)
+            return inspect.ping()
+
+        worker_ping = await asyncio.to_thread(_ping)
+    except Exception as exc:
+        worker_error = str(exc)
+
+    worker_count = len(worker_ping) if worker_ping else 0
+    masked_broker = re.sub(r"(:)[^@/]+(.*@)", r"\1***\2", settings.celery_broker_url)
+
+    return {
+        "redis": "ok" if redis_ok else f"error: {redis_error}",
+        "broker_url": masked_broker,
+        "registered_tasks": registered_tasks,
+        "worker_count": worker_count,
+        "workers": worker_ping or {},
+        "worker_error": worker_error,
     }

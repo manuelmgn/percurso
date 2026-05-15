@@ -47,9 +47,9 @@ else
 fi
 
 if [ -n "${CELERY_BROKER_URL}" ]; then
-    echo "Starting Celery worker in background..."
-    celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 \
-        > /tmp/celery.log 2>&1 &
+    CELERY_CMD="celery -A app.workers.celery_app worker --loglevel=info --concurrency=2"
+    echo "Starting Celery worker: ${CELERY_CMD}"
+    ${CELERY_CMD} > /tmp/celery.log 2>&1 &
     echo "Celery worker started (PID $!). Logs: /tmp/celery.log"
 else
     echo "WARNING: CELERY_BROKER_URL not set — Celery worker not started. AI cover generation will not work."

@@ -121,6 +121,11 @@ if _static_dir.is_dir():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
+        # Never serve the SPA shell for API paths — return 404 so the client
+        # sees a clear error instead of HTML that looks like a 200.
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+
         if full_path:
             candidate = (_static_dir / full_path).resolve()
             try:
