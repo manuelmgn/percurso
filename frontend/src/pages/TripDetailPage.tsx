@@ -8,6 +8,7 @@ import {
 import { tripsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
 import type { PlaceSearchResult, Trip, Visibility } from "@/types"
 
@@ -222,9 +223,9 @@ function TripDetailsPanel({
 
           <div className="pt-4 border-t border-border/50 space-y-3">
             <h3 className="text-sm font-medium">Acompanhantes</h3>
-            {trip.companions.length > 0 ? (
+            {(trip.companions ?? []).length > 0 ? (
               <ul className="space-y-2">
-                {trip.companions.map((c) => (
+                {(trip.companions ?? []).map((c) => (
                   <li key={c.id} className="flex items-center gap-3 text-sm">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold">
                       {c.display_name[0]?.toUpperCase()}
@@ -517,6 +518,7 @@ export default function TripDetailPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       {/* Top bar */}
       <div className="flex items-center justify-between">
@@ -797,5 +799,6 @@ export default function TripDetailPage() {
         />
       )}
     </div>
+    </ErrorBoundary>
   )
 }

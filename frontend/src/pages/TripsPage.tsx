@@ -50,9 +50,9 @@ function TripCard({ trip, onClick }: { trip: Trip; onClick: () => void }) {
           </span>
         </div>
 
-        {trip.companions.length > 0 && (
+        {(trip.companions ?? []).length > 0 && (
           <div className="mt-3 flex -space-x-1.5">
-            {trip.companions.slice(0, 4).map((c) => (
+            {(trip.companions ?? []).slice(0, 4).map((c) => (
               <div
                 key={c.id}
                 className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-[10px] font-semibold ring-2 ring-background"
@@ -61,9 +61,9 @@ function TripCard({ trip, onClick }: { trip: Trip; onClick: () => void }) {
                 {c.display_name[0]}
               </div>
             ))}
-            {trip.companions.length > 4 && (
+            {(trip.companions ?? []).length > 4 && (
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px] ring-2 ring-background">
-                +{trip.companions.length - 4}
+                +{(trip.companions ?? []).length - 4}
               </div>
             )}
           </div>
