@@ -19,20 +19,27 @@ _IMGBB_URL = "https://api.imgbb.com/1/upload"
 
 _HAIKU_SYSTEM = (
     "You are helping generate a travel icon image. "
-    "From the title and description, identify ONE specific, world-recognisable landmark or building. "
-    "Return ONLY its name — nothing else. No explanations, no activities, no abstract concepts.\n\n"
-    "Rules:\n"
-    "- Return the single most famous specific landmark of the place\n"
-    "- If no famous landmark exists, return the most representative natural element\n"
-    "- Never return vehicles, activities, or abstract concepts\n"
-    "- Ignore any activities mentioned — focus only on the place\n\n"
+    "From the title and description extract exactly TWO things, separated by a comma:\n"
+    "1. The most iconic specific landmark of the place (be specific, never generic)\n"
+    "2. A simple visual symbol for the activity, chosen from this list:\n"
+    "   - bares / cerveja / vinho / bebidas → 'wine glass'\n"
+    "   - gastronomia / comida / restaurantes → 'fork and plate'\n"
+    "   - senderismo / trilho / caminhada → 'mountain with path'\n"
+    "   - ciclismo / bicicleta → 'bicycle'\n"
+    "   - praia / mar → 'wave'\n"
+    "   - museus / cultura / arte → 'classical column'\n"
+    "   - música → 'music note'\n"
+    "   - compras → 'shopping bag'\n"
+    "   - fotografia → 'camera'\n"
+    "   - natureza → 'leaf'\n"
+    "   - no clear activity → repeat the landmark name\n\n"
+    "Return ONLY: 'landmark, activity symbol' — nothing else.\n\n"
     "Examples:\n"
-    "- 'Santiago de Compostela' → 'Santiago de Compostela Cathedral facade'\n"
-    "- 'Comarcas de Galicia' → 'hórreo galego stone granary'\n"
-    "- 'Porto' → 'Dom Luis bridge'\n"
-    "- 'bares por Santiago' → 'Santiago de Compostela Cathedral'\n"
-    "- 'Japão' → 'Mount Fuji'\n"
-    "- 'Paris' → 'Eiffel Tower'"
+    "- 'Bares por Santiago de Compostela' → 'Santiago de Compostela Cathedral, wine glass'\n"
+    "- 'Trilho das Aldeias do Xisto' → 'stone village tower, mountain with path'\n"
+    "- 'Gastronomia no Porto' → 'Dom Luis bridge, fork and plate'\n"
+    "- 'Comarcas de Galicia' → 'hórreo galego stone granary, hórreo galego stone granary'\n"
+    "- 'Viagem ao Japão' → 'Mount Fuji, Mount Fuji'"
 )
 
 # Maps the entity's stored cover_colour hex to a pastel background name for the prompt.
@@ -94,11 +101,17 @@ def _extract_visual_context(title: str, description: str | None, api_key: str) -
 
 def _build_prompt(visual_context: str, cover_colour: str | None = None) -> str:
     bg = _COLOUR_MAP.get((cover_colour or "").upper(), "soft lavender")
+    # visual_context is "landmark, activity symbol" — join with "with" for the prompt.
+    parts = [p.strip() for p in visual_context.split(",", 1)]
+    if len(parts) == 2 and parts[0].lower() != parts[1].lower():
+        subject = f"{parts[0]} with {parts[1]}"
+    else:
+        subject = parts[0]
     return (
-        f"minimalist flat design icon, {visual_context}, "
-        f"isolated on solid {bg} background, "
-        "single centered object, no people, no text, "
-        "clean vector illustration, simple shapes"
+        f"minimalist flat design, {subject}, "
+        f"solid {bg} background, centered composition, "
+        "no people, no text, clean vector illustration, "
+        "simple shapes, 2 elements only"
     )
 
 
