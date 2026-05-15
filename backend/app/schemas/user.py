@@ -87,3 +87,15 @@ class PasswordReset(BaseModel):
         if len(v) < 8:
             raise ValueError("A palavra-passe deve ter pelo menos 8 caracteres")
         return v
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("A palavra-passe deve ter pelo menos 8 caracteres")
+        return v

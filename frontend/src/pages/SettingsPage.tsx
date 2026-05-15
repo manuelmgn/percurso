@@ -43,6 +43,12 @@ export default function SettingsPage() {
   const [placesVisibility, setPlacesVisibility] = useState<Visibility>(user?.visited_places_visibility ?? "private")
   const [saved, setSaved] = useState(false)
 
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordSaved, setPasswordSaved] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
   const mutation = useMutation({
     mutationFn: (data: unknown) => usersApi.update(data as Partial<User>),
     onSuccess: (updatedUser) => {
@@ -50,6 +56,19 @@ export default function SettingsPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     },
+  })
+
+  const passwordMutation = useMutation({
+    mutationFn: () => usersApi.changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setPasswordError(null)
+      setPasswordSaved(true)
+      setTimeout(() => setPasswordSaved(false), 2000)
+    },
+    onError: (err: Error) => setPasswordError(err.message),
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -62,6 +81,16 @@ export default function SettingsPage() {
       default_project_visibility: projectVisibility,
       visited_places_visibility: placesVisibility,
     })
+  }
+
+  function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setPasswordError(null)
+    if (newPassword !== confirmPassword) {
+      setPasswordError("As palavras-passe não coincidem")
+      return
+    }
+    passwordMutation.mutate()
   }
 
   return (
@@ -110,6 +139,53 @@ export default function SettingsPage() {
         <Button type="submit" disabled={mutation.isPending} className="w-full">
           {mutation.isPending ? <Loader2 className="animate-spin" /> : saved ? <><Check className="size-4" /> Guardado</> : "Guardar alterações"}
         </Button>
+      </form>
+
+      {/* Password */}
+      <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
+        <div className="glass-card p-6 space-y-4">
+          <h2 className="font-semibold text-base">Palavra-passe</h2>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Palavra-passe atual</label>
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Nova palavra-passe</label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Mínimo 8 caracteres"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Confirmar nova palavra-passe</label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
+          <Button
+            type="submit"
+            disabled={passwordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+            className="w-full"
+          >
+            {passwordMutation.isPending
+              ? <Loader2 className="animate-spin" />
+              : passwordSaved
+              ? <><Check className="size-4" /> Palavra-passe alterada</>
+              : "Alterar palavra-passe"}
+          </Button>
+        </div>
       </form>
     </div>
   )

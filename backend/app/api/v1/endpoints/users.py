@@ -10,7 +10,7 @@ from app.models.place import Place
 from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
 from app.schemas.place import VisitedPlaceResponse
-from app.schemas.user import UserCreate, UserPublicResponse, UserResponse, UserUpdate
+from app.schemas.user import UserCreate, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest
 from app.services.user_service import (
     create_user,
     deactivate_user,
@@ -109,6 +109,19 @@ async def update_me(
     db: AsyncSession = Depends(get_db_session),
 ):
     return await update_user(db, current_user, data)
+
+
+@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_my_password(
+    data: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    from app.core.security import verify_password
+    from app.services.user_service import change_password as _change_password
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Palavra-passe atual incorreta")
+    await _change_password(db, current_user, data.new_password)
 
 
 @router.get("/{username}", response_model=UserPublicResponse)

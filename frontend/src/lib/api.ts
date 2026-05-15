@@ -140,6 +140,8 @@ export const usersApi = {
   me: () => request<User>("GET", "/api/v1/users/me"),
   update: (data: Partial<User>) => request<User>("PATCH", "/api/v1/users/me", data),
   myPlaces: () => request<VisitedPlace[]>("GET", "/api/v1/users/me/places"),
+  changePassword: (current_password: string, new_password: string) =>
+    request<void>("POST", "/api/v1/users/me/password", { current_password, new_password }),
   profile: (username: string) => request<User>("GET", `/api/v1/users/${username}`),
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),
