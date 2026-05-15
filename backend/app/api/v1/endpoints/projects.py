@@ -422,7 +422,13 @@ async def generate_project_cover(
 
     project.cover_image_generating = True
     await db.flush()
-    generate_cover_image_task.delay(project_id, "project", project.title, project.description)
+
+    try:
+        generate_cover_image_task.delay(project_id, "project", project.title, project.description)
+    except Exception as exc:
+        logger.error("Failed to dispatch cover generation task for project %d: %s", project_id, exc)
+        project.cover_image_generating = False
+        await db.flush()
 
     project = await _load_project(db, project_id)
     return _project_to_response(project)

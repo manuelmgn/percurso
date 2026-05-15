@@ -340,7 +340,13 @@ async def generate_trip_cover(
 
     trip.cover_image_generating = True
     await db.flush()
-    generate_cover_image_task.delay(trip_id, "trip", trip.title, trip.description)
+
+    try:
+        generate_cover_image_task.delay(trip_id, "trip", trip.title, trip.description)
+    except Exception as exc:
+        logger.error("Failed to dispatch cover generation task for trip %d: %s", trip_id, exc)
+        trip.cover_image_generating = False
+        await db.flush()
 
     trip = await _load_trip(db, trip_id)
     return _trip_to_response(trip)
