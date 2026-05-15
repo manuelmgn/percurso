@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -110,6 +110,30 @@ async def update_me(
     db: AsyncSession = Depends(get_db_session),
 ):
     return await update_user(db, current_user, data)
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_my_avatar(
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    from app.services.storage_service import delete_from_imgbb, upload_to_imgbb
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de imagem não suportado (jpeg, png, webp ou gif)")
+    image_bytes = await file.read()
+    if len(image_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A imagem não pode ter mais de 5 MB")
+    url, delete_url = await upload_to_imgbb(image_bytes, name=f"avatar-{current_user.id}")
+    old_delete_url = current_user.avatar_delete_url
+    current_user.avatar_url = url
+    current_user.avatar_delete_url = delete_url
+    await db.flush()
+    if old_delete_url:
+        background_tasks.add_task(delete_from_imgbb, old_delete_url)
+    return current_user
 
 
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)

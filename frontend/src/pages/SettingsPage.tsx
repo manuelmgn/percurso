@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { usersApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { VISIBILITY_LABELS } from "@/lib/utils"
-import { Loader2, Check } from "lucide-react"
+import { Loader2, Check, Camera } from "lucide-react"
 import type { Visibility, User } from "@/types"
 
 function VisibilitySelect({
@@ -35,6 +35,7 @@ function VisibilitySelect({
 
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [displayName, setDisplayName] = useState(user?.display_name ?? "")
   const [biography, setBiography] = useState(user?.biography ?? "")
   const [websiteUrl, setWebsiteUrl] = useState(user?.website_url ?? "")
@@ -48,6 +49,11 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordSaved, setPasswordSaved] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const avatarMutation = useMutation({
+    mutationFn: (file: File) => usersApi.uploadAvatar(file),
+    onSuccess: (updatedUser) => setUser(updatedUser),
+  })
 
   const mutation = useMutation({
     mutationFn: (data: unknown) => usersApi.update(data as Partial<User>),
@@ -101,6 +107,46 @@ export default function SettingsPage() {
         {/* Profile */}
         <div className="glass-card p-6 space-y-4">
           <h2 className="font-semibold text-base">Perfil</h2>
+
+          {/* Avatar */}
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarMutation.isPending}
+              className="group relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-2xl font-bold overflow-hidden ring-2 ring-transparent hover:ring-primary/40 transition-all"
+            >
+              {user?.avatar_url
+                ? <img src={user.avatar_url} alt={user.display_name} className="h-full w-full object-cover" />
+                : user?.display_name[0]?.toUpperCase()
+              }
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarMutation.isPending
+                  ? <Loader2 className="size-5 text-white animate-spin" />
+                  : <Camera className="size-5 text-white" />
+                }
+              </div>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) avatarMutation.mutate(file)
+                e.target.value = ""
+              }}
+            />
+            <div>
+              <p className="text-sm font-medium">Foto de perfil</p>
+              <p className="text-xs text-muted-foreground">JPEG, PNG, WebP ou GIF · máx. 5 MB</p>
+              {avatarMutation.error && (
+                <p className="text-xs text-destructive mt-0.5">{(avatarMutation.error as Error).message}</p>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nome de apresentação</label>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />

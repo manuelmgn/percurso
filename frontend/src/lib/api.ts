@@ -142,6 +142,11 @@ export const usersApi = {
   myPlaces: () => request<VisitedPlace[]>("GET", "/api/v1/users/me/places"),
   changePassword: (current_password: string, new_password: string) =>
     request<void>("POST", "/api/v1/users/me/password", { current_password, new_password }),
+  uploadAvatar: (file: File) => {
+    const fd = new FormData()
+    fd.append("file", file)
+    return request<User>("POST", "/api/v1/users/me/avatar", fd, true)
+  },
   profile: (username: string) => request<UserProfile>("GET", `/api/v1/users/${username}`),
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),
