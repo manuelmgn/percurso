@@ -138,16 +138,6 @@ def _project_to_response(project: Project, visited_count: int = 0, include_pendi
         ],
         "target_place_count": len(project.target_places),
         "visited_place_count": visited_count,
-        "shared_with": [
-            {
-                "id": s.id,
-                "user_id": s.user_id,
-                "username": s.user.username,
-                "display_name": s.user.display_name,
-                "avatar_url": s.user.avatar_url,
-            }
-            for s in project.shared_with
-        ],
     }
 
 
@@ -271,8 +261,19 @@ async def get_project(
     visited = await _compute_progress(db, project_id, project)
     data = _project_to_response(project, visited, include_pending=is_creator)
     data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
-    if not is_creator:
-        data["shared_with"] = []
+    data["shared_with"] = (
+        [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "username": s.user.username,
+                "display_name": s.user.display_name,
+                "avatar_url": s.user.avatar_url,
+            }
+            for s in project.shared_with
+        ]
+        if is_creator else []
+    )
     return data
 
 

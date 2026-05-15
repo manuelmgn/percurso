@@ -89,16 +89,6 @@ def _trip_to_response(trip: Trip, include_pending: bool = False) -> dict:
             for c in companions_list
         ],
         "place_count": len(trip.places),
-        "shared_with": [
-            {
-                "id": s.id,
-                "user_id": s.user_id,
-                "username": s.user.username,
-                "display_name": s.user.display_name,
-                "avatar_url": s.user.avatar_url,
-            }
-            for s in trip.shared_with
-        ],
     }
 
 
@@ -237,8 +227,19 @@ async def get_trip(
         for m in trip.media_links
     ]
     data["places"] = [_place_to_summary(tp.place) for tp in trip.places]
-    if not is_creator:
-        data["shared_with"] = []
+    data["shared_with"] = (
+        [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "username": s.user.username,
+                "display_name": s.user.display_name,
+                "avatar_url": s.user.avatar_url,
+            }
+            for s in trip.shared_with
+        ]
+        if is_creator else []
+    )
     return data
 
 
