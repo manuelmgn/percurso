@@ -418,13 +418,16 @@ async def generate_project_cover(
     if not project or project.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
-    from app.workers.image_worker import generate_cover_image_task
+    from app.workers.celery_app import celery_app
 
     project.cover_image_generating = True
     await db.flush()
 
     try:
-        generate_cover_image_task.delay(project_id, "project", project.title, project.description)
+        celery_app.send_task(
+            "generate_cover_image",
+            args=[project_id, "project", project.title, project.description],
+        )
     except Exception as exc:
         logger.error("Failed to dispatch cover generation task for project %d: %s", project_id, exc)
         project.cover_image_generating = False

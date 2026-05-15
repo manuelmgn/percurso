@@ -336,13 +336,16 @@ async def generate_trip_cover(
     if not trip or trip.creator_id != current_user.id:
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
 
-    from app.workers.image_worker import generate_cover_image_task
+    from app.workers.celery_app import celery_app
 
     trip.cover_image_generating = True
     await db.flush()
 
     try:
-        generate_cover_image_task.delay(trip_id, "trip", trip.title, trip.description)
+        celery_app.send_task(
+            "generate_cover_image",
+            args=[trip_id, "trip", trip.title, trip.description],
+        )
     except Exception as exc:
         logger.error("Failed to dispatch cover generation task for trip %d: %s", trip_id, exc)
         trip.cover_image_generating = False

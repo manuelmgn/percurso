@@ -363,19 +363,27 @@ export default function TripDetailPage() {
   const [coverGenFailed, setCoverGenFailed] = useState(false)
   const prevGeneratingRef = useRef<boolean>(false)
   const prevCoverUrlRef = useRef<string | null | undefined>(undefined)
+  const pollCountRef = useRef(0)
 
-  const { data: trip, isLoading } = useQuery({
+  const { data: trip, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["trip", tripId],
     queryFn: () => tripsApi.get(tripId),
     enabled: !!tripId,
     staleTime: 10_000,
-    refetchInterval: (query) => query.state.data?.cover_image_generating ? 10_000 : false,
+    refetchInterval: (query) => {
+      if (!query.state.data?.cover_image_generating) return false
+      if (pollCountRef.current >= 12) return false
+      return 10_000
+    },
   })
 
   useEffect(() => {
     const wasGenerating = prevGeneratingRef.current
     const isGenerating = trip?.cover_image_generating ?? false
     const currentUrl = trip?.cover_image_url
+    if (!wasGenerating && isGenerating) {
+      pollCountRef.current = 0
+    }
     if (wasGenerating && !isGenerating && currentUrl === prevCoverUrlRef.current) {
       setCoverGenFailed(true)
     }
@@ -386,6 +394,15 @@ export default function TripDetailPage() {
   useEffect(() => {
     setCoverLoaded(false)
   }, [trip?.cover_image_url])
+
+  useEffect(() => {
+    if (!trip?.cover_image_generating) return
+    pollCountRef.current += 1
+    if (pollCountRef.current >= 12) {
+      setCoverGenFailed(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataUpdatedAt])
 
   const isCreator = trip?.creator_id === user?.id
   const overlayVisible = coverHover || coverTap
@@ -509,6 +526,7 @@ export default function TripDetailPage() {
     }
     setAiHint(false)
     setCoverGenFailed(false)
+    pollCountRef.current = 0
     generateMutation.mutate()
   }
 

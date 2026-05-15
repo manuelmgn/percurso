@@ -17,6 +17,8 @@ celery_app = Celery(
     include=["app.workers.image_worker"],
 )
 
+logger.info("Celery app initialised. Broker: %s", _mask_url(settings.celery_broker_url))
+
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",

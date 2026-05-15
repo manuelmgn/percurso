@@ -169,10 +169,7 @@ def generate_cover_image_task(
     title: str,
     description: str | None = None,
 ) -> None:
-    logger.info(
-        "generate_cover_image_task received: entity_type=%s entity_id=%d attempt=%d/%d",
-        entity_type, entity_id, self.request.retries + 1, self.max_retries + 1,
-    )
+    logger.info(f"TASK STARTED: {entity_type} {entity_id}")
     try:
         asyncio.run(_run_generation(entity_id, entity_type, title, description))
     except Exception as exc:
