@@ -89,6 +89,16 @@ def _trip_to_response(trip: Trip, include_pending: bool = False) -> dict:
             for c in companions_list
         ],
         "place_count": len(trip.places),
+        "shared_with": [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "username": s.user.username,
+                "display_name": s.user.display_name,
+                "avatar_url": s.user.avatar_url,
+            }
+            for s in trip.shared_with
+        ],
     }
 
 
@@ -100,7 +110,7 @@ async def _load_trip(db: AsyncSession, trip_id: int) -> Trip | None:
             selectinload(Trip.companions).selectinload(TripCompanion.user),
             selectinload(Trip.places).selectinload(TripPlace.place),
             selectinload(Trip.media_links),
-            selectinload(Trip.shared_with),
+            selectinload(Trip.shared_with).selectinload(TripSharedUser.user),
         )
         .where(Trip.id == trip_id)
     )
@@ -137,7 +147,7 @@ async def create_trip(
         visibility=data.visibility or current_user.default_trip_visibility,
         cover_colour=random.choice(_COVER_COLOURS),
     )
-    if trip.visibility in ("link",):
+    if trip.visibility in ("link", "users"):
         trip.sharing_token = generate_sharing_token()
     db.add(trip)
     await db.flush()
@@ -213,7 +223,8 @@ async def get_trip(
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
     if not _check_trip_access(trip, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado a esta viagem")
-    data = _trip_to_response(trip, include_pending=(trip.creator_id == current_user.id))
+    is_creator = trip.creator_id == current_user.id
+    data = _trip_to_response(trip, include_pending=is_creator)
     data["media_links"] = [
         {
             "id": m.id,
@@ -226,6 +237,8 @@ async def get_trip(
         for m in trip.media_links
     ]
     data["places"] = [_place_to_summary(tp.place) for tp in trip.places]
+    if not is_creator:
+        data["shared_with"] = []
     return data
 
 
@@ -245,7 +258,7 @@ async def update_trip(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(trip, field, value)
 
-    if trip.visibility == "link" and not trip.sharing_token:
+    if trip.visibility in ("link", "users") and not trip.sharing_token:
         trip.sharing_token = generate_sharing_token()
 
     await db.flush()
@@ -435,6 +448,53 @@ async def remove_companion(
             message=f"Foste removido da viagem «{trip.title}»",
         ))
     await db.delete(companion)
+
+
+@router.post("/{trip_id}/shared-users", status_code=status.HTTP_201_CREATED)
+async def add_trip_shared_user(
+    trip_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    from app.services.user_service import get_user_by_username
+    username = data.get("username", "")
+    target = await get_user_by_username(db, username)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilizador não encontrado")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Não pode adicionar-se a si próprio")
+
+    existing = await db.execute(
+        select(TripSharedUser).where(TripSharedUser.trip_id == trip_id, TripSharedUser.user_id == target.id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Utilizador já tem acesso")
+
+    db.add(TripSharedUser(trip_id=trip_id, user_id=target.id))
+    return {"detail": "Acesso concedido"}
+
+
+@router.delete("/{trip_id}/shared-users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_trip_shared_user(
+    trip_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    result = await db.execute(
+        select(TripSharedUser).where(TripSharedUser.trip_id == trip_id, TripSharedUser.user_id == user_id)
+    )
+    entry = result.scalar_one_or_none()
+    if entry:
+        await db.delete(entry)
 
 
 @router.post("/{trip_id}/companions/accept/{invite_token}", status_code=status.HTTP_200_OK)

@@ -10,7 +10,7 @@ from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.security import generate_invite_token, generate_sharing_token
 from app.models.notification import Notification
-from app.models.project import Project, ProjectCollaborator, ProjectTargetPlace
+from app.models.project import Project, ProjectCollaborator, ProjectSharedUser, ProjectTargetPlace
 from app.models.trip import Trip, TripPlace
 from app.models.user import User
 from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
@@ -54,7 +54,7 @@ async def _load_project(db: AsyncSession, project_id: int) -> Project | None:
             selectinload(Project.creator),
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
             selectinload(Project.target_places).selectinload(ProjectTargetPlace.place),
-            selectinload(Project.shared_with),
+            selectinload(Project.shared_with).selectinload(ProjectSharedUser.user),
         )
         .where(Project.id == project_id)
     )
@@ -138,6 +138,16 @@ def _project_to_response(project: Project, visited_count: int = 0, include_pendi
         ],
         "target_place_count": len(project.target_places),
         "visited_place_count": visited_count,
+        "shared_with": [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "username": s.user.username,
+                "display_name": s.user.display_name,
+                "avatar_url": s.user.avatar_url,
+            }
+            for s in project.shared_with
+        ],
     }
 
 
@@ -155,7 +165,7 @@ async def create_project(
         visibility=data.visibility or current_user.default_project_visibility,
         cover_colour=random.choice(_COVER_COLOURS),
     )
-    if project.visibility == "link":
+    if project.visibility in ("link", "users"):
         project.sharing_token = generate_sharing_token()
     db.add(project)
     await db.flush()
@@ -257,10 +267,66 @@ async def get_project(
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     if not _check_project_access(project, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado")
+    is_creator = project.creator_id == current_user.id
     visited = await _compute_progress(db, project_id, project)
-    data = _project_to_response(project, visited, include_pending=(project.creator_id == current_user.id))
+    data = _project_to_response(project, visited, include_pending=is_creator)
     data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
+    if not is_creator:
+        data["shared_with"] = []
     return data
+
+
+@router.post("/{project_id}/shared-users", status_code=status.HTTP_201_CREATED)
+async def add_project_shared_user(
+    project_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    from app.services.user_service import get_user_by_username
+    username = data.get("username", "")
+    target = await get_user_by_username(db, username)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilizador não encontrado")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Não pode adicionar-se a si próprio")
+
+    existing = await db.execute(
+        select(ProjectSharedUser).where(
+            ProjectSharedUser.project_id == project_id,
+            ProjectSharedUser.user_id == target.id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Utilizador já tem acesso")
+
+    db.add(ProjectSharedUser(project_id=project_id, user_id=target.id))
+    return {"detail": "Acesso concedido"}
+
+
+@router.delete("/{project_id}/shared-users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_project_shared_user(
+    project_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    result = await db.execute(
+        select(ProjectSharedUser).where(
+            ProjectSharedUser.project_id == project_id,
+            ProjectSharedUser.user_id == user_id,
+        )
+    )
+    entry = result.scalar_one_or_none()
+    if entry:
+        await db.delete(entry)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -292,7 +358,7 @@ async def update_project(
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(project, field, value)
-    if project.visibility == "link" and not project.sharing_token:
+    if project.visibility in ("link", "users") and not project.sharing_token:
         project.sharing_token = generate_sharing_token()
     await db.flush()
     project = await _load_project(db, project_id)

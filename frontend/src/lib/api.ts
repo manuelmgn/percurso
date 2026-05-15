@@ -182,6 +182,10 @@ export const tripsApi = {
     request<void>("POST", `/api/v1/trips/${tripId}/places/${placeId}`),
   removePlace: (tripId: number, placeId: number) =>
     request<void>("DELETE", `/api/v1/trips/${tripId}/places/${placeId}`),
+  addSharedUser: (tripId: number, username: string) =>
+    request<unknown>("POST", `/api/v1/trips/${tripId}/shared-users`, { username }),
+  removeSharedUser: (tripId: number, userId: number) =>
+    request<void>("DELETE", `/api/v1/trips/${tripId}/shared-users/${userId}`),
   inviteCompanion: (tripId: number, username: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/${username}`),
   removeCompanion: (tripId: number, companionId: number) =>
@@ -217,6 +221,10 @@ export const projectsApi = {
     request<void>("POST", `/api/v1/projects/${projectId}/places/${placeId}`),
   removePlace: (projectId: number, placeId: number) =>
     request<void>("DELETE", `/api/v1/projects/${projectId}/places/${placeId}`),
+  addSharedUser: (projectId: number, username: string) =>
+    request<unknown>("POST", `/api/v1/projects/${projectId}/shared-users`, { username }),
+  removeSharedUser: (projectId: number, userId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/shared-users/${userId}`),
   inviteCollaborator: (projectId: number, username: string) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/${username}`),
   removeCollaborator: (projectId: number, collaboratorId: number) =>

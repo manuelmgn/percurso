@@ -97,6 +97,11 @@ function TripDetailsPanel({
   inviteSuccess,
   onRemoveCompanion,
   isRemovingCompanion,
+  onAddSharedUser,
+  isAddingSharedUser,
+  addSharedUserError,
+  onRemoveSharedUser,
+  isRemovingSharedUser,
   onDelete,
   isDeleting,
 }: {
@@ -112,6 +117,11 @@ function TripDetailsPanel({
   inviteSuccess: boolean
   onRemoveCompanion: (companionId: number) => void
   isRemovingCompanion: boolean
+  onAddSharedUser: (username: string) => void
+  isAddingSharedUser: boolean
+  addSharedUserError: string | null
+  onRemoveSharedUser: (userId: number) => void
+  isRemovingSharedUser: boolean
   onDelete: () => void
   isDeleting: boolean
 }) {
@@ -121,6 +131,7 @@ function TripDetailsPanel({
   const [endDate, setEndDate] = useState(trip.end_date ?? "")
   const [visibility, setVisibility] = useState<Visibility>(trip.visibility)
   const [inviteUsername, setInviteUsername] = useState("")
+  const [sharedUsername, setSharedUsername] = useState("")
 
   // Re-initialise from latest trip data each time the panel opens
   useEffect(() => {
@@ -256,6 +267,60 @@ function TripDetailsPanel({
             {inviteSuccess && <p className="text-xs text-green-600">Convite enviado.</p>}
             {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
           </div>
+
+          {/* Shared users — only shown when visibility === "users" */}
+          {visibility === "users" && (
+            <div className="pt-4 border-t border-border/50 space-y-3">
+              <h3 className="text-sm font-medium">Partilhado com</h3>
+              {(trip.shared_with ?? []).length > 0 ? (
+                <ul className="space-y-2">
+                  {(trip.shared_with ?? []).map((s) => (
+                    <li key={s.id} className="flex items-center gap-3 text-sm">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-semibold overflow-hidden">
+                        {s.avatar_url
+                          ? <img src={s.avatar_url} alt={s.display_name} className="h-full w-full object-cover" />
+                          : s.display_name[0]?.toUpperCase()
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{s.display_name}</span>
+                        <Link to={`/perfil/${s.username}`} className="ml-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">@{s.username}</Link>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveSharedUser(s.user_id)}
+                        disabled={isRemovingSharedUser}
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                        aria-label="Remover acesso"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum utilizador com acesso.</p>
+              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (sharedUsername.trim()) { onAddSharedUser(sharedUsername.trim()); setSharedUsername("") }
+                }}
+                className="flex gap-2 pt-1"
+              >
+                <Input
+                  value={sharedUsername}
+                  onChange={(e) => setSharedUsername(e.target.value)}
+                  placeholder="Nome de utilizador…"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="outline" size="sm" disabled={isAddingSharedUser || !sharedUsername.trim()}>
+                  {isAddingSharedUser ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+                </Button>
+              </form>
+              {addSharedUserError && <p className="text-xs text-destructive">{addSharedUserError}</p>}
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 p-5 border-t border-border/50 space-y-2">
@@ -360,6 +425,16 @@ export default function TripDetailPage() {
 
   const removeCompanionMutation = useMutation({
     mutationFn: (companionId: number) => tripsApi.removeCompanion(tripId, companionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
+  })
+
+  const addSharedUserMutation = useMutation({
+    mutationFn: (username: string) => tripsApi.addSharedUser(tripId, username),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
+  })
+
+  const removeSharedUserMutation = useMutation({
+    mutationFn: (userId: number) => tripsApi.removeSharedUser(tripId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
@@ -675,6 +750,11 @@ export default function TripDetailPage() {
           inviteSuccess={inviteMutation.isSuccess}
           onRemoveCompanion={(id) => removeCompanionMutation.mutate(id)}
           isRemovingCompanion={removeCompanionMutation.isPending}
+          onAddSharedUser={(username) => addSharedUserMutation.mutate(username)}
+          isAddingSharedUser={addSharedUserMutation.isPending}
+          addSharedUserError={addSharedUserMutation.error ? (addSharedUserMutation.error as Error).message : null}
+          onRemoveSharedUser={(userId) => removeSharedUserMutation.mutate(userId)}
+          isRemovingSharedUser={removeSharedUserMutation.isPending}
           onDelete={() => deleteTripMutation.mutate()}
           isDeleting={deleteTripMutation.isPending}
         />

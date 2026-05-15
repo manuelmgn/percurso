@@ -61,8 +61,19 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SharedUserResponse(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    display_name: str
+    avatar_url: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class ProjectDetailResponse(ProjectResponse):
     target_places: list[PlaceSummaryResponse] = []
+    shared_with: list[SharedUserResponse] = []
 
 
 class PlaceImportLine(BaseModel):

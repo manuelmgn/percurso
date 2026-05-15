@@ -124,6 +124,14 @@ export interface Companion {
   status: InviteStatus
 }
 
+export interface SharedUser {
+  id: number
+  user_id: number
+  username: string
+  display_name: string
+  avatar_url: string | null
+}
+
 export interface MediaLink {
   id: number
   url: string
@@ -151,6 +159,7 @@ export interface Trip {
   place_count: number
   places?: PlaceSummary[]
   media_links?: MediaLink[]
+  shared_with?: SharedUser[]
 }
 
 export interface Project {
@@ -170,6 +179,7 @@ export interface Project {
   target_place_count: number
   visited_place_count: number
   target_places?: PlaceSummary[]
+  shared_with?: SharedUser[]
 }
 
 export interface Notification {

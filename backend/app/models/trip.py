@@ -99,3 +99,4 @@ class TripSharedUser(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     trip: Mapped["Trip"] = relationship("Trip", back_populates="shared_with")
+    user: Mapped["User"] = relationship("User")

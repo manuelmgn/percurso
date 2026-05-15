@@ -60,6 +60,16 @@ class MediaLinkResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SharedUserResponse(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    display_name: str
+    avatar_url: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class TripResponse(BaseModel):
     id: int
     title: str
@@ -83,3 +93,4 @@ class TripResponse(BaseModel):
 class TripDetailResponse(TripResponse):
     media_links: list[MediaLinkResponse] = []
     places: list[PlaceSummaryResponse] = []
+    shared_with: list[SharedUserResponse] = []
