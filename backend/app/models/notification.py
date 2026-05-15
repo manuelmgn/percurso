@@ -23,6 +23,7 @@ class Notification(Base, TimestampMixin):
             "invite_declined",
             "removed_from_trip",
             "removed_from_project",
+            "cover_generation_failed",
             name="notification_type",
         ),
         nullable=False,

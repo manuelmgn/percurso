@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -358,14 +358,29 @@ export default function TripDetailPage() {
   const [coverTap, setCoverTap] = useState(false)
   const [aiHint, setAiHint] = useState(false)
   const [mediaUrl, setMediaUrl] = useState("")
+  const [coverLoaded, setCoverLoaded] = useState(false)
+  const [coverGenFailed, setCoverGenFailed] = useState(false)
+  const prevGeneratingRef = useRef<boolean>(false)
+  const prevCoverUrlRef = useRef<string | null | undefined>(undefined)
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ["trip", tripId],
     queryFn: () => tripsApi.get(tripId),
     enabled: !!tripId,
     staleTime: 10_000,
-    refetchInterval: (query) => query.state.data?.cover_image_generating ? 3000 : false,
+    refetchInterval: (query) => query.state.data?.cover_image_generating ? 10_000 : false,
   })
+
+  useEffect(() => {
+    const wasGenerating = prevGeneratingRef.current
+    const isGenerating = trip?.cover_image_generating ?? false
+    const currentUrl = trip?.cover_image_url
+    if (wasGenerating && !isGenerating && currentUrl === prevCoverUrlRef.current) {
+      setCoverGenFailed(true)
+    }
+    prevGeneratingRef.current = isGenerating
+    prevCoverUrlRef.current = currentUrl
+  }, [trip?.cover_image_generating, trip?.cover_image_url])
 
   const isCreator = trip?.creator_id === user?.id
   const overlayVisible = coverHover || coverTap
@@ -481,6 +496,14 @@ export default function TripDetailPage() {
     e.target.value = ""
   }
 
+  const handleCoverUrlChange = useCallback(() => {
+    setCoverLoaded(false)
+  }, [])
+
+  useEffect(() => {
+    handleCoverUrlChange()
+  }, [trip?.cover_image_url, handleCoverUrlChange])
+
   function handleCoverAI() {
     if (descWords < 5) {
       setAiHint(true)
@@ -488,6 +511,7 @@ export default function TripDetailPage() {
       return
     }
     setAiHint(false)
+    setCoverGenFailed(false)
     generateMutation.mutate()
   }
 
@@ -524,18 +548,28 @@ export default function TripDetailPage() {
         onClick={() => setCoverTap((v) => !v)}
       >
         {trip.cover_image_url ? (
-          <img src={trip.cover_image_url} alt={trip.title} className="h-full w-full object-cover" />
+          <img
+            src={trip.cover_image_url}
+            alt={trip.title}
+            className={`h-full w-full object-cover transition-opacity duration-700 ${coverLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setCoverLoaded(true)}
+          />
         ) : (
           <div className="flex h-full items-end p-5">
             <span className="text-white font-bold text-xl leading-tight drop-shadow">{trip.title}</span>
           </div>
         )}
 
-        {/* Generating state */}
+        {/* Generating state — pulsing skeleton */}
         {trip.cover_image_generating && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 backdrop-blur-sm">
-            <Loader2 className="size-5 animate-spin text-white" />
-            <span className="text-sm text-white font-medium">A gerar imagem…</span>
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="h-full w-full animate-pulse bg-gradient-to-br from-primary/30 via-primary/15 to-primary/5" />
+            <div className="absolute inset-0 flex items-end p-5 space-y-2">
+              <div className="w-full space-y-2">
+                <div className="h-4 w-2/3 rounded-md bg-white/25 animate-pulse" />
+                <div className="h-3 w-1/2 rounded-md bg-white/15 animate-pulse" />
+              </div>
+            </div>
           </div>
         )}
 
@@ -591,6 +625,13 @@ export default function TripDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Cover generation failure notice */}
+      {coverGenFailed && (
+        <p className="flex items-center gap-2 text-sm text-destructive">
+          <span>Não foi possível gerar a imagem. Tenta novamente.</span>
+        </p>
+      )}
 
       {/* Title + description */}
       <div className="space-y-2">

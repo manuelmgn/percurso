@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
@@ -257,6 +258,14 @@ async def get_project(
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     if not _check_project_access(project, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Safety timeout: if generating flag is stuck for > 5 min, clear it.
+    if project.cover_image_generating:
+        age = datetime.now(timezone.utc) - project.updated_at.replace(tzinfo=timezone.utc)
+        if age > timedelta(minutes=5):
+            project.cover_image_generating = False
+            await db.flush()
+
     is_creator = project.creator_id == current_user.id
     visited = await _compute_progress(db, project_id, project)
     data = _project_to_response(project, visited, include_pending=is_creator)

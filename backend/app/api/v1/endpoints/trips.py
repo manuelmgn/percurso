@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy import or_, select
@@ -213,6 +214,14 @@ async def get_trip(
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
     if not _check_trip_access(trip, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado a esta viagem")
+
+    # Safety timeout: if generating flag is stuck for > 5 min, clear it.
+    if trip.cover_image_generating:
+        age = datetime.now(timezone.utc) - trip.updated_at.replace(tzinfo=timezone.utc)
+        if age > timedelta(minutes=5):
+            trip.cover_image_generating = False
+            await db.flush()
+
     is_creator = trip.creator_id == current_user.id
     data = _trip_to_response(trip, include_pending=is_creator)
     data["media_links"] = [

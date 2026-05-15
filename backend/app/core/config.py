@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # ImgBB (image hosting)
     imgbb_api_key: str = ""
 
+    # Anthropic (AI cover prompt extraction)
+    anthropic_api_key: str = ""
+
     # OSM / Nominatim
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
     overpass_api_url: str = "https://overpass-api.de/api/interpreter"

@@ -46,5 +46,13 @@ else
     python -m app.create_admin
 fi
 
+if [ -n "${CELERY_BROKER_URL}" ]; then
+    echo "Starting Celery worker (detached)..."
+    celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 --detach \
+        --logfile=/tmp/celery.log --pidfile=/tmp/celery.pid
+else
+    echo "WARNING: CELERY_BROKER_URL not set — Celery worker not started. AI cover generation will not work."
+fi
+
 echo "Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

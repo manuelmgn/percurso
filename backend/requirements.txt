@@ -30,6 +30,9 @@ flower==2.0.1
 # HTTP client (Wikipedia, OSM, Pollinations, OGP)
 httpx==0.28.1
 
+# Anthropic SDK (AI prompt extraction for cover generation)
+anthropic==0.52.0
+
 # Rate limiting
 slowapi==0.1.9
 
