@@ -67,6 +67,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     return () => {
       markersRef.current.forEach((m) => m.remove())
       markersRef.current = []
+      polygonLayerIdsRef.current = []
       map.remove()
       mapRef.current = null
     }
@@ -127,6 +128,13 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
         if (isPolygon) {
           const sourceId = `poly-${place.id}`
           polygonLayerIdsRef.current.push(sourceId)
+
+          // Guard against duplicate sources (can occur on rapid re-renders)
+          if (map.getSource(sourceId)) {
+            if (map.getLayer(`${sourceId}-fill`)) map.removeLayer(`${sourceId}-fill`)
+            if (map.getLayer(`${sourceId}-outline`)) map.removeLayer(`${sourceId}-outline`)
+            map.removeSource(sourceId)
+          }
 
           map.addSource(sourceId, {
             type: "geojson",
@@ -203,7 +211,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
 
     return whenReady(map, updateAll)
-  }, [places, colourByType, markerColour, onPlaceClick, showRoute, polygonAsPointIds])
+  }, [places, colourByType, markerColour, onPlaceClick, showRoute, polygonAsPointIds, style])
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {
@@ -248,7 +256,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
 
     return whenReady(map, updateHeatmap)
-  }, [showHeatmap, places])
+  }, [showHeatmap, places, style])
 
   // ── Effect 4: route line layer ───────────────────────────────────────────────
   useEffect(() => {
@@ -289,7 +297,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
 
     return whenReady(map, updateRoute)
-  }, [showRoute, places, markerColour])
+  }, [showRoute, places, markerColour, style])
 
   function exportToPng() {
     if (!mapRef.current) return

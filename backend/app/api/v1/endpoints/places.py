@@ -25,9 +25,29 @@ async def _upsert_place(db: AsyncSession, data: dict) -> Place:
     )
     place = result.scalar_one_or_none()
     if place:
-        # Opportunistically fill in geometry if now available and not yet stored
+        dirty = False
+        # Fill float coordinates if missing (e.g. places imported before migration 0012)
+        if place.centroid_lat is None and data.get("centroid_lat") is not None:
+            place.centroid_lat = data["centroid_lat"]
+            dirty = True
+        if place.centroid_lng is None and data.get("centroid_lng") is not None:
+            place.centroid_lng = data["centroid_lng"]
+            dirty = True
+        # Fill polygon geometry if now available and not yet stored
         if data.get("geometry_geojson") and place.geometry_geojson is None:
             place.geometry_geojson = data["geometry_geojson"]
+            dirty = True
+        # Fill metadata fields if previously absent
+        if place.addresstype is None and data.get("addresstype"):
+            place.addresstype = data["addresstype"]
+            dirty = True
+        if place.osm_class is None and data.get("osm_class"):
+            place.osm_class = data["osm_class"]
+            dirty = True
+        if place.display_name is None and data.get("display_name"):
+            place.display_name = data["display_name"]
+            dirty = True
+        if dirty:
             await db.flush()
         return place
 
@@ -132,6 +152,25 @@ async def get_place(
     place = result.scalar_one_or_none()
     if not place:
         raise HTTPException(status_code=404, detail="Local não encontrado")
+
+    # Opportunistically backfill polygon geometry for territory types that lack it.
+    # Mirrors the Wikipedia lazy-fetch pattern.
+    _TERRITORY_TYPES = {"pais", "regiao", "provincia", "comarca", "bairro", "limite"}
+    if place.place_type in _TERRITORY_TYPES and place.geometry_geojson is None:
+        try:
+            detail = await get_osm_details(place.osm_id, place.osm_type)
+            if detail:
+                from app.services.osm_service import nominatim_to_place_data
+                data = nominatim_to_place_data(detail)
+                if data.get("geometry_geojson"):
+                    place.geometry_geojson = data["geometry_geojson"]
+                if place.centroid_lat is None and data.get("centroid_lat"):
+                    place.centroid_lat = data["centroid_lat"]
+                if place.centroid_lng is None and data.get("centroid_lng"):
+                    place.centroid_lng = data["centroid_lng"]
+                await db.flush()
+        except Exception:
+            pass  # Nominatim may be unavailable; non-fatal
 
     if not place.wikipedia_summary:
         cache_key = f"wiki:place:{place.id}"

@@ -53,6 +53,7 @@ async def get_my_visited_places(
             Place.region_name,
             Place.centroid_lat,
             Place.centroid_lng,
+            Place.centroid,
             Place.geometry_geojson,
             Place.wikipedia_summary,
             Place.wikipedia_language,
@@ -114,8 +115,22 @@ async def get_my_visited_places(
             seen_keys.add(key)
             place_trips[tr.place_id].append({"id": tr.trip_id, "title": tr.trip_title})
 
-    return [
-        {
+    def _coords(r) -> tuple[float | None, float | None]:
+        """Return (lng, lat) preferring float columns, falling back to PostGIS centroid."""
+        lng, lat = r.centroid_lng, r.centroid_lat
+        if (lng is None or lat is None) and r.centroid is not None:
+            try:
+                from geoalchemy2.shape import to_shape
+                pt = to_shape(r.centroid)
+                lng, lat = pt.x, pt.y
+            except Exception:
+                pass
+        return lng, lat
+
+    results = []
+    for r in agg_rows:
+        lng, lat = _coords(r)
+        results.append({
             "id": r.id,
             "osm_id": r.osm_id,
             "osm_type": r.osm_type,
@@ -127,16 +142,15 @@ async def get_my_visited_places(
             "wikipedia_summary": r.wikipedia_summary,
             "wikipedia_language": r.wikipedia_language,
             "wikipedia_title": r.wikipedia_title,
-            "centroid_lng": r.centroid_lng,
-            "centroid_lat": r.centroid_lat,
+            "centroid_lng": lng,
+            "centroid_lat": lat,
             "has_polygon": r.geometry_geojson is not None,
             "geometry_geojson": r.geometry_geojson,
             "visit_count": r.visit_count,
             "first_visited": r.first_visited,
             "trips": place_trips[r.id],
-        }
-        for r in agg_rows
-    ]
+        })
+    return results
 
 
 @router.patch("/me", response_model=UserResponse)

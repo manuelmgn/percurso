@@ -134,9 +134,9 @@ export function getCategoryColour(type: string): string {
   return CATEGORY_COLOURS[cat]
 }
 
-/** Place types that are rendered as polygon fill layers on the map. */
+/** Place types that are rendered as polygon fill layers on the map when geometry is available. */
 export const POLYGON_PLACE_TYPES = new Set<PlaceType>([
-  "comarca", "provincia", "regiao", "pais", "limite",
+  "comarca", "provincia", "regiao", "pais", "limite", "bairro",
 ])
 
 export const ALL_PLACE_TYPES: PlaceType[] = [
