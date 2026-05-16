@@ -1,7 +1,8 @@
 from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Enum, String, Text
+from sqlalchemy import BigInteger, Enum, Float, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,23 +23,32 @@ class Place(Base, TimestampMixin):
     osm_type: Mapped[str] = mapped_column(
         Enum("node", "way", "relation", name="osm_type"), nullable=False
     )
+    osm_class: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    addresstype: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Place metadata
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     name_pt: Mapped[str | None] = mapped_column(String(500), nullable=True)
     name_en: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     place_type: Mapped[str] = mapped_column(String(50), nullable=False, server_default="outro")
     country_code: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
     region_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # Geometry (POINT or POLYGON)
+    # Float coordinates (pre-computed from centroid for efficient queries)
+    centroid_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    centroid_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # PostGIS geometry (centroid point always set; polygon geometry when available)
     geometry: Mapped[object] = mapped_column(
         Geometry(geometry_type="GEOMETRY", srid=4326), nullable=True
     )
-    # Centroid always available for map display
     centroid: Mapped[object] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=True
     )
+
+    # GeoJSON polygon stored as JSONB for direct MapLibre consumption
+    geometry_geojson: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Wikipedia cache
     wikipedia_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

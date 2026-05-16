@@ -1,6 +1,14 @@
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel
+
+
+class TripDateSummary(BaseModel):
+    id: int
+    title: str
+    start_date: date | None
+    end_date: date | None
 
 
 class PlaceResponse(BaseModel):
@@ -18,6 +26,8 @@ class PlaceResponse(BaseModel):
     centroid_lng: float | None
     centroid_lat: float | None
     has_polygon: bool
+    geometry_geojson: dict[str, Any] | None = None
+    place_trips: list[TripDateSummary] = []
 
     model_config = {"from_attributes": True}
 

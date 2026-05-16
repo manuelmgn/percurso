@@ -30,6 +30,7 @@ class PlaceSummaryResponse(BaseModel):
     region_name: str | None
     centroid_lng: float | None = None
     centroid_lat: float | None = None
+    geometry_geojson: dict | None = None
 
     model_config = {"from_attributes": True}
 

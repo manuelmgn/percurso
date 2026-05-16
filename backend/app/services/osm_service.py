@@ -90,6 +90,13 @@ def nominatim_to_place_data(result: dict) -> dict:
     addresstype = result.get("addresstype", "")
     admin_level = _parse_admin_level(result)
     place_type = get_place_type(osm_class, osm_type_val, addresstype, admin_level)
+
+    # Extract polygon GeoJSON when available (present in /lookup with polygon_geojson=1)
+    geojson = result.get("geojson")
+    geometry_geojson = None
+    if geojson and geojson.get("type") not in ("Point", "MultiPoint", None):
+        geometry_geojson = geojson
+
     return {
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),
@@ -100,8 +107,9 @@ def nominatim_to_place_data(result: dict) -> dict:
         "region_name": address.get("state") or address.get("region"),
         "centroid_lng": lng,
         "centroid_lat": lat,
-        "display_name": result.get("display_name", ""),
+        "display_name": result.get("display_name", "")[:1000],
         "importance": result.get("importance"),
         "addresstype": addresstype,
         "admin_level": admin_level,
+        "geometry_geojson": geometry_geojson,
     }

@@ -22,9 +22,10 @@ router = APIRouter(prefix="/trips", tags=["trips"])
 
 
 def _place_to_summary(place) -> dict:
-    """Serialise a Place ORM object into a PlaceSummaryResponse-compatible dict including centroid."""
-    lng = lat = None
-    if place.centroid is not None:
+    """Serialise a Place ORM object into a PlaceSummaryResponse-compatible dict."""
+    lng = place.centroid_lng
+    lat = place.centroid_lat
+    if lng is None and place.centroid is not None:
         try:
             from geoalchemy2.shape import to_shape
             pt = to_shape(place.centroid)
@@ -40,6 +41,7 @@ def _place_to_summary(place) -> dict:
         "region_name": place.region_name,
         "centroid_lng": lng,
         "centroid_lat": lat,
+        "geometry_geojson": place.geometry_geojson,
     }
 
 _COVER_COLOURS = [
