@@ -1,12 +1,13 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
-import { Map, List, Table2, Flame, Route, Loader2, MapPin } from "lucide-react"
+import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers } from "lucide-react"
 import { usersApi, tripsApi } from "@/lib/api"
 import PlaceMap from "@/components/map/PlaceMap"
 import { useMapStore, type MapViewMode, type MapStyle } from "@/stores/map"
 import { Button } from "@/components/ui/button"
-import { PLACE_TYPE_LABELS, formatDate } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
+import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
 import type { VisitedPlace, PlaceSummary } from "@/types"
 
 export default function MapPage() {
@@ -14,7 +15,9 @@ export default function MapPage() {
   const { viewMode, setViewMode, style, setStyle, setMarkerColour, markerColour } = useMapStore()
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [showRoute, setShowRoute] = useState(false)
+  const [colourByType, setColourByType] = useState(false)
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null)
+  const [typeFilter, setTypeFilter] = useState("")
 
   const { data: visitedPlaces = [], isLoading: placesLoading } = useQuery({
     queryKey: ["my-places"],
@@ -37,11 +40,15 @@ export default function MapPage() {
 
   const isLoading = placesLoading || (!!selectedTripId && tripLoading)
 
-  // When a trip is selected, show its places in insertion order (with centroids).
-  // When no trip selected, show all visited places.
   const tripPlaces: PlaceSummary[] = selectedTrip?.places ?? []
   const displayPlaces = selectedTripId ? tripPlaces : visitedPlaces
   const placeCount = displayPlaces.length
+
+  // Type filter: compute available types from current display set
+  const availableTypes = Array.from(new Set(displayPlaces.map((p) => p.place_type))).sort()
+  const filteredPlaces = typeFilter
+    ? displayPlaces.filter((p) => p.place_type === typeFilter)
+    : displayPlaces
 
   const viewModes: { mode: MapViewMode; icon: React.ElementType; label: string }[] = [
     { mode: "map", icon: Map, label: "Mapa" },
@@ -62,10 +69,10 @@ export default function MapPage() {
   function handleTripChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value
     setSelectedTripId(val ? Number(val) : null)
-    setShowRoute(false) // reset route when changing trip
+    setShowRoute(false)
+    setTypeFilter("")
   }
 
-  // Type-narrow helper: VisitedPlace has visit_count
   function isVisited(p: VisitedPlace | PlaceSummary): p is VisitedPlace {
     return "visit_count" in p
   }
@@ -121,15 +128,27 @@ export default function MapPage() {
               Mapa de calor
             </Button>
 
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Cor dos marcadores</span>
-              <input
-                type="color"
-                value={markerColour}
-                onChange={(e) => setMarkerColour(e.target.value)}
-                className="h-6 w-8 cursor-pointer rounded border border-border"
-              />
-            </label>
+            <Button
+              variant={colourByType ? "default" : "outline"}
+              size="sm"
+              onClick={() => setColourByType(!colourByType)}
+              title="Cor dos marcadores por tipo de lugar"
+            >
+              <Layers className="size-3.5" />
+              Marcadores por tipo
+            </Button>
+
+            {!colourByType && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Cor dos marcadores</span>
+                <input
+                  type="color"
+                  value={markerColour}
+                  onChange={(e) => setMarkerColour(e.target.value)}
+                  className="h-6 w-8 cursor-pointer rounded border border-border"
+                />
+              </label>
+            )}
           </>
         )}
 
@@ -176,6 +195,7 @@ export default function MapPage() {
             onPlaceClick={handlePlaceClick}
             showHeatmap={showHeatmap}
             showRoute={showRoute && !!selectedTripId}
+            colourByType={colourByType}
             className="h-full min-h-[500px] w-full"
           />
         )}
@@ -204,9 +224,14 @@ export default function MapPage() {
                   className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2"
                 >
                   <div>
-                    <p className="font-medium leading-snug">{place.name_pt ?? place.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {PLACE_TYPE_LABELS[place.place_type] ?? place.place_type}
+                    <p className="font-medium leading-snug flex items-center gap-2">
+                      <span className="text-base shrink-0" title={getPlaceLabel(place.place_type)}>
+                        {getPlaceEmoji(place.place_type)}
+                      </span>
+                      {place.name_pt ?? place.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+                      {getPlaceLabel(place.place_type)}
                       {place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""}
                     </p>
                   </div>
@@ -246,7 +271,34 @@ export default function MapPage() {
         )}
 
         {viewMode === "table" && (
-          <div className="p-6">
+          <div className="p-6 space-y-3">
+            {/* Type filter row */}
+            {availableTypes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Filtrar por tipo:</span>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="rounded-lg border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Todos</option>
+                  {availableTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {getPlaceEmoji(t)} {getPlaceLabel(t)}
+                    </option>
+                  ))}
+                </select>
+                {typeFilter && (
+                  <button
+                    onClick={() => setTypeFilter("")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="glass-card overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/50">
@@ -270,14 +322,19 @@ export default function MapPage() {
                         <Loader2 className="size-5 animate-spin mx-auto" />
                       </td>
                     </tr>
-                  ) : displayPlaces.length === 0 ? (
+                  ) : filteredPlaces.length === 0 ? (
                     <tr>
                       <td colSpan={selectedTripId ? 3 : 6} className="px-4 py-8 text-center text-muted-foreground">
-                        {selectedTripId ? "Esta viagem ainda não tem lugares." : "Ainda sem lugares visitados."}
+                        {typeFilter
+                          ? "Nenhum lugar deste tipo."
+                          : selectedTripId
+                          ? "Esta viagem ainda não tem lugares."
+                          : "Ainda sem lugares visitados."
+                        }
                       </td>
                     </tr>
                   ) : (
-                    displayPlaces.map((place, i) => (
+                    filteredPlaces.map((place, i) => (
                       <tr
                         key={place.id}
                         onClick={() => handlePlaceClick(place.id)}
@@ -285,7 +342,11 @@ export default function MapPage() {
                       >
                         <td className="px-4 py-3 font-medium">{place.name_pt ?? place.name}</td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {PLACE_TYPE_LABELS[place.place_type] ?? place.place_type}
+                          <span title={getPlaceLabel(place.place_type)}>
+                            {getPlaceEmoji(place.place_type)}
+                          </span>
+                          {" "}
+                          {getPlaceLabel(place.place_type)}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {place.country_code?.toUpperCase() ?? "—"}

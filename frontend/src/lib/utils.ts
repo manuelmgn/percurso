@@ -26,18 +26,3 @@ export const VISIBILITY_LABELS: Record<string, string> = {
   link: "Partilhado por link",
   users: "Utilizadores específicos",
 }
-
-export const PLACE_TYPE_LABELS: Record<string, string> = {
-  building: "Edifício",
-  landmark: "Marco",
-  monument: "Monumento",
-  parish: "Freguesia/Parróquia",
-  neighbourhood: "Bairro",
-  city: "Cidade",
-  town: "Vila",
-  village: "Aldeia",
-  comarca: "Comarca",
-  province: "Província",
-  region: "Região",
-  country: "País",
-}

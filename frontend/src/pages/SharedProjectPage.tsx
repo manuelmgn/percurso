@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2, MapPin, Users, Target } from "lucide-react"
 import { projectsApi } from "@/lib/api"
-import { PLACE_TYPE_LABELS } from "@/lib/utils"
+import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
 
 export default function SharedProjectPage() {
   const { token } = useParams<{ token: string }>()
@@ -111,10 +111,12 @@ export default function SharedProjectPage() {
             <ul className="space-y-1.5">
               {project.target_places.map((p) => (
                 <li key={p.id} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="mr-1.5 text-base" title={getPlaceLabel(p.place_type)}>
+                    {getPlaceEmoji(p.place_type)}
+                  </span>
                   <span className="font-medium">{p.name_pt ?? p.name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {PLACE_TYPE_LABELS[p.place_type] ?? p.place_type}
-                    {p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                    {p.country_code ? `· ${p.country_code.toUpperCase()}` : ""}
                   </span>
                 </li>
               ))}

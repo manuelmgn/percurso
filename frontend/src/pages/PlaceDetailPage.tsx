@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, MapPin, Loader2, Globe } from "lucide-react"
+import { ArrowLeft, Loader2, Globe } from "lucide-react"
 import { placesApi } from "@/lib/api"
-import { PLACE_TYPE_LABELS } from "@/lib/utils"
+import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
 
 const LANG_LABELS: Record<string, string> = {
   pt: "Português",
@@ -56,16 +56,16 @@ export default function PlaceDetailPage() {
         {place.name_pt && place.name !== place.name_pt && (
           <p className="text-sm text-muted-foreground mt-0.5">{place.name}</p>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <MapPin className="size-3.5" />
-            {PLACE_TYPE_LABELS[place.place_type]}
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+            <span className="text-base">{getPlaceEmoji(place.place_type)}</span>
+            {getPlaceLabel(place.place_type)}
           </span>
           {place.country_code && (
-            <span>{place.country_code.toUpperCase()}</span>
+            <span className="text-sm text-muted-foreground">{place.country_code.toUpperCase()}</span>
           )}
           {place.region_name && (
-            <span>{place.region_name}</span>
+            <span className="text-sm text-muted-foreground">{place.region_name}</span>
           )}
         </div>
       </div>

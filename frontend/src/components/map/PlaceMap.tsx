@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { useMapStore } from "@/stores/map"
+import { getPlaceEmoji, getPlaceLabel, getPlaceColour } from "@/lib/placeTypes"
 
 const MAP_STYLES = {
   light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
@@ -25,6 +26,7 @@ interface Props {
   onPlaceClick?: (id: number) => void
   showHeatmap?: boolean
   showRoute?: boolean
+  colourByType?: boolean
   className?: string
 }
 
@@ -37,7 +39,7 @@ function whenReady(map: maplibregl.Map, fn: () => void): () => void {
   return () => map.off("load", fn)
 }
 
-export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute, className }: Props) {
+export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute, colourByType, className }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
@@ -77,20 +79,23 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
       places
         .filter((p) => p.centroid_lng != null && p.centroid_lat != null)
         .forEach((place, idx) => {
+          const colour = colourByType ? getPlaceColour(place.place_type) : markerColour
           const el = document.createElement("div")
           el.style.cssText = `
             width: 10px; height: 10px; border-radius: 50%;
-            background: ${markerColour}; border: 2px solid white;
+            background: ${colour}; border: 2px solid white;
             box-shadow: 0 1px 4px rgba(0,0,0,0.35); cursor: pointer;
           `
+          const emoji = getPlaceEmoji(place.place_type)
+          const label = getPlaceLabel(place.place_type)
           const marker = new maplibregl.Marker({ element: el })
             .setLngLat([place.centroid_lng!, place.centroid_lat!])
             .setPopup(
               new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(
                 `<div style="font-family:sans-serif;padding:2px 0">
-                  ${showRoute ? `<span style="font-size:10px;font-weight:600;background:${markerColour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>` : ""}
+                  ${showRoute ? `<span style="font-size:10px;font-weight:600;background:${colour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>` : ""}
                   <strong style="font-size:13px">${place.name_pt ?? place.name}</strong><br/>
-                  <span style="font-size:11px;opacity:.65">${place.place_type}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
+                  <span style="font-size:11px;opacity:.65">${emoji} ${label}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
                 </div>`,
               ),
             )
@@ -107,7 +112,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
 
     return whenReady(map, updateMarkers)
-  }, [places, markerColour, onPlaceClick, showRoute])
+  }, [places, markerColour, colourByType, onPlaceClick, showRoute])
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {

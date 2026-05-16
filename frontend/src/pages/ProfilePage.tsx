@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, Loader2, Globe, MapPin, Briefcase, FolderOpen } from "lucide-react"
 import { usersApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
-import { PLACE_TYPE_LABELS } from "@/lib/utils"
+import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
 import type { TripPublicSummary, ProjectPublicSummary } from "@/types"
 
 function CoverCard({ colour, imageUrl }: { colour: string | null; imageUrl: string | null }) {
@@ -185,11 +185,12 @@ export default function ProfilePage() {
                 key={p.id}
                 className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
               >
-                <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="text-base shrink-0" title={getPlaceLabel(p.place_type)}>
+                  {getPlaceEmoji(p.place_type)}
+                </span>
                 <span className="font-medium">{p.name_pt ?? p.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {PLACE_TYPE_LABELS[p.place_type] ?? p.place_type}
-                  {p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                  {p.country_code ? `· ${p.country_code.toUpperCase()}` : ""}
                 </span>
               </li>
             ))}

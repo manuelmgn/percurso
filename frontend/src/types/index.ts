@@ -1,9 +1,7 @@
 export type Visibility = "public" | "private" | "link" | "users"
 export type UserRole = "admin" | "user"
 export type InviteStatus = "pending" | "accepted" | "declined"
-export type PlaceType =
-  | "building" | "landmark" | "monument" | "parish" | "neighbourhood"
-  | "city" | "town" | "village" | "comarca" | "province" | "region" | "country"
+export type { PlaceType } from "@/lib/placeTypes"
 
 export interface User {
   id: number

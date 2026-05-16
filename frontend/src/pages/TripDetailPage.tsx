@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
-import type { PlaceSearchResult, Trip, Visibility } from "@/types"
+import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
+import type { PlaceSearchResult, PlaceType, Trip, Visibility } from "@/types"
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -40,14 +41,13 @@ function PlaceSearchAdd({
   const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (!q.trim()) return
+  async function doSearch(query: string) {
     setSearching(true)
     setSearchError(null)
     try {
-      const found = await placesApi.search(q.trim())
+      const found = await placesApi.search(query)
       setResults(found)
       if (found.length === 0) setSearchError("Nenhum lugar encontrado.")
     } catch (err: unknown) {
@@ -55,6 +55,28 @@ function PlaceSearchAdd({
     } finally {
       setSearching(false)
     }
+  }
+
+  useEffect(() => {
+    const trimmed = q.trim()
+    if (trimmed.length < 3) {
+      setResults([])
+      setSearchError(null)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(trimmed), 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [q])
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = q.trim()
+    if (!trimmed) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    doSearch(trimmed)
   }
 
   return (
@@ -72,7 +94,11 @@ function PlaceSearchAdd({
             <li key={`${r.osm_type}-${r.osm_id}`} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <p className="font-medium truncate">{r.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{r.display_name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {getPlaceEmoji(r.place_type as PlaceType)} {getPlaceLabel(r.place_type as PlaceType)}
+                  {" · "}
+                  {r.display_name}
+                </p>
               </div>
               <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={() => { onAdd(r); setResults([]); setQ("") }}>
                 Adicionar
@@ -663,10 +689,16 @@ export default function TripDetailPage() {
           <ul className="mb-4 space-y-1.5">
             {trip.places.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-                <Link to={`/lugares/${p.id}`} className="flex-1 min-w-0 hover:text-primary transition-colors">
-                  <span className="font-medium">{p.name_pt ?? p.name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {p.place_type}{p.country_code ? ` · ${p.country_code.toUpperCase()}` : ""}
+                <Link to={`/lugares/${p.id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
+                  <span
+                    className="text-base shrink-0"
+                    title={getPlaceLabel(p.place_type as PlaceType)}
+                  >
+                    {getPlaceEmoji(p.place_type as PlaceType)}
+                  </span>
+                  <span className="font-medium truncate">{p.name_pt ?? p.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {p.country_code ? p.country_code.toUpperCase() : ""}
                   </span>
                 </Link>
                 {isCreator && (
