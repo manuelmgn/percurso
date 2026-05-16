@@ -66,11 +66,42 @@ PLACE_CATEGORY_LABELS: dict[str, str] = {
 }
 
 
-def get_place_type(osm_class: str, osm_type: str, admin_level: int | None = None) -> str:
-    """Derive the app place type from Nominatim class, type and optional admin_level."""
+def get_place_type(
+    osm_class: str,
+    osm_type: str,
+    addresstype: str = "",
+    admin_level: int | None = None,
+) -> str:
+    """Derive the app place type from Nominatim class, type, addresstype and optional admin_level."""
     cls = (osm_class or "").lower()
     typ = (osm_type or "").lower()
+    atype = (addresstype or "").lower()
 
+    # Step 1 — boundary/administrative: addresstype first, admin_level as fallback
+    if cls == "boundary" and typ == "administrative":
+        if atype == "country":
+            return "pais"
+        if atype in ("state", "region"):
+            return "regiao"
+        if atype in ("province", "state_district"):
+            return "provincia"
+        if atype in ("municipality", "county", "district"):
+            return "comarca"
+        if atype in ("suburb", "neighbourhood", "quarter", "borough"):
+            return "bairro"
+        if admin_level == 2:
+            return "pais"
+        if admin_level in (3, 4):
+            return "regiao"
+        if admin_level in (5, 6):
+            return "provincia"
+        if admin_level in (7, 8):
+            return "comarca"
+        if admin_level in (9, 10):
+            return "bairro"
+        return "limite"
+
+    # Step 2 — amenity
     if cls == "amenity":
         if typ in ("bar", "pub", "biergarten"):
             return "bar"
@@ -88,51 +119,7 @@ def get_place_type(osm_class: str, osm_type: str, admin_level: int | None = None
             return "templo"
         return "edificio"
 
-    if cls == "tourism":
-        if typ in ("museum", "gallery", "attraction"):
-            return "museu"
-        if typ in ("hotel", "hostel", "guest_house"):
-            return "hotel"
-        return "edificio"
-
-    if cls == "historic":
-        if typ in ("castle", "fort", "ruins", "archaeological_site"):
-            return "castelo"
-        if typ in ("church", "cathedral", "monastery"):
-            return "templo"
-        if typ in ("memorial", "monument"):
-            return "monumento"
-        return "monumento"
-
-    if cls == "building":
-        if typ in ("church", "cathedral", "chapel"):
-            return "templo"
-        if typ == "castle":
-            return "castelo"
-        return "edificio"
-
-    if cls == "shop":
-        return "tenda"
-
-    if cls == "natural":
-        if typ in ("wood", "forest", "tree"):
-            return "natureza"
-        if typ in ("water", "river", "lake"):
-            return "auga"
-        if typ == "beach":
-            return "praia"
-        if typ in ("mountain", "peak", "valley", "cliff"):
-            return "montanha"
-        return "natureza"
-
-    if cls == "leisure":
-        if typ in ("park", "garden", "nature_reserve"):
-            return "parque"
-        return "natureza"
-
-    if cls == "landuse":
-        return "natureza"
-
+    # Step 3 — place
     if cls == "place":
         if typ == "country":
             return "pais"
@@ -150,23 +137,56 @@ def get_place_type(osm_class: str, osm_type: str, admin_level: int | None = None
             return "ilha"
         return "limite"
 
-    if cls == "boundary":
-        if admin_level == 2:
-            return "pais"
-        if admin_level in (3, 4):
-            return "regiao"
-        if admin_level in (5, 6):
-            return "provincia"
-        if admin_level in (7, 8):
-            return "comarca"
-        if admin_level in (9, 10):
-            return "bairro"
-        return "limite"
-    
-    # Extras
-    if typ == "node":
+    # Step 4 — tourism
+    if cls == "tourism":
+        if typ in ("museum", "gallery", "attraction"):
+            return "museu"
+        if typ in ("hotel", "hostel", "guest_house"):
+            return "hotel"
         return "edificio"
-    if typ == "relation":
-        return "limite"
+
+    # Step 5 — historic
+    if cls == "historic":
+        if typ in ("castle", "fort", "ruins", "archaeological_site"):
+            return "castelo"
+        if typ in ("church", "cathedral", "monastery"):
+            return "templo"
+        if typ in ("memorial", "monument"):
+            return "monumento"
+        return "monumento"
+
+    # Step 6 — building
+    if cls == "building":
+        if typ in ("church", "cathedral", "chapel"):
+            return "templo"
+        if typ == "castle":
+            return "castelo"
+        return "edificio"
+
+    # Step 7 — shop
+    if cls == "shop":
+        return "tenda"
+
+    # Step 8 — natural
+    if cls == "natural":
+        if typ in ("wood", "forest", "tree"):
+            return "natureza"
+        if typ in ("water", "river", "lake"):
+            return "auga"
+        if typ == "beach":
+            return "praia"
+        if typ in ("mountain", "peak", "valley", "cliff"):
+            return "montanha"
+        return "natureza"
+
+    # Step 9 — leisure
+    if cls == "leisure":
+        if typ in ("park", "garden", "nature_reserve"):
+            return "parque"
+        return "natureza"
+
+    # Step 10 — landuse
+    if cls == "landuse":
+        return "natureza"
 
     return "outro"

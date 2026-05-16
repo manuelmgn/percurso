@@ -86,8 +86,9 @@ def nominatim_to_place_data(result: dict) -> dict:
     address = result.get("address", {})
     osm_class = result.get("class", "")
     osm_type_val = result.get("type", "")
+    addresstype = result.get("addresstype", "")
     admin_level = _parse_admin_level(result)
-    place_type = get_place_type(osm_class, osm_type_val, admin_level)
+    place_type = get_place_type(osm_class, osm_type_val, addresstype, admin_level)
     return {
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),
@@ -100,4 +101,6 @@ def nominatim_to_place_data(result: dict) -> dict:
         "centroid_lat": lat,
         "display_name": result.get("display_name", ""),
         "importance": result.get("importance"),
+        "addresstype": addresstype,
+        "admin_level": admin_level,
     }

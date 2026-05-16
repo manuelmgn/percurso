@@ -58,16 +58,13 @@ async def search_places(
 
     raw = await search_nominatim(q, country_codes)
 
-    # Build enriched dicts and deduplicate on (name, place_type, country_code),
-    # keeping the entry with the highest importance score.
-    seen: dict[tuple, dict] = {}
+    # Deduplicate by osm_id only — same OSM object may appear twice.
+    seen: dict[int, dict] = {}
     for r in raw:
         data = nominatim_to_place_data(r)
-        key = (data["name"].lower(), data["place_type"], data["country_code"])
-        importance = data.get("importance") or 0.0
-        existing = seen.get(key)
-        if existing is None or importance > (existing.get("importance") or 0.0):
-            seen[key] = data
+        osm_id = data["osm_id"]
+        if osm_id not in seen:
+            seen[osm_id] = data
 
     ordered = sorted(seen.values(), key=lambda d: d.get("importance") or 0.0, reverse=True)
 
@@ -85,6 +82,8 @@ async def search_places(
             centroid_lng=d["centroid_lng"],
             centroid_lat=d["centroid_lat"],
             importance=d.get("importance"),
+            addresstype=d.get("addresstype", ""),
+            admin_level=d.get("admin_level"),
         )
         for d in ordered
     ]

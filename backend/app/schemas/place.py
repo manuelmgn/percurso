@@ -35,6 +35,8 @@ class PlaceSearchResult(BaseModel):
     centroid_lng: float
     centroid_lat: float
     importance: float | None
+    addresstype: str
+    admin_level: int | None
 
 
 class NominatimMatchResult(BaseModel):
