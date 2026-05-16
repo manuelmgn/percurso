@@ -1,7 +1,8 @@
 export type Visibility = "public" | "private" | "link" | "users"
 export type UserRole = "admin" | "user"
 export type InviteStatus = "pending" | "accepted" | "declined"
-export type { PlaceType } from "@/lib/placeTypes"
+import type { PlaceType } from "@/lib/placeTypes"
+export type { PlaceType }
 
 export interface User {
   id: number
