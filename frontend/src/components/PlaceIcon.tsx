@@ -1,4 +1,3 @@
-import type { LucideProps } from "lucide-react"
 import {
   Beer, Coffee, Utensils, Popcorn, Hospital, GraduationCap,
   Church, Landmark, Hotel, Castle, Building2, Store,
@@ -7,7 +6,7 @@ import {
 } from "lucide-react"
 import type { PlaceType, PlaceCategory } from "@/lib/placeTypes"
 
-type IconComponent = React.ComponentType<LucideProps>
+type IconComponent = React.ComponentType<{ size?: number; className?: string; title?: string }>
 
 const TYPE_ICONS: Record<PlaceType, IconComponent> = {
   bar: Beer,
@@ -46,20 +45,26 @@ const CATEGORY_ICONS: Record<PlaceCategory, IconComponent> = {
   outro: Pin,
 }
 
-interface PlaceIconProps extends LucideProps {
+interface PlaceIconProps {
   type: PlaceType | string
+  size?: number
+  className?: string
+  title?: string
 }
 
-interface CategoryIconProps extends LucideProps {
+interface CategoryIconProps {
   category: PlaceCategory | string
+  size?: number
+  className?: string
+  title?: string
 }
 
-export function PlaceIcon({ type, ...props }: PlaceIconProps) {
+export function PlaceIcon({ type, size, className, title }: PlaceIconProps) {
   const Icon = TYPE_ICONS[type as PlaceType] ?? Pin
-  return <Icon {...props} />
+  return <Icon size={size} className={className} title={title} />
 }
 
-export function PlaceCategoryIcon({ category, ...props }: CategoryIconProps) {
+export function PlaceCategoryIcon({ category, size, className, title }: CategoryIconProps) {
   const Icon = CATEGORY_ICONS[category as PlaceCategory] ?? Pin
-  return <Icon {...props} />
+  return <Icon size={size} className={className} title={title} />
 }
