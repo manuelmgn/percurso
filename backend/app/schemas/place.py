@@ -25,12 +25,16 @@ class PlaceResponse(BaseModel):
 class PlaceSearchResult(BaseModel):
     osm_id: int
     osm_type: str
+    osm_class: str
     name: str
     display_name: str
     place_type: str
+    place_type_label: str
+    place_category: str
     country_code: str | None
     centroid_lng: float
     centroid_lat: float
+    importance: float | None
 
 
 class NominatimMatchResult(BaseModel):

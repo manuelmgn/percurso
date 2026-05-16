@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
+from app.core.place_types import PLACE_TYPE_CATEGORY, PLACE_TYPE_LABELS
 from app.models.place import Place
 from app.models.user import User
 from app.schemas.place import PlaceResponse, PlaceSearchResult
@@ -55,19 +56,37 @@ async def search_places(
     else:
         country_codes = ["pt", "es"]
 
-    results = await search_nominatim(q, country_codes)
+    raw = await search_nominatim(q, country_codes)
+
+    # Build enriched dicts and deduplicate on (name, place_type, country_code),
+    # keeping the entry with the highest importance score.
+    seen: dict[tuple, dict] = {}
+    for r in raw:
+        data = nominatim_to_place_data(r)
+        key = (data["name"].lower(), data["place_type"], data["country_code"])
+        importance = data.get("importance") or 0.0
+        existing = seen.get(key)
+        if existing is None or importance > (existing.get("importance") or 0.0):
+            seen[key] = data
+
+    ordered = sorted(seen.values(), key=lambda d: d.get("importance") or 0.0, reverse=True)
+
     return [
         PlaceSearchResult(
-            osm_id=int(r.get("osm_id", 0)),
-            osm_type=r.get("osm_type", "node"),
-            name=r.get("name") or r.get("display_name", ""),
-            display_name=r.get("display_name", ""),
-            place_type=nominatim_to_place_data(r)["place_type"],
-            country_code=r.get("address", {}).get("country_code", "").upper() or None,
-            centroid_lng=float(r.get("lon", 0)),
-            centroid_lat=float(r.get("lat", 0)),
+            osm_id=d["osm_id"],
+            osm_type=d["osm_type"],
+            osm_class=d.get("osm_class", ""),
+            name=d["name"],
+            display_name=d["display_name"],
+            place_type=d["place_type"],
+            place_type_label=PLACE_TYPE_LABELS.get(d["place_type"], d["place_type"]),
+            place_category=PLACE_TYPE_CATEGORY.get(d["place_type"], "outro"),
+            country_code=d["country_code"],
+            centroid_lng=d["centroid_lng"],
+            centroid_lat=d["centroid_lat"],
+            importance=d.get("importance"),
         )
-        for r in results
+        for d in ordered
     ]
 
 

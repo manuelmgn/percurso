@@ -71,18 +71,33 @@ async def get_osm_details(osm_id: int, osm_type: str) -> dict | None:
         return results[0] if results else None
 
 
+def _parse_admin_level(result: dict) -> int | None:
+    extratags = result.get("extratags") or {}
+    raw = result.get("admin_level") or extratags.get("admin_level")
+    try:
+        return int(raw) if raw is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
 def nominatim_to_place_data(result: dict) -> dict:
     lng = float(result.get("lon", 0))
     lat = float(result.get("lat", 0))
     address = result.get("address", {})
+    osm_class = result.get("class", "")
+    osm_type_val = result.get("type", "")
+    admin_level = _parse_admin_level(result)
+    place_type = get_place_type(osm_class, osm_type_val, admin_level)
     return {
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),
+        "osm_class": osm_class,
         "name": result.get("name") or result.get("display_name", "")[:500],
-        "place_type": get_place_type(result.get("type", ""), result.get("class", "")),
+        "place_type": place_type,
         "country_code": address.get("country_code", "").upper() or None,
         "region_name": address.get("state") or address.get("region"),
         "centroid_lng": lng,
         "centroid_lat": lat,
         "display_name": result.get("display_name", ""),
+        "importance": result.get("importance"),
     }
