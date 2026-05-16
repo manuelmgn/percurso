@@ -162,5 +162,11 @@ def get_place_type(osm_class: str, osm_type: str, admin_level: int | None = None
         if admin_level in (9, 10):
             return "bairro"
         return "limite"
+    
+    # Extras
+    if typ == "node":
+        return "edificio"
+    if typ == "relation":
+        return "limite"
 
     return "outro"
