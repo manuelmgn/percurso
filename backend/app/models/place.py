@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Enum, String, Text
+from sqlalchemy import BigInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,24 +27,7 @@ class Place(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     name_pt: Mapped[str | None] = mapped_column(String(500), nullable=True)
     name_en: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    place_type: Mapped[str] = mapped_column(
-        Enum(
-            "building",
-            "landmark",
-            "monument",
-            "parish",
-            "neighbourhood",
-            "city",
-            "town",
-            "village",
-            "comarca",
-            "province",
-            "region",
-            "country",
-            name="place_type",
-        ),
-        nullable=False,
-    )
+    place_type: Mapped[str] = mapped_column(String(50), nullable=False, server_default="outro")
     country_code: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
     region_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 

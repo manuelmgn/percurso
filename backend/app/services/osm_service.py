@@ -4,6 +4,7 @@ import hashlib
 import httpx
 
 from app.core.config import get_settings
+from app.core.place_types import get_place_type
 
 settings = get_settings()
 
@@ -13,35 +14,7 @@ OSM_TYPE_MAP = {
     "R": "relation",
 }
 
-PLACE_TYPE_KEYWORDS = {
-    "building": "building",
-    "landmark": "landmark",
-    "monument": "monument",
-    "parish": "parish",
-    "neighbourhood": "neighbourhood",
-    "suburb": "neighbourhood",
-    "city": "city",
-    "town": "town",
-    "village": "village",
-    "hamlet": "village",
-    "municipality": "city",
-    "comarca": "comarca",
-    "province": "province",
-    "state": "region",
-    "region": "region",
-    "country": "country",
-}
-
 _NOMINATIM_CACHE_TTL = 3600  # 1 hour
-
-
-def _infer_place_type(nominatim_result: dict) -> str:
-    osm_class = nominatim_result.get("class", "")
-    osm_type = nominatim_result.get("type", "")
-    for key in (osm_type, osm_class):
-        if key in PLACE_TYPE_KEYWORDS:
-            return PLACE_TYPE_KEYWORDS[key]
-    return "landmark"
 
 
 def _search_cache_key(query: str, country_codes: list[str] | None) -> str:
@@ -106,7 +79,7 @@ def nominatim_to_place_data(result: dict) -> dict:
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),
         "name": result.get("name") or result.get("display_name", "")[:500],
-        "place_type": _infer_place_type(result),
+        "place_type": get_place_type(result.get("type", ""), result.get("class", "")),
         "country_code": address.get("country_code", "").upper() or None,
         "region_name": address.get("state") or address.get("region"),
         "centroid_lng": lng,
