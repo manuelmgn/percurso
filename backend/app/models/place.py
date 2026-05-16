@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, String, Text
+from sqlalchemy import BigInteger, Enum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
