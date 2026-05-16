@@ -85,7 +85,9 @@ def get_place_type(
             return "regiao"
         if atype in ("province", "state_district"):
             return "provincia"
-        if atype in ("municipality", "county", "district"):
+        if atype == "municipality":
+            return "cidade"
+        if atype in ("county", "district"):
             return "comarca"
         if atype in ("suburb", "neighbourhood", "quarter", "borough"):
             return "bairro"
