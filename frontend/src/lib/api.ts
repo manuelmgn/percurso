@@ -246,6 +246,10 @@ export const projectsApi = {
     request<Project>("POST", `/api/v1/projects/${projectId}/generate-cover`),
   deleteCover: (projectId: number) =>
     request<Project>("DELETE", `/api/v1/projects/${projectId}/cover`),
+  addMedia: (projectId: number, url: string) =>
+    request<Project>("POST", `/api/v1/projects/${projectId}/media`, { url }),
+  removeMedia: (projectId: number, mediaId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/media/${mediaId}`),
 }
 
 // Notifications

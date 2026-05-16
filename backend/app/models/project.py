@@ -37,6 +37,7 @@ class Project(Base, TimestampMixin):
     collaborators: Mapped[list["ProjectCollaborator"]] = relationship("ProjectCollaborator", back_populates="project", cascade="all, delete-orphan")
     target_places: Mapped[list["ProjectTargetPlace"]] = relationship("ProjectTargetPlace", back_populates="project", cascade="all, delete-orphan")
     shared_with: Mapped[list["ProjectSharedUser"]] = relationship("ProjectSharedUser", back_populates="project", cascade="all, delete-orphan")
+    media_links: Mapped[list["ProjectMediaLink"]] = relationship("ProjectMediaLink", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectCollaborator(Base, TimestampMixin):
@@ -78,3 +79,17 @@ class ProjectSharedUser(Base):
 
     project: Mapped["Project"] = relationship("Project", back_populates="shared_with")
     user: Mapped["User"] = relationship("User")
+
+
+class ProjectMediaLink(Base, TimestampMixin):
+    __tablename__ = "project_media_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(2000), nullable=False)
+    og_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    og_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    og_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    og_site_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    project: Mapped["Project"] = relationship("Project", back_populates="media_links")

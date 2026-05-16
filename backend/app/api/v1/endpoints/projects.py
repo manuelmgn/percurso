@@ -12,10 +12,11 @@ from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.security import generate_invite_token, generate_sharing_token
 from app.models.notification import Notification
-from app.models.project import Project, ProjectCollaborator, ProjectSharedUser, ProjectTargetPlace
+from app.models.project import Project, ProjectCollaborator, ProjectMediaLink, ProjectSharedUser, ProjectTargetPlace
 from app.models.trip import Trip, TripPlace
 from app.models.user import User
-from app.schemas.project import PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
+from app.schemas.project import MediaLinkCreate, PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
+from app.services.og_service import fetch_og_metadata
 from app.services.storage_service import delete_from_imgbb, upload_cover_image
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ async def _load_project(db: AsyncSession, project_id: int) -> Project | None:
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
             selectinload(Project.target_places).selectinload(ProjectTargetPlace.place),
             selectinload(Project.shared_with).selectinload(ProjectSharedUser.user),
+            selectinload(Project.media_links),
         )
         .where(Project.id == project_id)
     )
@@ -71,6 +73,7 @@ async def _load_project_by_token(db: AsyncSession, token: str) -> Project | None
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
             selectinload(Project.target_places).selectinload(ProjectTargetPlace.place),
             selectinload(Project.shared_with),
+            selectinload(Project.media_links),
         )
         .where(Project.sharing_token == token, Project.visibility == "link")
     )
@@ -140,6 +143,17 @@ def _project_to_response(project: Project, visited_count: int = 0, include_pendi
         ],
         "target_place_count": len(project.target_places),
         "visited_place_count": visited_count,
+        "media_links": [
+            {
+                "id": m.id,
+                "url": m.url,
+                "og_title": m.og_title,
+                "og_description": m.og_description,
+                "og_image_url": m.og_image_url,
+                "og_site_name": m.og_site_name,
+            }
+            for m in project.media_links
+        ],
     }
 
 
@@ -178,6 +192,7 @@ async def list_my_projects(
             selectinload(Project.creator),
             selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
             selectinload(Project.target_places),
+            selectinload(Project.media_links),
         )
         .where(
             or_(
@@ -692,3 +707,55 @@ async def import_places_from_text(
         else:
             results.append(NominatimMatchResult(query=line, match=None, confidence=None))
     return results
+
+
+@router.post("/{project_id}/media", response_model=ProjectDetailResponse)
+async def add_project_media(
+    project_id: int,
+    data: MediaLinkCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    og = await fetch_og_metadata(data.url)
+    link = ProjectMediaLink(
+        project_id=project_id,
+        url=data.url,
+        og_title=og.get("title"),
+        og_description=og.get("description"),
+        og_image_url=og.get("image"),
+        og_site_name=og.get("site_name"),
+    )
+    db.add(link)
+    await db.flush()
+
+    project = await _load_project(db, project_id)
+    visited = await _compute_progress(db, project_id, project)
+    return _project_to_response(project, visited, include_pending=True)
+
+
+@router.delete("/{project_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_project_media(
+    project_id: int,
+    media_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    result = await db.execute(
+        select(ProjectMediaLink).where(
+            ProjectMediaLink.id == media_id,
+            ProjectMediaLink.project_id == project_id,
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link não encontrado")
+
+    await db.delete(link)

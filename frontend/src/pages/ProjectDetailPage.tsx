@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Target, Search, X,
-  UserPlus, FileText, Check, AlertCircle, Pencil, Info, Trash2,
+  UserPlus, FileText, Check, AlertCircle, Pencil, Info, Trash2, Link2, ExternalLink,
 } from "lucide-react"
 import { projectsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -548,6 +548,7 @@ export default function ProjectDetailPage() {
   const { user } = useAuthStore()
 
   const [showDetails, setShowDetails] = useState(false)
+  const [mediaUrl, setMediaUrl] = useState("")
   const [coverHover, setCoverHover] = useState(false)
   const [coverTap, setCoverTap] = useState(false)
   const [aiHint, setAiHint] = useState(false)
@@ -626,6 +627,19 @@ export default function ProjectDetailPage() {
       )
       queryClient.invalidateQueries({ queryKey: ["projects"] })
     },
+  })
+
+  const addMediaMutation = useMutation({
+    mutationFn: (url: string) => projectsApi.addMedia(projectId, url),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      setMediaUrl("")
+    },
+  })
+
+  const removeMediaMutation = useMutation({
+    mutationFn: (mediaId: number) => projectsApi.removeMedia(projectId, mediaId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
   const updateMutation = useMutation({
@@ -718,6 +732,11 @@ export default function ProjectDetailPage() {
     setCoverGenFailed(false)
     pollCountRef.current = 0
     generateMutation.mutate()
+  }
+
+  function handleAddMedia(e: React.FormEvent) {
+    e.preventDefault()
+    if (mediaUrl.trim()) addMediaMutation.mutate(mediaUrl.trim())
   }
 
   return (
@@ -951,6 +970,72 @@ export default function ProjectDetailPage() {
               />
             )}
           </div>
+        )}
+      </div>
+
+      {/* Media links */}
+      <div className="glass-card p-5">
+        <h2 className="font-semibold mb-4">Ligações</h2>
+
+        {project.media_links && project.media_links.length > 0 && (
+          <ul className="mb-4 space-y-2">
+            {project.media_links.map((m) => (
+              <li key={m.id} className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                {m.og_image_url && (
+                  <img src={m.og_image_url} alt="" className="h-12 w-16 shrink-0 rounded object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{m.og_title ?? m.url}</p>
+                  {m.og_description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{m.og_description}</p>
+                  )}
+                  {m.og_site_name && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{m.og_site_name}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <a
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded p-1 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => removeMediaMutation.mutate(m.id)}
+                      disabled={removeMediaMutation.isPending}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover link"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {isCreator && (
+          <form onSubmit={handleAddMedia} className="flex gap-2">
+            <Input
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+              placeholder="https://…"
+              type="url"
+              className="flex-1"
+            />
+            <Button type="submit" variant="outline" disabled={addMediaMutation.isPending || !mediaUrl.trim()}>
+              {addMediaMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}
+              Adicionar
+            </Button>
+          </form>
+        )}
+        {addMediaMutation.error && (
+          <p className="mt-2 text-sm text-destructive">{(addMediaMutation.error as Error).message}</p>
         )}
       </div>
 

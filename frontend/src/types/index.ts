@@ -194,6 +194,7 @@ export interface Project {
   visited_place_count: number
   target_places?: PlaceSummary[]
   shared_with?: SharedUser[]
+  media_links?: MediaLink[]
 }
 
 export interface Notification {

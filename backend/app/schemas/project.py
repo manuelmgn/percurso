@@ -1,6 +1,21 @@
 from pydantic import BaseModel
 
 
+class MediaLinkCreate(BaseModel):
+    url: str
+
+
+class MediaLinkResponse(BaseModel):
+    id: int
+    url: str
+    og_title: str | None
+    og_description: str | None
+    og_image_url: str | None
+    og_site_name: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class PlaceSummaryResponse(BaseModel):
     id: int
     name: str
@@ -74,6 +89,7 @@ class SharedUserResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     target_places: list[PlaceSummaryResponse] = []
     shared_with: list[SharedUserResponse] = []
+    media_links: list[MediaLinkResponse] = []
 
 
 class PlaceImportLine(BaseModel):
