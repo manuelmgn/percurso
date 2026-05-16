@@ -5,7 +5,7 @@ import { useAuthStore } from "@/stores/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { VISIBILITY_LABELS } from "@/lib/utils"
-import { Loader2, Check, Camera } from "lucide-react"
+import { Loader2, Check, Camera, X } from "lucide-react"
 import type { Visibility, User } from "@/types"
 
 function VisibilitySelect({
@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const [placesVisibility, setPlacesVisibility] = useState<Visibility>(user?.visited_places_visibility ?? "private")
   const [saved, setSaved] = useState(false)
 
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -72,10 +73,22 @@ export default function SettingsPage() {
       setConfirmPassword("")
       setPasswordError(null)
       setPasswordSaved(true)
-      setTimeout(() => setPasswordSaved(false), 2000)
+      setTimeout(() => {
+        setPasswordSaved(false)
+        setShowPasswordModal(false)
+      }, 1500)
     },
     onError: (err: Error) => setPasswordError(err.message),
   })
+
+  function openPasswordModal() {
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setPasswordError(null)
+    setPasswordSaved(false)
+    setShowPasswordModal(true)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -207,51 +220,78 @@ export default function SettingsPage() {
       </form>
 
       {/* Password */}
-      <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
-        <div className="glass-card p-6 space-y-4">
+      <div className="glass-card p-6 flex items-center justify-between">
+        <div>
           <h2 className="font-semibold text-base">Palavra-passe</h2>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Palavra-passe atual</label>
-            <Input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Nova palavra-passe</label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-              placeholder="Mínimo 8 caracteres"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Confirmar nova palavra-passe</label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
-          {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
-          <Button
-            type="submit"
-            disabled={passwordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-            className="w-full"
-          >
-            {passwordMutation.isPending
-              ? <Loader2 className="animate-spin" />
-              : passwordSaved
-              ? <><Check className="size-4" /> Palavra-passe alterada</>
-              : "Alterar palavra-passe"}
-          </Button>
+          <p className="text-xs text-muted-foreground mt-0.5">Altera a tua palavra-passe de acesso</p>
         </div>
-      </form>
+        <Button type="button" variant="outline" onClick={openPasswordModal}>
+          Alterar palavra-passe
+        </Button>
+      </div>
+
+      {/* Password modal */}
+      {showPasswordModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPasswordModal(false) }}
+        >
+          <div className="glass-card w-full max-w-sm mx-4 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-base">Alterar palavra-passe</h2>
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Palavra-passe atual</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Nova palavra-passe</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Mínimo 8 caracteres"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Confirmar nova palavra-passe</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
+              <Button
+                type="submit"
+                disabled={passwordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+                className="w-full"
+              >
+                {passwordMutation.isPending
+                  ? <Loader2 className="animate-spin" />
+                  : passwordSaved
+                  ? <><Check className="size-4" /> Palavra-passe alterada</>
+                  : "Guardar nova palavra-passe"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
