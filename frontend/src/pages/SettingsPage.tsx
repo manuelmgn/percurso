@@ -82,7 +82,7 @@ export default function SettingsPage() {
     mutation.mutate({
       display_name: displayName,
       biography,
-      website_url: websiteUrl,
+      website_url: websiteUrl.trim() || null,
       default_trip_visibility: tripVisibility,
       default_project_visibility: projectVisibility,
       visited_places_visibility: placesVisibility,

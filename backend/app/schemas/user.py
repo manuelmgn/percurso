@@ -36,6 +36,13 @@ class UserUpdate(BaseModel):
     default_project_visibility: str | None = None
     visited_places_visibility: str | None = None
 
+    @field_validator("website_url", "avatar_url", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v: object) -> object:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
     @field_validator("display_name")
     @classmethod
     def display_name_length(cls, v: str | None) -> str | None:
