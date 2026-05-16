@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom"
+import { Outlet, NavLink, Link, useNavigate } from "react-router-dom"
 import { Map, Briefcase, FolderOpen, Bell, Settings, LogOut, User } from "lucide-react"
 import { useAuthStore } from "@/stores/auth"
 import { authApi } from "@/lib/api"
@@ -36,10 +36,10 @@ export default function AppShell() {
       {/* Sidebar */}
       <aside className="glass flex w-64 flex-col border-r border-border/50 p-4">
         {/* Logo */}
-        <div className="mb-8 px-2">
+        <Link to="/mapa" className="mb-8 px-2 block hover:opacity-80 transition-opacity">
           <h1 className="text-2xl font-bold gradient-text tracking-tight">Percurso</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Os teus lugares</p>
-        </div>
+        </Link>
 
         {/* Nav */}
         <nav className="flex-1 space-y-1">
@@ -130,7 +130,12 @@ export default function AppShell() {
               }
             </NavLink>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{user?.display_name}</p>
+              <NavLink
+                to={`/perfil/${user?.username}`}
+                className="block truncate text-sm font-medium hover:text-primary transition-colors"
+              >
+                {user?.display_name}
+              </NavLink>
               <NavLink
                 to={`/perfil/${user?.username}`}
                 className="truncate text-xs text-muted-foreground hover:text-primary transition-colors"
