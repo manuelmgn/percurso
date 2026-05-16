@@ -3,14 +3,15 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Search, X, UserPlus, Link2,
-  ExternalLink, Clock, Pencil,
+  ExternalLink, Clock, Pencil, Info,
 } from "lucide-react"
 import { tripsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
-import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
+import { getPlaceLabel } from "@/lib/placeTypes"
+import { PlaceIcon } from "@/components/PlaceIcon"
 import type { PlaceSearchResult, PlaceType, Trip, Visibility } from "@/types"
 
 function wordCount(text: string): number {
@@ -41,11 +42,13 @@ function PlaceSearchAdd({
   const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [infoKey, setInfoKey] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function doSearch(query: string) {
     setSearching(true)
     setSearchError(null)
+    setInfoKey(null)
     try {
       const found = await placesApi.search(query)
       setResults(found)
@@ -90,21 +93,45 @@ function PlaceSearchAdd({
       {searchError && <p className="text-sm text-destructive">{searchError}</p>}
       {results.length > 0 && (
         <ul className="space-y-1.5">
-          {results.map((r) => (
-            <li key={`${r.osm_type}-${r.osm_id}`} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-              <div className="min-w-0">
-                <p className="font-medium truncate">{r.name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {getPlaceEmoji(r.place_type as PlaceType)} {getPlaceLabel(r.place_type as PlaceType)}
-                  {" · "}
-                  {r.display_name}
-                </p>
-              </div>
-              <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={() => { onAdd(r); setResults([]); setQ("") }}>
-                Adicionar
-              </Button>
-            </li>
-          ))}
+          {results.map((r) => {
+            const key = `${r.osm_type}-${r.osm_id}`
+            return (
+              <li key={key} className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                <PlaceIcon type={r.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{r.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {r.place_type_label}
+                    {" · "}
+                    {r.display_name}
+                  </p>
+                </div>
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setInfoKey(infoKey === key ? null : key)}
+                    className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    title="Detalhes OSM"
+                  >
+                    <Info className="size-3.5" />
+                  </button>
+                  {infoKey === key && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border bg-background p-2.5 text-xs shadow-lg space-y-1">
+                      <p><span className="text-muted-foreground">Classe:</span> {r.osm_class}</p>
+                      <p><span className="text-muted-foreground">Tipo OSM:</span> {r.osm_type}</p>
+                      {r.importance != null && (
+                        <p><span className="text-muted-foreground">Importância:</span> {r.importance.toFixed(4)}</p>
+                      )}
+                      <p className="break-all"><span className="text-muted-foreground">Nome completo:</span> {r.display_name}</p>
+                    </div>
+                  )}
+                </div>
+                <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={() => { onAdd(r); setResults([]); setQ("") }}>
+                  Adicionar
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
@@ -690,12 +717,12 @@ export default function TripDetailPage() {
             {trip.places.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
                 <Link to={`/lugares/${p.id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
-                  <span
-                    className="text-base shrink-0"
-                    title={getPlaceLabel(p.place_type as PlaceType)}
-                  >
-                    {getPlaceEmoji(p.place_type as PlaceType)}
-                  </span>
+                  <PlaceIcon
+                    type={p.place_type as PlaceType}
+                    size={15}
+                    className="shrink-0 text-muted-foreground"
+                    title={getPlaceLabel(p.place_type)}
+                  />
                   <span className="font-medium truncate">{p.name_pt ?? p.name}</span>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {p.country_code ? p.country_code.toUpperCase() : ""}

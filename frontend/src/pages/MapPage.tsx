@@ -7,8 +7,9 @@ import PlaceMap from "@/components/map/PlaceMap"
 import { useMapStore, type MapViewMode, type MapStyle } from "@/stores/map"
 import { Button } from "@/components/ui/button"
 import { formatDate } from "@/lib/utils"
-import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
-import type { VisitedPlace, PlaceSummary } from "@/types"
+import { getPlaceLabel } from "@/lib/placeTypes"
+import { PlaceIcon } from "@/components/PlaceIcon"
+import type { VisitedPlace, PlaceSummary, PlaceType } from "@/types"
 
 export default function MapPage() {
   const navigate = useNavigate()
@@ -225,9 +226,7 @@ export default function MapPage() {
                 >
                   <div>
                     <p className="font-medium leading-snug flex items-center gap-2">
-                      <span className="text-base shrink-0" title={getPlaceLabel(place.place_type)}>
-                        {getPlaceEmoji(place.place_type)}
-                      </span>
+                      <PlaceIcon type={place.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" title={getPlaceLabel(place.place_type)} />
                       {place.name_pt ?? place.name}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5 pl-6">
@@ -284,7 +283,7 @@ export default function MapPage() {
                   <option value="">Todos</option>
                   {availableTypes.map((t) => (
                     <option key={t} value={t}>
-                      {getPlaceEmoji(t)} {getPlaceLabel(t)}
+                      {getPlaceLabel(t)}
                     </option>
                   ))}
                 </select>
@@ -342,11 +341,10 @@ export default function MapPage() {
                       >
                         <td className="px-4 py-3 font-medium">{place.name_pt ?? place.name}</td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          <span title={getPlaceLabel(place.place_type)}>
-                            {getPlaceEmoji(place.place_type)}
+                          <span className="inline-flex items-center gap-1.5">
+                            <PlaceIcon type={place.place_type as PlaceType} size={13} className="shrink-0" />
+                            {getPlaceLabel(place.place_type)}
                           </span>
-                          {" "}
-                          {getPlaceLabel(place.place_type)}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {place.country_code?.toUpperCase() ?? "—"}

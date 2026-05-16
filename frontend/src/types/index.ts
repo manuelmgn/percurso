@@ -106,12 +106,16 @@ export interface Place {
 export interface PlaceSearchResult {
   osm_id: number
   osm_type: string
+  osm_class: string
   name: string
   display_name: string
   place_type: PlaceType
+  place_type_label: string
+  place_category: string
   country_code: string | null
   centroid_lng: number
   centroid_lat: number
+  importance: number | null
 }
 
 export interface Companion {

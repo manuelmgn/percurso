@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, Loader2, Globe, MapPin, Briefcase, FolderOpen } from "lucide-react"
 import { usersApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
-import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
+import { getPlaceLabel } from "@/lib/placeTypes"
+import { PlaceIcon } from "@/components/PlaceIcon"
+import type { PlaceType } from "@/types"
 import type { TripPublicSummary, ProjectPublicSummary } from "@/types"
 
 function CoverCard({ colour, imageUrl }: { colour: string | null; imageUrl: string | null }) {
@@ -185,9 +187,12 @@ export default function ProfilePage() {
                 key={p.id}
                 className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
               >
-                <span className="text-base shrink-0" title={getPlaceLabel(p.place_type)}>
-                  {getPlaceEmoji(p.place_type)}
-                </span>
+                <PlaceIcon
+                  type={p.place_type as PlaceType}
+                  size={14}
+                  className="shrink-0 text-muted-foreground"
+                  title={getPlaceLabel(p.place_type)}
+                />
                 <span className="font-medium">{p.name_pt ?? p.name}</span>
                 <span className="text-xs text-muted-foreground">
                   {p.country_code ? `· ${p.country_code.toUpperCase()}` : ""}

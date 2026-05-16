@@ -2,7 +2,9 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, Loader2, Globe } from "lucide-react"
 import { placesApi } from "@/lib/api"
-import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
+import { getPlaceLabel } from "@/lib/placeTypes"
+import { PlaceIcon } from "@/components/PlaceIcon"
+import type { PlaceType } from "@/types"
 
 const LANG_LABELS: Record<string, string> = {
   pt: "Português",
@@ -58,7 +60,7 @@ export default function PlaceDetailPage() {
         )}
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-            <span className="text-base">{getPlaceEmoji(place.place_type)}</span>
+            <PlaceIcon type={place.place_type as PlaceType} size={14} />
             {getPlaceLabel(place.place_type)}
           </span>
           {place.country_code && (

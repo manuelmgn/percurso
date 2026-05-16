@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { useMapStore } from "@/stores/map"
-import { getPlaceEmoji, getPlaceLabel, getPlaceColour } from "@/lib/placeTypes"
+import { getPlaceLabel, getPlaceColour } from "@/lib/placeTypes"
 
 const MAP_STYLES = {
   light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
@@ -86,7 +86,6 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
             background: ${colour}; border: 2px solid white;
             box-shadow: 0 1px 4px rgba(0,0,0,0.35); cursor: pointer;
           `
-          const emoji = getPlaceEmoji(place.place_type)
           const label = getPlaceLabel(place.place_type)
           const marker = new maplibregl.Marker({ element: el })
             .setLngLat([place.centroid_lng!, place.centroid_lat!])
@@ -95,7 +94,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
                 `<div style="font-family:sans-serif;padding:2px 0">
                   ${showRoute ? `<span style="font-size:10px;font-weight:600;background:${colour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>` : ""}
                   <strong style="font-size:13px">${place.name_pt ?? place.name}</strong><br/>
-                  <span style="font-size:11px;opacity:.65">${emoji} ${label}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
+                  <span style="font-size:11px;opacity:.65">${label}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
                 </div>`,
               ),
             )

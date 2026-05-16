@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import { Loader2, Calendar, MapPin, Users } from "lucide-react"
 import { tripsApi } from "@/lib/api"
 import { formatDateRange } from "@/lib/utils"
-import { getPlaceEmoji, getPlaceLabel } from "@/lib/placeTypes"
+import { getPlaceLabel } from "@/lib/placeTypes"
+import { PlaceIcon } from "@/components/PlaceIcon"
+import type { PlaceType } from "@/types"
 
 export default function SharedTripPage() {
   const { token } = useParams<{ token: string }>()
@@ -91,9 +93,12 @@ export default function SharedTripPage() {
             <ul className="space-y-1.5">
               {trip.places.map((p) => (
                 <li key={p.id} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-                  <span className="mr-1.5 text-base" title={getPlaceLabel(p.place_type)}>
-                    {getPlaceEmoji(p.place_type)}
-                  </span>
+                  <PlaceIcon
+                    type={p.place_type as PlaceType}
+                    size={14}
+                    className="mr-1.5 shrink-0 text-muted-foreground"
+                    title={getPlaceLabel(p.place_type)}
+                  />
                   <span className="font-medium">{p.name_pt ?? p.name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
                     {p.country_code ? `· ${p.country_code.toUpperCase()}` : ""}
