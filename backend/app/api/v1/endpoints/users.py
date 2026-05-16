@@ -36,71 +36,107 @@ async def get_my_visited_places(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Return distinct visited places with per-place visit stats."""
-    # Step 1: fetch (place_id, trip_id, trip_title, trip_start_date) without any geometry columns.
-    # Using a plain join on integer columns avoids the DISTINCT-on-geometry problem that
-    # caused silent 500 errors in the previous select(Place).distinct() approach.
-    rows = (
-        await db.execute(
-            select(
-                TripPlace.place_id,
-                Trip.id.label("trip_id"),
-                Trip.title.label("trip_title"),
-                Trip.start_date.label("trip_start"),
-            )
-            .join(Trip, Trip.id == TripPlace.trip_id)
-            .outerjoin(
-                TripCompanion,
-                and_(
-                    TripCompanion.trip_id == Trip.id,
-                    TripCompanion.user_id == current_user.id,
-                    TripCompanion.status == "accepted",
-                ),
-            )
-            .where(
-                or_(
-                    Trip.creator_id == current_user.id,
-                    TripCompanion.id.isnot(None),
-                )
-            )
-        )
-    ).all()
+    from sqlalchemy import func
 
-    if not rows:
+    # Single aggregation query grouped by Place.id.
+    # PostgreSQL allows selecting all columns of the grouped table when the PK is in GROUP BY
+    # (functional dependency), so we avoid geometry columns in GROUP BY entirely.
+    agg_rows = (await db.execute(
+        select(
+            Place.id,
+            Place.osm_id,
+            Place.osm_type,
+            Place.name,
+            Place.name_pt,
+            Place.place_type,
+            Place.country_code,
+            Place.region_name,
+            Place.centroid_lat,
+            Place.centroid_lng,
+            Place.geometry_geojson,
+            Place.wikipedia_summary,
+            Place.wikipedia_language,
+            Place.wikipedia_title,
+            func.count(func.distinct(TripPlace.trip_id)).label("visit_count"),
+            func.min(Trip.start_date).label("first_visited"),
+        )
+        .join(TripPlace, TripPlace.place_id == Place.id)
+        .join(Trip, Trip.id == TripPlace.trip_id)
+        .outerjoin(
+            TripCompanion,
+            and_(
+                TripCompanion.trip_id == Trip.id,
+                TripCompanion.user_id == current_user.id,
+                TripCompanion.status == "accepted",
+            ),
+        )
+        .where(or_(
+            Trip.creator_id == current_user.id,
+            TripCompanion.id.isnot(None),
+        ))
+        .group_by(Place.id)
+        .order_by(Place.name)
+    )).all()
+
+    if not agg_rows:
         return []
 
-    # Group by place_id, deduplicating trips per place
+    place_ids = [r.id for r in agg_rows]
+
+    # Second query: trip links per place (cannot aggregate these in the same query
+    # without losing individual trip titles)
+    trip_rows = (await db.execute(
+        select(TripPlace.place_id, Trip.id.label("trip_id"), Trip.title.label("trip_title"))
+        .join(Trip, Trip.id == TripPlace.trip_id)
+        .outerjoin(
+            TripCompanion,
+            and_(
+                TripCompanion.trip_id == Trip.id,
+                TripCompanion.user_id == current_user.id,
+                TripCompanion.status == "accepted",
+            ),
+        )
+        .where(
+            TripPlace.place_id.in_(place_ids),
+            or_(
+                Trip.creator_id == current_user.id,
+                TripCompanion.id.isnot(None),
+            ),
+        )
+        .distinct()
+    )).all()
+
     place_trips: dict[int, list[dict]] = defaultdict(list)
-    for row in rows:
-        seen_ids = {t["id"] for t in place_trips[row.place_id]}
-        if row.trip_id not in seen_ids:
-            place_trips[row.place_id].append({
-                "id": row.trip_id,
-                "title": row.trip_title,
-                "start_date": row.trip_start,
-            })
+    seen_keys: set[tuple[int, int]] = set()
+    for tr in trip_rows:
+        key = (tr.place_id, tr.trip_id)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            place_trips[tr.place_id].append({"id": tr.trip_id, "title": tr.trip_title})
 
-    # Step 2: load Place objects by ID — no geometry in GROUP BY or DISTINCT
-    place_result = await db.execute(
-        select(Place)
-        .where(Place.id.in_(list(place_trips.keys())))
-        .order_by(Place.name)
-    )
-    places = place_result.scalars().all()
-
-    from app.api.v1.endpoints.places import _place_to_response
-
-    output = []
-    for place in places:
-        base = _place_to_response(place)
-        trips = place_trips[place.id]
-        dates = [t["start_date"] for t in trips if t["start_date"] is not None]
-        output.append({
-            **base,
-            "visit_count": len(trips),
-            "first_visited": min(dates) if dates else None,
-            "trips": [{"id": t["id"], "title": t["title"]} for t in trips],
-        })
-    return output
+    return [
+        {
+            "id": r.id,
+            "osm_id": r.osm_id,
+            "osm_type": r.osm_type,
+            "name": r.name,
+            "name_pt": r.name_pt,
+            "place_type": r.place_type,
+            "country_code": r.country_code,
+            "region_name": r.region_name,
+            "wikipedia_summary": r.wikipedia_summary,
+            "wikipedia_language": r.wikipedia_language,
+            "wikipedia_title": r.wikipedia_title,
+            "centroid_lng": r.centroid_lng,
+            "centroid_lat": r.centroid_lat,
+            "has_polygon": r.geometry_geojson is not None,
+            "geometry_geojson": r.geometry_geojson,
+            "visit_count": r.visit_count,
+            "first_visited": r.first_visited,
+            "trips": place_trips[r.id],
+        }
+        for r in agg_rows
+    ]
 
 
 @router.patch("/me", response_model=UserResponse)
