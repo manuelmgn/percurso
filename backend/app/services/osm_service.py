@@ -1,10 +1,13 @@
 import json
 import hashlib
+import logging
 
 import httpx
 
 from app.core.config import get_settings
 from app.core.place_types import get_place_type
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -89,6 +92,15 @@ def nominatim_to_place_data(result: dict) -> dict:
     addresstype = result.get("addresstype", "")
     admin_level = _parse_admin_level(result)
     place_type = get_place_type(osm_class, osm_type_val, addresstype, admin_level)
+    logger.info(
+        "Place type debug: name=%s class=%s type=%s addresstype=%s admin_level=%s → %s",
+        result.get("display_name", "")[:50],
+        result.get("class", ""),
+        result.get("type", ""),
+        result.get("addresstype", ""),
+        result.get("extratags", {}).get("admin_level"),
+        place_type,
+    )
     return {
         "osm_id": int(result.get("osm_id", 0)),
         "osm_type": result.get("osm_type", "node"),
