@@ -59,12 +59,14 @@ interface CategoryIconProps {
   title?: string
 }
 
+type IconProps = { size?: number; className?: string; title?: string }
+
 export function PlaceIcon({ type, size, className, title }: PlaceIconProps) {
-  const IconComponent = PLACE_TYPE_ICON_MAP[type as PlaceType] ?? Pin
-  return <IconComponent size={size} className={className} title={title} />
+  const Icon = (PLACE_TYPE_ICON_MAP[type as PlaceType] ?? Pin) as React.ComponentType<IconProps>
+  return <Icon size={size} className={className} title={title} />
 }
 
 export function PlaceCategoryIcon({ category, size, className, title }: CategoryIconProps) {
-  const IconComponent = PLACE_CATEGORY_ICON_MAP[category as PlaceCategory] ?? Pin
-  return <IconComponent size={size} className={className} title={title} />
+  const Icon = (PLACE_CATEGORY_ICON_MAP[category as PlaceCategory] ?? Pin) as React.ComponentType<IconProps>
+  return <Icon size={size} className={className} title={title} />
 }
