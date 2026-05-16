@@ -1,14 +1,14 @@
 import {
   Beer, Coffee, Utensils, Popcorn, Hospital, GraduationCap,
-  Church, Landmark, Hotel, Castle, Building2, Store,
-  TreeDeciduous, Waves, Sun, MountainSnow, Flower2,
-  Map, MapPinned, MapPin, LandPlot, Fence, TreePalm, Square, Pin,
+  Church, Amphora, Hotel, Castle, Landmark, Building, Store,
+  TreeDeciduous, Waves, Sun, MountainSnow, Flower,
+  Map, MapPinned, LandPlot, MapPin, Fence, TreePalm,
+  Square, Pin, Hexagon,
+  type LucideIcon,
 } from "lucide-react"
 import type { PlaceType, PlaceCategory } from "@/lib/placeTypes"
 
-type IconComponent = React.ComponentType<{ size?: number; className?: string; title?: string }>
-
-const TYPE_ICONS: Record<PlaceType, IconComponent> = {
+const PLACE_TYPE_ICON_MAP: Record<PlaceType, LucideIcon> = {
   bar: Beer,
   cafe: Coffee,
   restaurante: Utensils,
@@ -16,17 +16,17 @@ const TYPE_ICONS: Record<PlaceType, IconComponent> = {
   hospital: Hospital,
   escola: GraduationCap,
   templo: Church,
-  museu: Landmark,
+  museu: Amphora,
   hotel: Hotel,
   castelo: Castle,
   monumento: Landmark,
-  edificio: Building2,
+  edificio: Building,
   tenda: Store,
   natureza: TreeDeciduous,
   auga: Waves,
   praia: Sun,
   montanha: MountainSnow,
-  parque: Flower2,
+  parque: Flower,
   pais: Map,
   regiao: MapPinned,
   provincia: LandPlot,
@@ -38,10 +38,10 @@ const TYPE_ICONS: Record<PlaceType, IconComponent> = {
   outro: Pin,
 }
 
-const CATEGORY_ICONS: Record<PlaceCategory, IconComponent> = {
-  edificios: Building2,
-  natureza: Flower2,
-  territorios: MapPin,
+const PLACE_CATEGORY_ICON_MAP: Record<PlaceCategory, LucideIcon> = {
+  edificios: Building,
+  natureza: Flower,
+  territorios: Hexagon,
   outro: Pin,
 }
 
@@ -60,11 +60,11 @@ interface CategoryIconProps {
 }
 
 export function PlaceIcon({ type, size, className, title }: PlaceIconProps) {
-  const Icon = TYPE_ICONS[type as PlaceType] ?? Pin
-  return <Icon size={size} className={className} title={title} />
+  const IconComponent = PLACE_TYPE_ICON_MAP[type as PlaceType] ?? Pin
+  return <IconComponent size={size} className={className} title={title} />
 }
 
 export function PlaceCategoryIcon({ category, size, className, title }: CategoryIconProps) {
-  const Icon = CATEGORY_ICONS[category as PlaceCategory] ?? Pin
-  return <Icon size={size} className={className} title={title} />
+  const IconComponent = PLACE_CATEGORY_ICON_MAP[category as PlaceCategory] ?? Pin
+  return <IconComponent size={size} className={className} title={title} />
 }
