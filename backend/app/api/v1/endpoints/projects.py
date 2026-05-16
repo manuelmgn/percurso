@@ -12,8 +12,8 @@ from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.security import generate_invite_token, generate_sharing_token
 from app.models.notification import Notification
-from app.models.project import Project, ProjectCollaborator, ProjectMediaLink, ProjectSharedUser, ProjectTargetPlace
-from app.models.trip import Trip, TripPlace
+from app.models.project import Project, ProjectCollaborator, ProjectDirectVisit, ProjectMediaLink, ProjectSharedUser, ProjectTargetPlace
+from app.models.trip import Trip, TripCompanion, TripPlace, TripProject
 from app.models.user import User
 from app.schemas.project import MediaLinkCreate, PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
 from app.services.og_service import fetch_og_metadata
@@ -23,7 +23,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-def _place_to_summary(place) -> dict:
+def _place_to_summary(
+    place,
+    visited: bool = False,
+    visit_trips: list[dict] | None = None,
+    direct_visit: bool = False,
+) -> dict:
     lng = lat = None
     if place.centroid is not None:
         try:
@@ -41,6 +46,9 @@ def _place_to_summary(place) -> dict:
         "region_name": place.region_name,
         "centroid_lng": lng,
         "centroid_lat": lat,
+        "visited": visited,
+        "visit_trips": visit_trips or [],
+        "direct_visit": direct_visit,
     }
 
 _COVER_COLOURS = [
@@ -95,24 +103,87 @@ def _check_project_access(project: Project, user: User) -> bool:
 
 
 async def _compute_progress(db: AsyncSession, project_id: int, project: Project) -> int:
-    """Count distinct target places visited by project participants (creator + accepted collaborators)."""
-    target_ids = [tp.place_id for tp in project.target_places]
-    if not target_ids:
-        return 0
-
-    participant_ids = [project.creator_id] + [
-        c.user_id for c in project.collaborators if c.status == "accepted"
-    ]
-
+    """Count distinct target places visited via associated trips or direct visit marks."""
+    from sqlalchemy import text as sqla_text
     result = await db.execute(
-        select(func.count(func.distinct(TripPlace.place_id)))
-        .join(TripPlace.trip)
-        .where(
-            TripPlace.place_id.in_(target_ids),
-            Trip.creator_id.in_(participant_ids),
-        )
+        sqla_text("""
+            SELECT COUNT(DISTINCT place_id) FROM (
+                SELECT tpl.place_id
+                FROM trip_projects tp
+                JOIN trip_places tpl ON tpl.trip_id = tp.trip_id
+                JOIN project_target_places ptp ON ptp.place_id = tpl.place_id
+                    AND ptp.project_id = tp.project_id
+                WHERE tp.project_id = :pid
+                UNION
+                SELECT pdv.place_id
+                FROM project_direct_visits pdv
+                JOIN project_target_places ptp ON ptp.place_id = pdv.place_id
+                    AND ptp.project_id = pdv.project_id
+                WHERE pdv.project_id = :pid
+            ) combined
+        """),
+        {"pid": project_id},
     )
     return result.scalar() or 0
+
+
+async def _compute_place_visit_info(db: AsyncSession, project_id: int, target_place_ids: set[int]) -> tuple[dict[int, list[dict]], set[int]]:
+    """Return (place_id -> [trip summary], direct_visit_place_ids)."""
+    from collections import defaultdict
+    visit_map: dict[int, list[dict]] = defaultdict(list)
+
+    if target_place_ids:
+        rows = await db.execute(
+            select(
+                TripPlace.place_id,
+                Trip.id.label("trip_id"),
+                Trip.title.label("trip_title"),
+                Trip.start_date,
+            )
+            .join(TripProject, TripProject.trip_id == TripPlace.trip_id)
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .where(
+                TripProject.project_id == project_id,
+                TripPlace.place_id.in_(target_place_ids),
+            )
+            .distinct()
+        )
+        for r in rows.all():
+            visit_map[r.place_id].append({"id": r.trip_id, "title": r.trip_title, "start_date": r.start_date})
+
+    direct_rows = await db.execute(
+        select(ProjectDirectVisit.place_id)
+        .where(ProjectDirectVisit.project_id == project_id)
+    )
+    direct_ids = {r.place_id for r in direct_rows.all()}
+
+    return dict(visit_map), direct_ids
+
+
+async def _get_associated_trips(db: AsyncSession, project_id: int, target_place_ids: set[int]) -> list[dict]:
+    """Return list of trips associated with the project, each with which target places they cover."""
+    trip_rows = await db.execute(
+        select(Trip.id, Trip.title, Trip.start_date, Trip.end_date)
+        .join(TripProject, TripProject.trip_id == Trip.id)
+        .where(TripProject.project_id == project_id)
+        .order_by(Trip.start_date.asc().nullslast())
+    )
+    trips: dict[int, dict] = {
+        r.id: {"id": r.id, "title": r.title, "start_date": r.start_date, "end_date": r.end_date, "covered_place_ids": []}
+        for r in trip_rows.all()
+    }
+    if trips and target_place_ids:
+        place_rows = await db.execute(
+            select(TripPlace.trip_id, TripPlace.place_id)
+            .where(
+                TripPlace.trip_id.in_(trips.keys()),
+                TripPlace.place_id.in_(target_place_ids),
+            )
+        )
+        for r in place_rows.all():
+            if r.trip_id in trips:
+                trips[r.trip_id]["covered_place_ids"].append(r.place_id)
+    return list(trips.values())
 
 
 def _project_to_response(project: Project, visited_count: int = 0, include_pending: bool = False) -> dict:
@@ -213,40 +284,33 @@ async def list_my_projects(
     if not projects:
         return []
 
-    # Batch-compute visited counts without N+1 queries.
-    # Collect all participant user IDs and target place IDs across all projects.
-    project_participants: dict[int, set[int]] = {}
-    project_target_ids: dict[int, set[int]] = {}
-    all_participant_ids: set[int] = set()
-    all_target_place_ids: set[int] = set()
+    project_ids = [p.id for p in projects]
 
-    for p in projects:
-        pids = {p.creator_id} | {c.user_id for c in p.collaborators if c.status == "accepted"}
-        tids = {tp.place_id for tp in p.target_places}
-        project_participants[p.id] = pids
-        project_target_ids[p.id] = tids
-        all_participant_ids.update(pids)
-        all_target_place_ids.update(tids)
+    # Batch-compute visited counts via trip_projects + direct visits
+    from sqlalchemy import text as sqla_text
+    count_rows = await db.execute(
+        sqla_text("""
+            SELECT project_id, COUNT(DISTINCT place_id) AS cnt FROM (
+                SELECT tp.project_id, tpl.place_id
+                FROM trip_projects tp
+                JOIN trip_places tpl ON tpl.trip_id = tp.trip_id
+                JOIN project_target_places ptp ON ptp.place_id = tpl.place_id
+                    AND ptp.project_id = tp.project_id
+                WHERE tp.project_id = ANY(:pids)
+                UNION
+                SELECT pdv.project_id, pdv.place_id
+                FROM project_direct_visits pdv
+                JOIN project_target_places ptp ON ptp.place_id = pdv.place_id
+                    AND ptp.project_id = pdv.project_id
+                WHERE pdv.project_id = ANY(:pids)
+            ) combined
+            GROUP BY project_id
+        """),
+        {"pids": project_ids},
+    )
+    visited_by_project: dict[int, int] = {r.project_id: r.cnt for r in count_rows.all()}
 
-    visited_pairs: set[tuple[int, int]] = set()
-    if all_participant_ids and all_target_place_ids:
-        visited_result = await db.execute(
-            select(Trip.creator_id, TripPlace.place_id)
-            .join(TripPlace, TripPlace.trip_id == Trip.id)
-            .where(
-                Trip.creator_id.in_(list(all_participant_ids)),
-                TripPlace.place_id.in_(list(all_target_place_ids)),
-            )
-            .distinct()
-        )
-        visited_pairs = set(visited_result.all())
-
-    def _visited_count(p: Project) -> int:
-        pids = project_participants[p.id]
-        tids = project_target_ids[p.id]
-        return sum(1 for (uid, pid) in visited_pairs if uid in pids and pid in tids)
-
-    return [_project_to_response(p, _visited_count(p)) for p in projects]
+    return [_project_to_response(p, visited_by_project.get(p.id, 0)) for p in projects]
 
 
 @router.get("/shared/{token}", response_model=ProjectDetailResponse)
@@ -257,9 +321,21 @@ async def get_shared_project(
     project = await _load_project_by_token(db, token)
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado ou link inválido")
-    visited = await _compute_progress(db, project.id, project)
-    data = _project_to_response(project, visited)
-    data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
+    target_place_ids = {tp.place_id for tp in project.target_places}
+    visit_map, direct_ids = await _compute_place_visit_info(db, project.id, target_place_ids)
+    visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
+    assoc_trips = await _get_associated_trips(db, project.id, target_place_ids)
+    data = _project_to_response(project, visited_count)
+    data["target_places"] = [
+        _place_to_summary(
+            tp.place,
+            visited=tp.place_id in visit_map or tp.place_id in direct_ids,
+            visit_trips=visit_map.get(tp.place_id, []),
+            direct_visit=tp.place_id in direct_ids,
+        )
+        for tp in project.target_places
+    ]
+    data["associated_trips"] = assoc_trips
     return data
 
 
@@ -283,9 +359,20 @@ async def get_project(
             await db.flush()
 
     is_creator = project.creator_id == current_user.id
-    visited = await _compute_progress(db, project_id, project)
-    data = _project_to_response(project, visited, include_pending=is_creator)
-    data["target_places"] = [_place_to_summary(tp.place) for tp in project.target_places]
+    target_place_ids = {tp.place_id for tp in project.target_places}
+    visit_map, direct_ids = await _compute_place_visit_info(db, project_id, target_place_ids)
+    visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
+    assoc_trips = await _get_associated_trips(db, project_id, target_place_ids)
+    data = _project_to_response(project, visited_count, include_pending=is_creator)
+    data["target_places"] = [
+        _place_to_summary(
+            tp.place,
+            visited=tp.place_id in visit_map or tp.place_id in direct_ids,
+            visit_trips=visit_map.get(tp.place_id, []),
+            direct_visit=tp.place_id in direct_ids,
+        )
+        for tp in project.target_places
+    ]
     data["shared_with"] = (
         [
             {
@@ -299,6 +386,7 @@ async def get_project(
         ]
         if is_creator else []
     )
+    data["associated_trips"] = assoc_trips
     return data
 
 
@@ -759,3 +847,247 @@ async def remove_project_media(
         raise HTTPException(status_code=404, detail="Link não encontrado")
 
     await db.delete(link)
+
+
+# ── Project-Trip association endpoints ────────────────────────────────────────
+
+@router.post("/{project_id}/trips/{trip_id}", response_model=ProjectDetailResponse)
+async def associate_trip_with_project(
+    project_id: int,
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Associate a trip with a project (from the project side)."""
+    project = await _load_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if not _check_project_access(project, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    existing = await db.execute(
+        select(TripProject).where(TripProject.trip_id == trip_id, TripProject.project_id == project_id)
+    )
+    if not existing.scalar_one_or_none():
+        db.add(TripProject(trip_id=trip_id, project_id=project_id))
+        await db.flush()
+
+    project = await _load_project(db, project_id)
+    target_place_ids = {tp.place_id for tp in project.target_places}
+    visit_map, direct_ids = await _compute_place_visit_info(db, project_id, target_place_ids)
+    visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
+    assoc_trips = await _get_associated_trips(db, project_id, target_place_ids)
+    data = _project_to_response(project, visited_count, include_pending=True)
+    data["target_places"] = [
+        _place_to_summary(
+            tp.place,
+            visited=tp.place_id in visit_map or tp.place_id in direct_ids,
+            visit_trips=visit_map.get(tp.place_id, []),
+            direct_visit=tp.place_id in direct_ids,
+        )
+        for tp in project.target_places
+    ]
+    data["associated_trips"] = assoc_trips
+    return data
+
+
+@router.delete("/{project_id}/trips/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def disassociate_trip_from_project(
+    project_id: int,
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    accepted_ids = {c.user_id for c in (await db.execute(
+        select(ProjectCollaborator).where(ProjectCollaborator.project_id == project_id, ProjectCollaborator.status == "accepted")
+    )).scalars().all()}
+    if project.creator_id != current_user.id and current_user.id not in accepted_ids:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    result = await db.execute(
+        select(TripProject).where(TripProject.trip_id == trip_id, TripProject.project_id == project_id)
+    )
+    assoc = result.scalar_one_or_none()
+    if assoc:
+        await db.delete(assoc)
+
+
+# ── Direct visit endpoints ─────────────────────────────────────────────────────
+
+@router.post("/{project_id}/target-places/{place_id}/visit", response_model=ProjectDetailResponse)
+async def mark_place_visited(
+    project_id: int,
+    place_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Directly mark a target place as visited without creating a trip."""
+    project = await _load_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if not _check_project_access(project, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Verify the place is actually a target place of this project
+    is_target = any(tp.place_id == place_id for tp in project.target_places)
+    if not is_target:
+        raise HTTPException(status_code=404, detail="Lugar não é um objetivo deste projeto")
+
+    existing = await db.execute(
+        select(ProjectDirectVisit).where(
+            ProjectDirectVisit.project_id == project_id,
+            ProjectDirectVisit.place_id == place_id,
+        )
+    )
+    if not existing.scalar_one_or_none():
+        db.add(ProjectDirectVisit(
+            project_id=project_id,
+            place_id=place_id,
+            marked_by_user_id=current_user.id,
+        ))
+        await db.flush()
+
+    project = await _load_project(db, project_id)
+    target_place_ids = {tp.place_id for tp in project.target_places}
+    visit_map, direct_ids = await _compute_place_visit_info(db, project_id, target_place_ids)
+    visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
+    assoc_trips = await _get_associated_trips(db, project_id, target_place_ids)
+    data = _project_to_response(project, visited_count, include_pending=True)
+    data["target_places"] = [
+        _place_to_summary(
+            tp.place,
+            visited=tp.place_id in visit_map or tp.place_id in direct_ids,
+            visit_trips=visit_map.get(tp.place_id, []),
+            direct_visit=tp.place_id in direct_ids,
+        )
+        for tp in project.target_places
+    ]
+    data["associated_trips"] = assoc_trips
+    return data
+
+
+@router.delete("/{project_id}/target-places/{place_id}/visit", status_code=status.HTTP_204_NO_CONTENT)
+async def unmark_place_visited(
+    project_id: int,
+    place_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    accepted_ids = {c.user_id for c in (await db.execute(
+        select(ProjectCollaborator).where(ProjectCollaborator.project_id == project_id, ProjectCollaborator.status == "accepted")
+    )).scalars().all()}
+    if project.creator_id != current_user.id and current_user.id not in accepted_ids:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    result = await db.execute(
+        select(ProjectDirectVisit).where(
+            ProjectDirectVisit.project_id == project_id,
+            ProjectDirectVisit.place_id == place_id,
+        )
+    )
+    visit = result.scalar_one_or_none()
+    if visit:
+        await db.delete(visit)
+
+
+# ── Way 3B: create a trip for a specific target place ─────────────────────────
+
+@router.post("/{project_id}/target-places/{place_id}/trip", response_model=ProjectDetailResponse, status_code=status.HTTP_201_CREATED)
+async def create_trip_for_place(
+    project_id: int,
+    place_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Way 3B: create a minimal trip, add the place, associate with project, notify other members."""
+    from app.core.security import generate_invite_token as gen_token
+    from app.models.notification import Notification
+
+    project = await _load_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if project.creator_id != current_user.id:
+        accepted_ids = {c.user_id for c in project.collaborators if c.status == "accepted"}
+        if current_user.id not in accepted_ids:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+    is_target = any(tp.place_id == place_id for tp in project.target_places)
+    if not is_target:
+        raise HTTPException(status_code=404, detail="Lugar não é um objetivo deste projeto")
+
+    title = (data.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="O título da viagem é obrigatório")
+
+    # Create the trip
+    from app.models.trip import Trip as TripModel, TripPlace as TripPlaceModel, TripProject as TripProjectModel, TripCompanion as TripCompanionModel
+    import random as _rand
+    trip = TripModel(
+        creator_id=current_user.id,
+        title=title,
+        description=data.get("description") or None,
+        visibility=current_user.default_trip_visibility,
+        cover_colour=_rand.choice(_COVER_COLOURS),
+    )
+    db.add(trip)
+    await db.flush()
+
+    # Add the place to the trip
+    db.add(TripPlaceModel(trip_id=trip.id, place_id=place_id))
+
+    # Associate the trip with the project
+    db.add(TripProjectModel(trip_id=trip.id, project_id=project_id))
+    await db.flush()
+
+    # Add other project members as accepted companions and notify them
+    member_ids = {project.creator_id} | {c.user_id for c in project.collaborators if c.status == "accepted"}
+    member_ids.discard(current_user.id)
+
+    for uid in member_ids:
+        companion = TripCompanionModel(
+            trip_id=trip.id,
+            user_id=uid,
+            invite_token=gen_token(),
+            status="accepted",
+        )
+        db.add(companion)
+        db.add(Notification(
+            recipient_id=uid,
+            notification_type="added_to_trip_via_project",
+            entity_type="trip",
+            entity_id=trip.id,
+            actor_id=current_user.id,
+            message=f"Foste adicionado à viagem \"{title}\" no projeto \"{project.title}\". Completa os detalhes quando quiseres.",
+        ))
+
+    await db.flush()
+
+    project = await _load_project(db, project_id)
+    target_place_ids = {tp.place_id for tp in project.target_places}
+    visit_map, direct_ids = await _compute_place_visit_info(db, project_id, target_place_ids)
+    visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
+    assoc_trips = await _get_associated_trips(db, project_id, target_place_ids)
+    data_resp = _project_to_response(project, visited_count, include_pending=True)
+    data_resp["target_places"] = [
+        _place_to_summary(
+            tp.place,
+            visited=tp.place_id in visit_map or tp.place_id in direct_ids,
+            visit_trips=visit_map.get(tp.place_id, []),
+            direct_visit=tp.place_id in direct_ids,
+        )
+        for tp in project.target_places
+    ]
+    data_resp["associated_trips"] = assoc_trips
+    data_resp["new_trip_id"] = trip.id
+    return data_resp

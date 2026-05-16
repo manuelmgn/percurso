@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -16,6 +18,12 @@ class MediaLinkResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TripSummaryForPlace(BaseModel):
+    id: int
+    title: str
+    start_date: date | None
+
+
 class PlaceSummaryResponse(BaseModel):
     id: int
     name: str
@@ -25,8 +33,25 @@ class PlaceSummaryResponse(BaseModel):
     region_name: str | None
     centroid_lng: float | None = None
     centroid_lat: float | None = None
+    visited: bool = False
+    direct_visit: bool = False
+    visit_trips: list[TripSummaryForPlace] = []
 
     model_config = {"from_attributes": True}
+
+
+class AssociatedTripResponse(BaseModel):
+    id: int
+    title: str
+    start_date: date | None
+    end_date: date | None
+    covered_place_ids: list[int] = []
+
+
+class MissingMember(BaseModel):
+    user_id: int
+    display_name: str
+    username: str
 
 
 class ProjectCreate(BaseModel):
@@ -90,6 +115,7 @@ class ProjectDetailResponse(ProjectResponse):
     target_places: list[PlaceSummaryResponse] = []
     shared_with: list[SharedUserResponse] = []
     media_links: list[MediaLinkResponse] = []
+    associated_trips: list[AssociatedTripResponse] = []
 
 
 class PlaceImportLine(BaseModel):

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Enum, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -9,6 +9,7 @@ from app.models.base import TimestampMixin
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.place import Place
+    from app.models.trip import TripProject
 
 
 class Project(Base, TimestampMixin):
@@ -38,6 +39,8 @@ class Project(Base, TimestampMixin):
     target_places: Mapped[list["ProjectTargetPlace"]] = relationship("ProjectTargetPlace", back_populates="project", cascade="all, delete-orphan")
     shared_with: Mapped[list["ProjectSharedUser"]] = relationship("ProjectSharedUser", back_populates="project", cascade="all, delete-orphan")
     media_links: Mapped[list["ProjectMediaLink"]] = relationship("ProjectMediaLink", back_populates="project", cascade="all, delete-orphan")
+    trip_associations: Mapped[list["TripProject"]] = relationship("TripProject", back_populates="project", cascade="all, delete-orphan")
+    direct_visits: Mapped[list["ProjectDirectVisit"]] = relationship("ProjectDirectVisit", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectCollaborator(Base, TimestampMixin):
@@ -79,6 +82,18 @@ class ProjectSharedUser(Base):
 
     project: Mapped["Project"] = relationship("Project", back_populates="shared_with")
     user: Mapped["User"] = relationship("User")
+
+
+class ProjectDirectVisit(Base, TimestampMixin):
+    __tablename__ = "project_direct_visits"
+    __table_args__ = (UniqueConstraint("project_id", "place_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    place_id: Mapped[int] = mapped_column(ForeignKey("places.id"), nullable=False, index=True)
+    marked_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    project: Mapped["Project"] = relationship("Project", back_populates="direct_visits")
 
 
 class ProjectMediaLink(Base, TimestampMixin):

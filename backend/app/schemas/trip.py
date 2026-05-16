@@ -92,7 +92,15 @@ class TripResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AssociatedProjectResponse(BaseModel):
+    id: int
+    title: str
+    cover_colour: str | None
+    cover_image_url: str | None
+
+
 class TripDetailResponse(TripResponse):
     media_links: list[MediaLinkResponse] = []
     places: list[PlaceSummaryResponse] = []
     shared_with: list[SharedUserResponse] = []
+    associated_projects: list[AssociatedProjectResponse] = []

@@ -1,7 +1,7 @@
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -10,6 +10,7 @@ from app.models.base import TimestampMixin
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.place import Place
+    from app.models.project import Project
 
 
 class Trip(Base, TimestampMixin):
@@ -43,6 +44,7 @@ class Trip(Base, TimestampMixin):
     places: Mapped[list["TripPlace"]] = relationship("TripPlace", back_populates="trip", cascade="all, delete-orphan", order_by="TripPlace.visit_order")
     media_links: Mapped[list["TripMediaLink"]] = relationship("TripMediaLink", back_populates="trip", cascade="all, delete-orphan")
     shared_with: Mapped[list["TripSharedUser"]] = relationship("TripSharedUser", back_populates="trip", cascade="all, delete-orphan")
+    project_associations: Mapped[list["TripProject"]] = relationship("TripProject", back_populates="trip", cascade="all, delete-orphan")
 
 
 class TripCompanion(Base, TimestampMixin):
@@ -100,3 +102,15 @@ class TripSharedUser(Base):
 
     trip: Mapped["Trip"] = relationship("Trip", back_populates="shared_with")
     user: Mapped["User"] = relationship("User")
+
+
+class TripProject(Base, TimestampMixin):
+    __tablename__ = "trip_projects"
+    __table_args__ = (UniqueConstraint("trip_id", "project_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+
+    trip: Mapped["Trip"] = relationship("Trip", back_populates="project_associations")
+    project: Mapped["Project"] = relationship("Project", back_populates="trip_associations")

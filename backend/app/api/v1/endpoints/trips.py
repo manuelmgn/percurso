@@ -11,8 +11,9 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.security import generate_sharing_token, generate_invite_token
-from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripSharedUser
+from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripProject, TripSharedUser
 from app.models.user import User
+from app.models.project import Project, ProjectCollaborator
 from app.schemas.trip import MediaLinkCreate, TripCreate, TripDetailResponse, TripResponse, TripUpdate
 from app.services.og_service import fetch_og_metadata
 from app.services.storage_service import delete_from_imgbb, upload_cover_image
@@ -94,6 +95,15 @@ def _trip_to_response(trip: Trip, include_pending: bool = False) -> dict:
             for c in companions_list
         ],
         "place_count": len(trip.places),
+        "associated_projects": [
+            {
+                "id": tp.project_id,
+                "title": tp.project.title,
+                "cover_colour": tp.project.cover_colour,
+                "cover_image_url": tp.project.cover_image_url,
+            }
+            for tp in trip.project_associations
+        ],
     }
 
 
@@ -106,6 +116,7 @@ async def _load_trip(db: AsyncSession, trip_id: int) -> Trip | None:
             selectinload(Trip.places).selectinload(TripPlace.place),
             selectinload(Trip.media_links),
             selectinload(Trip.shared_with).selectinload(TripSharedUser.user),
+            selectinload(Trip.project_associations).selectinload(TripProject.project),
         )
         .where(Trip.id == trip_id)
     )
@@ -121,6 +132,7 @@ async def _load_trip_by_token(db: AsyncSession, token: str) -> Trip | None:
             selectinload(Trip.places).selectinload(TripPlace.place),
             selectinload(Trip.media_links),
             selectinload(Trip.shared_with),
+            selectinload(Trip.project_associations).selectinload(TripProject.project),
         )
         .where(Trip.sharing_token == token, Trip.visibility == "link")
     )
@@ -163,6 +175,7 @@ async def list_my_trips(
             selectinload(Trip.creator),
             selectinload(Trip.companions).selectinload(TripCompanion.user),
             selectinload(Trip.places),
+            selectinload(Trip.project_associations).selectinload(TripProject.project),
         )
         .where(
             or_(
@@ -685,3 +698,102 @@ async def add_media_link(
     )
     db.add(link)
     return {"detail": "Link adicionado"}
+
+
+# ── Trip-Project association endpoints ────────────────────────────────────────
+
+@router.get("/{trip_id}/projects/member-check/{project_id}")
+async def check_project_members(
+    trip_id: int,
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Return project members who are not companions on the trip."""
+    trip = await _load_trip(db, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    project = await db.execute(
+        select(Project)
+        .options(
+            selectinload(Project.collaborators).selectinload(ProjectCollaborator.user),
+        )
+        .where(Project.id == project_id, Project.creator_id == current_user.id)
+    )
+    project = project.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    trip_member_ids = {c.user_id for c in trip.companions if c.status == "accepted"}
+    trip_member_ids.add(trip.creator_id)
+
+    missing = []
+    # Check project creator
+    if project.creator_id != current_user.id and project.creator_id not in trip_member_ids:
+        u = await db.get(User, project.creator_id)
+        if u:
+            missing.append({"user_id": u.id, "display_name": u.display_name, "username": u.username})
+
+    for c in project.collaborators:
+        if c.status == "accepted" and c.user_id not in trip_member_ids and c.user_id != current_user.id:
+            missing.append({"user_id": c.user_id, "display_name": c.user.display_name, "username": c.user.username})
+
+    return {"missing_members": missing}
+
+
+@router.post("/{trip_id}/projects/{project_id}", response_model=TripDetailResponse)
+async def associate_trip_with_project(
+    trip_id: int,
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Associate a trip with a project. Trip creator must also be project creator or collaborator."""
+    trip = await _load_trip(db, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    project = await db.execute(
+        select(Project)
+        .options(selectinload(Project.collaborators))
+        .where(Project.id == project_id)
+    )
+    project = project.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    # Check user is creator or accepted collaborator
+    accepted_ids = {c.user_id for c in project.collaborators if c.status == "accepted"}
+    if project.creator_id != current_user.id and current_user.id not in accepted_ids:
+        raise HTTPException(status_code=403, detail="Não tens acesso a este projeto")
+
+    # Idempotent: only insert if not already associated
+    existing = await db.execute(
+        select(TripProject).where(TripProject.trip_id == trip_id, TripProject.project_id == project_id)
+    )
+    if not existing.scalar_one_or_none():
+        db.add(TripProject(trip_id=trip_id, project_id=project_id))
+        await db.flush()
+
+    trip = await _load_trip(db, trip_id)
+    return _trip_to_response(trip, include_pending=True)
+
+
+@router.delete("/{trip_id}/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def disassociate_trip_from_project(
+    trip_id: int,
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    result = await db.execute(
+        select(TripProject).where(TripProject.trip_id == trip_id, TripProject.project_id == project_id)
+    )
+    assoc = result.scalar_one_or_none()
+    if assoc:
+        await db.delete(assoc)
