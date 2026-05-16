@@ -3,7 +3,7 @@ import {
   Church, Amphora, Hotel, Castle, Landmark, Building, Store,
   TreeDeciduous, Waves, Sun, MountainSnow, Flower,
   Map, MapPinned, LandPlot, MapPin, Fence, TreePalm,
-  Square, Pin, Hexagon,
+  CircleDotDashed, Pin, Hexagon,
   type LucideIcon,
 } from "lucide-react"
 import type { PlaceType, PlaceCategory } from "@/lib/placeTypes"
@@ -34,7 +34,7 @@ const PLACE_TYPE_ICON_MAP: Record<PlaceType, LucideIcon> = {
   cidade: MapPin,
   bairro: Fence,
   ilha: TreePalm,
-  limite: Square,
+  limite: CircleDotDashed,
   outro: Pin,
 }
 
