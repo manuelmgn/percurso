@@ -34,6 +34,7 @@ def _place_to_summary(place) -> dict:
             pass
     return {
         "id": place.id,
+        "osm_id": place.osm_id,
         "name": place.name,
         "name_pt": place.name_pt,
         "place_type": place.place_type,

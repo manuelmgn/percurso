@@ -122,6 +122,23 @@ export function getPlaceColour(type: string): string {
   return PLACE_TYPE_COLOURS[type as PlaceType] ?? "#9CA3AF"
 }
 
+const CATEGORY_COLOURS: Record<PlaceCategory, string> = {
+  edificios: "#7C3AED",
+  natureza: "#059669",
+  territorios: "#0369A1",
+  outro: "#6B7280",
+}
+
+export function getCategoryColour(type: string): string {
+  const cat = getPlaceCategory(type)
+  return CATEGORY_COLOURS[cat]
+}
+
+/** Place types that are rendered as polygon fill layers on the map. */
+export const POLYGON_PLACE_TYPES = new Set<PlaceType>([
+  "comarca", "provincia", "regiao", "pais", "limite",
+])
+
 export const ALL_PLACE_TYPES: PlaceType[] = [
   "bar", "cafe", "restaurante", "teatro", "hospital", "escola",
   "templo", "museu", "hotel", "castelo", "monumento", "edificio", "tenda",

@@ -66,6 +66,7 @@ export interface UserProfile extends UserPublic {
 
 export interface PlaceSummary {
   id: number
+  osm_id: number
   name: string
   name_pt: string | null
   place_type: PlaceType
@@ -73,6 +74,7 @@ export interface PlaceSummary {
   region_name: string | null
   centroid_lng: number | null
   centroid_lat: number | null
+  geometry_geojson: Record<string, unknown> | null
 }
 
 export interface TripLink {
@@ -84,6 +86,13 @@ export interface VisitedPlace extends Place {
   visit_count: number
   first_visited: string | null
   trips: TripLink[]
+}
+
+export interface TripDateSummary {
+  id: number
+  title: string
+  start_date: string | null
+  end_date: string | null
 }
 
 export interface Place {
@@ -101,6 +110,8 @@ export interface Place {
   centroid_lng: number | null
   centroid_lat: number | null
   has_polygon: boolean
+  geometry_geojson: Record<string, unknown> | null
+  place_trips: TripDateSummary[]
 }
 
 export interface PlaceSearchResult {

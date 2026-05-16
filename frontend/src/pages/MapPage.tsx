@@ -63,8 +63,8 @@ export default function MapPage() {
     { value: "minimal", label: "Minimal" },
   ]
 
-  function handlePlaceClick(id: number) {
-    navigate(`/lugares/${id}`)
+  function handlePlaceClick(osmId: number) {
+    navigate(`/lugares/${osmId}`)
   }
 
   function handleTripChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -221,7 +221,7 @@ export default function MapPage() {
               displayPlaces.map((place) => (
                 <button
                   key={place.id}
-                  onClick={() => handlePlaceClick(place.id)}
+                  onClick={() => handlePlaceClick(place.osm_id)}
                   className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2"
                 >
                   <div>
@@ -336,7 +336,7 @@ export default function MapPage() {
                     filteredPlaces.map((place, i) => (
                       <tr
                         key={place.id}
-                        onClick={() => handlePlaceClick(place.id)}
+                        onClick={() => handlePlaceClick(place.osm_id)}
                         className={`cursor-pointer hover:bg-accent/50 transition-colors ${i % 2 === 0 ? "" : "bg-muted/20"}`}
                       >
                         <td className="px-4 py-3 font-medium">{place.name_pt ?? place.name}</td>

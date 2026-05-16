@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import { useMapStore } from "@/stores/map"
-import { getPlaceLabel, getPlaceColour } from "@/lib/placeTypes"
+import { getPlaceLabel, getPlaceColour, getCategoryColour, POLYGON_PLACE_TYPES } from "@/lib/placeTypes"
 
 const MAP_STYLES = {
   light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
@@ -10,20 +10,23 @@ const MAP_STYLES = {
   minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://tiles.openfreemap.org/styles/positron",
 }
 
-// Minimal interface satisfied by both Place and PlaceSummary (after adding centroid fields)
 export interface MapPlace {
   id: number
+  osm_id?: number
   name: string
   name_pt: string | null
   place_type: string
   country_code: string | null
   centroid_lng: number | null
   centroid_lat: number | null
+  geometry_geojson?: Record<string, unknown> | null
+  visit_count?: number
+  first_visited?: string | null
 }
 
 interface Props {
   places: MapPlace[]
-  onPlaceClick?: (id: number) => void
+  onPlaceClick?: (osmId: number) => void
   showHeatmap?: boolean
   showRoute?: boolean
   colourByType?: boolean
@@ -43,9 +46,11 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
+  const polygonLayerIdsRef = useRef<string[]>([])
   const { style, markerColour } = useMapStore()
+  const [polygonAsPointIds, setPolygonAsPointIds] = useState<Set<number>>(new Set())
 
-  // ── Effect 1: initialise map (re-runs only when map style changes) ──────────
+  // ── Effect 1: initialise map ─────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -67,51 +72,138 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     }
   }, [style])
 
-  // ── Effect 2: update point markers ──────────────────────────────────────────
+  // ── Effect 2: render point markers and polygon fill layers ───────────────────
   useEffect(() => {
     const _map = mapRef.current
     if (!_map) return
     const map: maplibregl.Map = _map
 
-    function updateMarkers() {
+    function getColour(place: MapPlace): string {
+      if (colourByType) return getPlaceColour(place.place_type)
+      return getCategoryColour(place.place_type)
+    }
+
+    function buildPopupHtml(place: MapPlace, colour: string, idx?: number): string {
+      const label = getPlaceLabel(place.place_type)
+      const displayName = place.name_pt ?? place.name
+      const countryPart = place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""
+      const visitPart = place.visit_count != null
+        ? `<br/><span style="font-size:10px;opacity:.55">${place.visit_count} ${place.visit_count === 1 ? "viagem" : "viagens"}${place.first_visited ? ` · desde ${place.first_visited.slice(0, 4)}` : ""}</span>`
+        : ""
+      const detailLink = place.osm_id
+        ? `<br/><a href="/lugares/${place.osm_id}" style="font-size:10px;color:${colour}">Ver detalhes →</a>`
+        : ""
+      const orderBadge = showRoute && idx != null
+        ? `<span style="font-size:10px;font-weight:600;background:${colour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>`
+        : ""
+      return `<div style="font-family:sans-serif;padding:2px 0;min-width:140px">
+        ${orderBadge}<strong style="font-size:13px">${displayName}</strong><br/>
+        <span style="font-size:11px;opacity:.65">${label}${countryPart}</span>
+        ${visitPart}${detailLink}
+      </div>`
+    }
+
+    function updateAll() {
+      // Clear existing markers
       markersRef.current.forEach((m) => m.remove())
       markersRef.current = []
-      places
-        .filter((p) => p.centroid_lng != null && p.centroid_lat != null)
-        .forEach((place, idx) => {
-          const colour = colourByType ? getPlaceColour(place.place_type) : markerColour
+
+      // Clear existing polygon layers/sources
+      polygonLayerIdsRef.current.forEach((id) => {
+        if (map.getLayer(`${id}-fill`)) map.removeLayer(`${id}-fill`)
+        if (map.getLayer(`${id}-outline`)) map.removeLayer(`${id}-outline`)
+        if (map.getSource(id)) map.removeSource(id)
+      })
+      polygonLayerIdsRef.current = []
+
+      let pointIdx = 0
+
+      places.forEach((place) => {
+        const colour = getColour(place)
+        const isPolygon = POLYGON_PLACE_TYPES.has(place.place_type as never)
+          && place.geometry_geojson != null
+          && !polygonAsPointIds.has(place.id)
+
+        if (isPolygon) {
+          const sourceId = `poly-${place.id}`
+          polygonLayerIdsRef.current.push(sourceId)
+
+          map.addSource(sourceId, {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              geometry: place.geometry_geojson as never,
+              properties: {},
+            },
+          })
+          map.addLayer({
+            id: `${sourceId}-fill`,
+            type: "fill",
+            source: sourceId,
+            paint: { "fill-color": colour, "fill-opacity": 0.12 },
+          })
+          map.addLayer({
+            id: `${sourceId}-outline`,
+            type: "line",
+            source: sourceId,
+            paint: { "line-color": colour, "line-width": 1.5, "line-opacity": 0.7 },
+          })
+
+          map.on("click", `${sourceId}-fill`, (e) => {
+            const popupHtml = buildPopupHtml(place, colour)
+              + (place.id
+                ? `<br/><button
+                    data-view-as-point="${place.id}"
+                    style="margin-top:4px;font-size:10px;color:${colour};background:none;border:none;cursor:pointer;padding:0">
+                    Ver como ponto
+                  </button>`
+                : "")
+            const popup = new maplibregl.Popup({ closeButton: false })
+              .setLngLat(e.lngLat)
+              .setHTML(popupHtml)
+              .addTo(map)
+
+            // Attach the "Ver como ponto" button after popup is in DOM
+            const btn = popup.getElement()?.querySelector<HTMLButtonElement>(`[data-view-as-point="${place.id}"]`)
+            btn?.addEventListener("click", () => {
+              setPolygonAsPointIds((prev) => new Set([...prev, place.id]))
+              popup.remove()
+            })
+          })
+          map.on("mouseenter", `${sourceId}-fill`, () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", `${sourceId}-fill`, () => { map.getCanvas().style.cursor = "" })
+        } else {
+          // Render as a point marker (for all point types and polygon-as-point overrides)
+          if (place.centroid_lng == null || place.centroid_lat == null) return
+          const idx = showRoute ? pointIdx++ : undefined
+
           const el = document.createElement("div")
           el.style.cssText = `
             width: 10px; height: 10px; border-radius: 50%;
             background: ${colour}; border: 2px solid white;
             box-shadow: 0 1px 4px rgba(0,0,0,0.35); cursor: pointer;
           `
-          const label = getPlaceLabel(place.place_type)
           const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([place.centroid_lng!, place.centroid_lat!])
+            .setLngLat([place.centroid_lng, place.centroid_lat])
             .setPopup(
-              new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(
-                `<div style="font-family:sans-serif;padding:2px 0">
-                  ${showRoute ? `<span style="font-size:10px;font-weight:600;background:${colour};color:#fff;border-radius:9999px;padding:1px 6px;margin-right:4px">${idx + 1}</span>` : ""}
-                  <strong style="font-size:13px">${place.name_pt ?? place.name}</strong><br/>
-                  <span style="font-size:11px;opacity:.65">${label}${place.country_code ? " · " + place.country_code.toUpperCase() : ""}</span>
-                </div>`,
-              ),
+              new maplibregl.Popup({ offset: 16, closeButton: false })
+                .setHTML(buildPopupHtml(place, colour, idx)),
             )
             .addTo(map)
 
-          if (onPlaceClick) {
+          if (onPlaceClick && place.osm_id) {
             el.addEventListener("click", (e) => {
               e.stopPropagation()
-              onPlaceClick(place.id)
+              onPlaceClick(place.osm_id!)
             })
           }
           markersRef.current.push(marker)
-        })
+        }
+      })
     }
 
-    return whenReady(map, updateMarkers)
-  }, [places, markerColour, colourByType, onPlaceClick, showRoute])
+    return whenReady(map, updateAll)
+  }, [places, colourByType, markerColour, onPlaceClick, showRoute, polygonAsPointIds])
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {
@@ -166,7 +258,6 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
 
     function updateRoute() {
       if (map.getLayer("route-layer")) map.removeLayer("route-layer")
-      if (map.getLayer("route-arrows")) map.removeLayer("route-arrows")
       if (map.getSource("route")) map.removeSource("route")
       if (!showRoute) return
 

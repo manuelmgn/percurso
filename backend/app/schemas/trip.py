@@ -23,6 +23,7 @@ class TripUpdate(BaseModel):
 
 class PlaceSummaryResponse(BaseModel):
     id: int
+    osm_id: int
     name: str
     name_pt: str | None
     place_type: str
