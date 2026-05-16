@@ -1,9 +1,10 @@
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, Loader2, Globe } from "lucide-react"
+import { ArrowLeft, Loader2, Globe, Calendar, MapPin } from "lucide-react"
 import { placesApi } from "@/lib/api"
 import { getPlaceLabel } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
+import { formatDate } from "@/lib/utils"
 import type { PlaceType } from "@/types"
 
 const LANG_LABELS: Record<string, string> = {
@@ -14,14 +15,14 @@ const LANG_LABELS: Record<string, string> = {
 }
 
 export default function PlaceDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const placeId = Number(id)
+  const { osmId } = useParams<{ osmId: string }>()
+  const placeOsmId = Number(osmId)
   const navigate = useNavigate()
 
   const { data: place, isLoading } = useQuery({
-    queryKey: ["place", placeId],
-    queryFn: () => placesApi.get(placeId),
-    enabled: !!placeId,
+    queryKey: ["place", placeOsmId],
+    queryFn: () => placesApi.get(placeOsmId),
+    enabled: !!placeOsmId,
   })
 
   if (isLoading) {
@@ -79,8 +80,37 @@ export default function PlaceDetailPage() {
         </div>
       )}
 
+      {/* Trips that include this place */}
+      {place.place_trips.length > 0 && (
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <Calendar className="size-4 text-muted-foreground" />
+            Viagens com este lugar
+          </h2>
+          <ul className="space-y-2">
+            {place.place_trips.map((t) => (
+              <li key={t.id}>
+                <Link
+                  to={`/viagens/${t.id}`}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-accent/50 transition-colors group"
+                >
+                  <span className="font-medium group-hover:text-primary transition-colors">{t.title}</span>
+                  {(t.start_date || t.end_date) && (
+                    <span className="text-xs text-muted-foreground">
+                      {t.start_date ? formatDate(t.start_date) : ""}
+                      {t.start_date && t.end_date ? " – " : ""}
+                      {t.end_date ? formatDate(t.end_date) : ""}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Wikipedia summary */}
-      {place.wikipedia_summary && (
+      {place.wikipedia_summary ? (
         <div className="glass-card p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Sobre este lugar</h2>
@@ -106,11 +136,9 @@ export default function PlaceDetailPage() {
             </a>
           )}
         </div>
-      )}
-
-      {!place.wikipedia_summary && (
+      ) : (
         <div className="glass-card p-5 text-center text-sm text-muted-foreground">
-          <Globe className="mx-auto mb-2 size-6 opacity-30" />
+          <MapPin className="mx-auto mb-2 size-6 opacity-30" />
           <p>Sem informação da Wikipédia disponível para este lugar.</p>
         </div>
       )}

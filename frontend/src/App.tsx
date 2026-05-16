@@ -120,7 +120,7 @@ export default function App() {
             <Route path="/viagens/:id" element={<TripDetailPage />} />
             <Route path="/projetos" element={<ProjectsPage />} />
             <Route path="/projetos/:id" element={<ProjectDetailPage />} />
-            <Route path="/lugares/:id" element={<PlaceDetailPage />} />
+            <Route path="/lugares/:osmId" element={<PlaceDetailPage />} />
             <Route path="/notificacoes" element={<NotificationsPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
             <Route path="/perfil/:username" element={<ProfilePage />} />

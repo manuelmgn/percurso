@@ -855,7 +855,7 @@ export default function ProjectDetailPage() {
           <ul className="mb-4 space-y-1.5">
             {project.target_places.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-                <Link to={`/lugares/${p.id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
+                <Link to={`/lugares/${p.osm_id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
                   <PlaceIcon
                     type={p.place_type as PlaceType}
                     size={15}

@@ -1,15 +1,18 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
-import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers } from "lucide-react"
+import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { usersApi, tripsApi } from "@/lib/api"
 import PlaceMap from "@/components/map/PlaceMap"
 import { useMapStore, type MapViewMode, type MapStyle } from "@/stores/map"
 import { Button } from "@/components/ui/button"
 import { formatDate } from "@/lib/utils"
-import { getPlaceLabel } from "@/lib/placeTypes"
+import { getPlaceLabel, getPlaceCategory, getPlaceCategoryLabel, PLACE_CATEGORY_LABELS } from "@/lib/placeTypes"
+import type { PlaceCategory } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
 import type { VisitedPlace, PlaceSummary, PlaceType } from "@/types"
+
+type SortCol = "name" | "type" | "country" | "visits" | "first_visited"
 
 export default function MapPage() {
   const navigate = useNavigate()
@@ -18,7 +21,9 @@ export default function MapPage() {
   const [showRoute, setShowRoute] = useState(false)
   const [colourByType, setColourByType] = useState(false)
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null)
-  const [typeFilter, setTypeFilter] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | "">("")
+  const [sortBy, setSortBy] = useState<SortCol>("name")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 
   const { data: visitedPlaces = [], isLoading: placesLoading } = useQuery({
     queryKey: ["my-places"],
@@ -45,11 +50,43 @@ export default function MapPage() {
   const displayPlaces = selectedTripId ? tripPlaces : visitedPlaces
   const placeCount = displayPlaces.length
 
-  // Type filter: compute available types from current display set
-  const availableTypes = Array.from(new Set(displayPlaces.map((p) => p.place_type))).sort()
-  const filteredPlaces = typeFilter
-    ? displayPlaces.filter((p) => p.place_type === typeFilter)
+  // Available categories from current display set
+  const availableCategories = Array.from(
+    new Set(displayPlaces.map((p) => getPlaceCategory(p.place_type)))
+  ).sort() as PlaceCategory[]
+
+  const filteredPlaces = categoryFilter
+    ? displayPlaces.filter((p) => getPlaceCategory(p.place_type) === categoryFilter)
     : displayPlaces
+
+  const sortedPlaces = [...filteredPlaces].sort((a, b) => {
+    let aVal: string | number
+    let bVal: string | number
+    switch (sortBy) {
+      case "type":
+        aVal = getPlaceLabel(a.place_type)
+        bVal = getPlaceLabel(b.place_type)
+        break
+      case "country":
+        aVal = a.country_code ?? ""
+        bVal = b.country_code ?? ""
+        break
+      case "visits":
+        aVal = isVisited(a) ? a.visit_count : 0
+        bVal = isVisited(b) ? b.visit_count : 0
+        break
+      case "first_visited":
+        aVal = isVisited(a) ? (a.first_visited ?? "") : ""
+        bVal = isVisited(b) ? (b.first_visited ?? "") : ""
+        break
+      default:
+        aVal = (a.name_pt ?? a.name).toLowerCase()
+        bVal = (b.name_pt ?? b.name).toLowerCase()
+    }
+    if (aVal < bVal) return sortDir === "asc" ? -1 : 1
+    if (aVal > bVal) return sortDir === "asc" ? 1 : -1
+    return 0
+  })
 
   const viewModes: { mode: MapViewMode; icon: React.ElementType; label: string }[] = [
     { mode: "map", icon: Map, label: "Mapa" },
@@ -71,11 +108,56 @@ export default function MapPage() {
     const val = e.target.value
     setSelectedTripId(val ? Number(val) : null)
     setShowRoute(false)
-    setTypeFilter("")
+    setCategoryFilter("")
   }
 
   function isVisited(p: VisitedPlace | PlaceSummary): p is VisitedPlace {
     return "visit_count" in p
+  }
+
+  function handleSort(col: SortCol) {
+    if (sortBy === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortBy(col)
+      setSortDir("asc")
+    }
+  }
+
+  function SortIcon({ col }: { col: SortCol }) {
+    if (sortBy !== col) return <ChevronsUpDown className="size-3 opacity-40" />
+    return sortDir === "asc" ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />
+  }
+
+  function CategoryFilterChips() {
+    if (availableCategories.length < 2) return null
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          onClick={() => setCategoryFilter("")}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            categoryFilter === ""
+              ? "bg-primary text-primary-foreground"
+              : "glass text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Todos
+        </button>
+        {availableCategories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setCategoryFilter(cat === categoryFilter ? "" : cat)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+              categoryFilter === cat
+                ? "bg-primary text-primary-foreground"
+                : "glass text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {PLACE_CATEGORY_LABELS[cat]}
+          </button>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -202,113 +284,126 @@ export default function MapPage() {
         )}
 
         {viewMode === "list" && (
-          <div className="p-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {isLoading ? (
-              <div className="col-span-full flex justify-center py-16">
-                <Loader2 className="size-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : displayPlaces.length === 0 ? (
-              <div className="col-span-full glass-card p-12 text-center text-muted-foreground">
-                <MapPin className="mx-auto mb-3 size-8 opacity-30" />
-                <p className="font-medium">
-                  {selectedTripId ? "Esta viagem ainda não tem lugares." : "Ainda sem lugares visitados."}
-                </p>
-                {!selectedTripId && (
-                  <p className="text-sm mt-1">Adiciona lugares às tuas viagens para os ver aqui.</p>
-                )}
-              </div>
-            ) : (
-              displayPlaces.map((place) => (
-                <button
-                  key={place.id}
-                  onClick={() => handlePlaceClick(place.osm_id)}
-                  className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2"
-                >
-                  <div>
-                    <p className="font-medium leading-snug flex items-center gap-2">
-                      <PlaceIcon type={place.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" title={getPlaceLabel(place.place_type)} />
-                      {place.name_pt ?? place.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 pl-6">
-                      {getPlaceLabel(place.place_type)}
-                      {place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""}
-                    </p>
-                  </div>
-                  {isVisited(place) && (
-                    <div className="space-y-1">
-                      {place.first_visited && (
-                        <p className="text-xs text-muted-foreground">
-                          Primeira visita: {formatDate(place.first_visited)}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {place.visit_count} {place.visit_count === 1 ? "viagem" : "viagens"}
-                      </p>
-                      {place.trips.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-0.5">
-                          {place.trips.slice(0, 3).map((t) => (
-                            <Link
-                              key={t.id}
-                              to={`/viagens/${t.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 hover:bg-primary/20 transition-colors"
-                            >
-                              {t.title}
-                            </Link>
-                          ))}
-                          {place.trips.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">+{place.trips.length - 3}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+          <div className="p-6 space-y-4">
+            <CategoryFilterChips />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {isLoading ? (
+                <div className="col-span-full flex justify-center py-16">
+                  <Loader2 className="size-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredPlaces.length === 0 ? (
+                <div className="col-span-full glass-card p-12 text-center text-muted-foreground">
+                  <MapPin className="mx-auto mb-3 size-8 opacity-30" />
+                  <p className="font-medium">
+                    {categoryFilter
+                      ? `Nenhum lugar em "${getPlaceCategoryLabel(categoryFilter)}".`
+                      : selectedTripId
+                      ? "Esta viagem ainda não tem lugares."
+                      : "Ainda sem lugares visitados."}
+                  </p>
+                  {!selectedTripId && !categoryFilter && (
+                    <p className="text-sm mt-1">Adiciona lugares às tuas viagens para os ver aqui.</p>
                   )}
-                </button>
-              ))
-            )}
+                </div>
+              ) : (
+                filteredPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    onClick={() => handlePlaceClick(place.osm_id)}
+                    className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2"
+                  >
+                    <div>
+                      <p className="font-medium leading-snug flex items-center gap-2">
+                        <PlaceIcon type={place.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" title={getPlaceLabel(place.place_type)} />
+                        {place.name_pt ?? place.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+                        {getPlaceLabel(place.place_type)}
+                        {place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""}
+                      </p>
+                    </div>
+                    {isVisited(place) && (
+                      <div className="space-y-1">
+                        {place.first_visited && (
+                          <p className="text-xs text-muted-foreground">
+                            Primeira visita: {formatDate(place.first_visited)}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {place.visit_count} {place.visit_count === 1 ? "viagem" : "viagens"}
+                        </p>
+                        {place.trips.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {place.trips.slice(0, 3).map((t) => (
+                              <Link
+                                key={t.id}
+                                to={`/viagens/${t.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 hover:bg-primary/20 transition-colors"
+                              >
+                                {t.title}
+                              </Link>
+                            ))}
+                            {place.trips.length > 3 && (
+                              <span className="text-[10px] text-muted-foreground">+{place.trips.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         )}
 
         {viewMode === "table" && (
           <div className="p-6 space-y-3">
-            {/* Type filter row */}
-            {availableTypes.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Filtrar por tipo:</span>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="rounded-lg border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Todos</option>
-                  {availableTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {getPlaceLabel(t)}
-                    </option>
-                  ))}
-                </select>
-                {typeFilter && (
-                  <button
-                    onClick={() => setTypeFilter("")}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            )}
+            <CategoryFilterChips />
 
             <div className="glass-card overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/50">
                   <tr className="text-left">
-                    <th className="px-4 py-3 font-medium text-muted-foreground">Local</th>
-                    <th className="px-4 py-3 font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-4 py-3 font-medium text-muted-foreground">País</th>
+                    {(
+                      [
+                        { col: "name" as SortCol, label: "Local" },
+                        { col: "type" as SortCol, label: "Tipo" },
+                        { col: "country" as SortCol, label: "País" },
+                      ] as const
+                    ).map(({ col, label }) => (
+                      <th
+                        key={col}
+                        onClick={() => handleSort(col)}
+                        className="px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {label}
+                          <SortIcon col={col} />
+                        </span>
+                      </th>
+                    ))}
                     {!selectedTripId && (
                       <>
-                        <th className="px-4 py-3 font-medium text-muted-foreground">Primeira visita</th>
-                        <th className="px-4 py-3 font-medium text-muted-foreground">Visitas</th>
+                        <th
+                          onClick={() => handleSort("first_visited")}
+                          className="px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Primeira visita
+                            <SortIcon col="first_visited" />
+                          </span>
+                        </th>
+                        <th
+                          onClick={() => handleSort("visits")}
+                          className="px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Visitas
+                            <SortIcon col="visits" />
+                          </span>
+                        </th>
                         <th className="px-4 py-3 font-medium text-muted-foreground">Viagens</th>
                       </>
                     )}
@@ -321,11 +416,11 @@ export default function MapPage() {
                         <Loader2 className="size-5 animate-spin mx-auto" />
                       </td>
                     </tr>
-                  ) : filteredPlaces.length === 0 ? (
+                  ) : sortedPlaces.length === 0 ? (
                     <tr>
                       <td colSpan={selectedTripId ? 3 : 6} className="px-4 py-8 text-center text-muted-foreground">
-                        {typeFilter
-                          ? "Nenhum lugar deste tipo."
+                        {categoryFilter
+                          ? `Nenhum lugar em "${getPlaceCategoryLabel(categoryFilter)}".`
                           : selectedTripId
                           ? "Esta viagem ainda não tem lugares."
                           : "Ainda sem lugares visitados."
@@ -333,7 +428,7 @@ export default function MapPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredPlaces.map((place, i) => (
+                    sortedPlaces.map((place, i) => (
                       <tr
                         key={place.id}
                         onClick={() => handlePlaceClick(place.osm_id)}
