@@ -5,6 +5,7 @@ import { authApi } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query"
 import { notificationsApi } from "@/lib/api"
+import { APP_VERSION } from "@/lib/constants"
 
 const navItems = [
   { to: "/mapa", icon: Map, label: "Mapa" },
@@ -116,6 +117,10 @@ export default function AppShell() {
               <User className="size-4" />
               Admin
             </NavLink>
+          )}
+
+          {user?.role === "admin" && (
+            <p className="px-3 py-1 text-xs opacity-30 select-none">v{APP_VERSION}</p>
           )}
 
           {/* User info + logout */}
