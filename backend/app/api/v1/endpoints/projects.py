@@ -409,6 +409,30 @@ async def upload_project_cover(
     return _project_to_response(project)
 
 
+@router.delete("/{project_id}/cover", response_model=ProjectResponse)
+async def delete_project_cover(
+    project_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    old_delete_url = project.cover_image_delete_url
+    project.cover_image_url = None
+    project.cover_image_delete_url = None
+    project.cover_image_generating = False
+    await db.flush()
+
+    if old_delete_url:
+        background_tasks.add_task(delete_from_imgbb, old_delete_url)
+
+    project = await _load_project(db, project_id)
+    return _project_to_response(project)
+
+
 @router.post("/{project_id}/generate-cover", response_model=ProjectResponse)
 async def generate_project_cover(
     project_id: int,

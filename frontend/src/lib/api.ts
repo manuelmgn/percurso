@@ -205,6 +205,8 @@ export const tripsApi = {
   },
   generateCover: (tripId: number) =>
     request<Trip>("POST", `/api/v1/trips/${tripId}/generate-cover`),
+  deleteCover: (tripId: number) =>
+    request<Trip>("DELETE", `/api/v1/trips/${tripId}/cover`),
   addMedia: (tripId: number, url: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/media`, { url }),
 }
@@ -242,6 +244,8 @@ export const projectsApi = {
   },
   generateCover: (projectId: number) =>
     request<Project>("POST", `/api/v1/projects/${projectId}/generate-cover`),
+  deleteCover: (projectId: number) =>
+    request<Project>("DELETE", `/api/v1/projects/${projectId}/cover`),
 }
 
 // Notifications

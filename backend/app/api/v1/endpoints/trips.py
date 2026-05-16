@@ -330,6 +330,30 @@ async def upload_trip_cover(
     return _trip_to_response(trip)
 
 
+@router.delete("/{trip_id}/cover", response_model=TripResponse)
+async def delete_trip_cover(
+    trip_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+
+    old_delete_url = trip.cover_image_delete_url
+    trip.cover_image_url = None
+    trip.cover_image_delete_url = None
+    trip.cover_image_generating = False
+    await db.flush()
+
+    if old_delete_url:
+        background_tasks.add_task(delete_from_imgbb, old_delete_url)
+
+    trip = await _load_trip(db, trip_id)
+    return _trip_to_response(trip)
+
+
 @router.post("/{trip_id}/generate-cover", response_model=TripResponse)
 async def generate_trip_cover(
     trip_id: int,

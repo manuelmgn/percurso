@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Target, Search, X,
-  UserPlus, FileText, Check, AlertCircle, Pencil, Info,
+  UserPlus, FileText, Check, AlertCircle, Pencil, Info, Trash2,
 } from "lucide-react"
 import { projectsApi, placesApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -618,6 +618,16 @@ export default function ProjectDetailPage() {
     },
   })
 
+  const deleteCoverMutation = useMutation({
+    mutationFn: () => projectsApi.deleteCover(projectId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["project", projectId], (old: Project | undefined) =>
+        old ? { ...old, cover_image_url: updated.cover_image_url, cover_image_generating: false } : old,
+      )
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+
   const updateMutation = useMutation({
     mutationFn: (data: object) => projectsApi.update(projectId, data),
     onSuccess: () => {
@@ -809,6 +819,23 @@ export default function ProjectDetailPage() {
                 </p>
               )}
             </div>
+
+            {/* Delete cover pill — only when a cover image exists */}
+            {project.cover_image_url && (
+              <button
+                className="group/btn inline-flex items-center h-9 px-2.5 rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-red-600/80 transition-all duration-200 disabled:opacity-40"
+                onClick={(e) => { e.stopPropagation(); deleteCoverMutation.mutate() }}
+                disabled={deleteCoverMutation.isPending}
+              >
+                {deleteCoverMutation.isPending
+                  ? <Loader2 className="size-4 animate-spin shrink-0" />
+                  : <Trash2 className="size-4 shrink-0" />
+                }
+                <span className="max-w-0 group-hover/btn:max-w-[6rem] overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-200 group-hover/btn:ml-2">
+                  Remover imagem
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>
