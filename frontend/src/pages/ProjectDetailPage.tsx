@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
 import { getPlaceLabel } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
+import MiniMap from "@/components/map/MiniMap"
 import type { PlaceSearchResult, PlaceType, Project, ProjectTargetPlace, Visibility, MissingMember } from "@/types"
 
 function wordCount(text: string): number {
@@ -1465,6 +1466,27 @@ export default function ProjectDetailPage() {
           </div>
         )
       })()}
+
+      {/* Mapa do projeto */}
+      {(project.target_places ?? []).length > 0 && (
+        <div className="glass-card p-5">
+          <h2 className="font-semibold mb-4">Mapa</h2>
+          <MiniMap
+            places={(project.target_places ?? []).map((p) => ({
+              id: p.id,
+              osm_id: p.osm_id,
+              name: p.name,
+              name_pt: p.name_pt,
+              place_type: p.place_type,
+              country_code: p.country_code,
+              centroid_lng: p.centroid_lng,
+              centroid_lat: p.centroid_lat,
+              geometry_geojson: p.geometry_geojson,
+              dimmed: !p.visited,
+            }))}
+          />
+        </div>
+      )}
 
       {/* Details slide-over */}
       {isCreator && (
