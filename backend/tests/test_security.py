@@ -32,16 +32,16 @@ def test_access_token_payload():
 
 
 def test_refresh_token_payload():
-    token = create_refresh_token(99)
+    token, jti = create_refresh_token(99)
     payload = decode_token(token)
     assert payload["sub"] == "99"
     assert payload["type"] == "refresh"
-    assert "jti" in payload
+    assert payload["jti"] == jti
 
 
 def test_access_refresh_tokens_are_different():
     access = create_access_token(1)
-    refresh = create_refresh_token(1)
+    refresh, _ = create_refresh_token(1)
     assert access != refresh
 
 

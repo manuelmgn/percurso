@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
 from app.core.place_types import PLACE_TYPE_CATEGORY, PLACE_TYPE_LABELS
 from app.models.place import Place
 from app.models.user import User
@@ -75,7 +76,9 @@ async def _upsert_place(db: AsyncSession, data: dict) -> Place:
 
 
 @router.get("/search", response_model=list[PlaceSearchResult])
+@limiter.limit("30/minute")
 async def search_places(
+    request: Request,
     q: str = Query(min_length=2),
     country: str | None = None,
     _current_user: User = Depends(get_current_user),
@@ -140,15 +143,19 @@ async def import_place(
 @router.get("/{osm_id}", response_model=PlaceResponse)
 async def get_place(
     osm_id: int,
+    osm_type: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     from app.models.trip import Trip, TripCompanion, TripPlace
     from sqlalchemy import or_, and_
 
-    result = await db.execute(
-        select(Place).where(Place.osm_id == osm_id).order_by(Place.id).limit(1)
-    )
+    q = select(Place).where(Place.osm_id == osm_id)
+    if osm_type is not None:
+        if osm_type not in _VALID_OSM_TYPES:
+            raise HTTPException(status_code=400, detail=f"osm_type inválido. Aceites: {', '.join(sorted(_VALID_OSM_TYPES))}")
+        q = q.where(Place.osm_type == osm_type)
+    result = await db.execute(q.order_by(Place.id).limit(1))
     place = result.scalar_one_or_none()
     if not place:
         raise HTTPException(status_code=404, detail="Local não encontrado")

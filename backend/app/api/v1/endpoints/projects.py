@@ -3,19 +3,20 @@ import random
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
 from app.core.security import generate_invite_token, generate_sharing_token
 from app.models.notification import Notification
 from app.models.project import Project, ProjectCollaborator, ProjectDirectVisit, ProjectMediaLink, ProjectSharedUser, ProjectTargetPlace
-from app.models.trip import Trip, TripCompanion, TripPlace, TripProject
+from app.models.trip import Trip, TripPlace, TripProject
 from app.models.user import User
-from app.schemas.project import MediaLinkCreate, PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate
+from app.schemas.project import MediaLinkCreate, PlaceImportRequest, ProjectCreate, ProjectDetailResponse, ProjectResponse, ProjectUpdate, SharedUserRequest, TripForPlaceCreate
 from app.services.og_service import fetch_og_metadata
 from app.services.storage_service import delete_from_imgbb, upload_cover_image
 
@@ -128,13 +129,22 @@ async def _compute_progress(db: AsyncSession, project_id: int, project: Project)
     return result.scalar() or 0
 
 
-async def _compute_place_visit_info(db: AsyncSession, project_id: int, target_place_ids: set[int]) -> tuple[dict[int, list[dict]], set[int]]:
-    """Return (place_id -> [trip summary], direct_visit_place_ids)."""
+async def _compute_place_visit_info(
+    db: AsyncSession,
+    project_id: int,
+    target_place_ids: set[int],
+    public_only: bool = False,
+) -> tuple[dict[int, list[dict]], set[int]]:
+    """Return (place_id -> [trip summary], direct_visit_place_ids).
+
+    When public_only is True (unauthenticated shared view), private trips are
+    excluded so that private trip titles and destinations do not leak.
+    """
     from collections import defaultdict
     visit_map: dict[int, list[dict]] = defaultdict(list)
 
     if target_place_ids:
-        rows = await db.execute(
+        q = (
             select(
                 TripPlace.place_id,
                 Trip.id.label("trip_id"),
@@ -149,6 +159,9 @@ async def _compute_place_visit_info(db: AsyncSession, project_id: int, target_pl
             )
             .distinct()
         )
+        if public_only:
+            q = q.where(Trip.visibility != "private")
+        rows = await db.execute(q)
         for r in rows.all():
             visit_map[r.place_id].append({"id": r.trip_id, "title": r.trip_title, "start_date": r.start_date})
 
@@ -161,14 +174,25 @@ async def _compute_place_visit_info(db: AsyncSession, project_id: int, target_pl
     return dict(visit_map), direct_ids
 
 
-async def _get_associated_trips(db: AsyncSession, project_id: int, target_place_ids: set[int]) -> list[dict]:
-    """Return list of trips associated with the project, each with which target places they cover."""
-    trip_rows = await db.execute(
+async def _get_associated_trips(
+    db: AsyncSession,
+    project_id: int,
+    target_place_ids: set[int],
+    public_only: bool = False,
+) -> list[dict]:
+    """Return list of trips associated with the project, each with which target places they cover.
+
+    When public_only is True, private trips are excluded from the list.
+    """
+    q = (
         select(Trip.id, Trip.title, Trip.start_date, Trip.end_date)
         .join(TripProject, TripProject.trip_id == Trip.id)
         .where(TripProject.project_id == project_id)
         .order_by(Trip.start_date.asc().nullslast())
     )
+    if public_only:
+        q = q.where(Trip.visibility != "private")
+    trip_rows = await db.execute(q)
     trips: dict[int, dict] = {
         r.id: {"id": r.id, "title": r.title, "start_date": r.start_date, "end_date": r.end_date, "covered_place_ids": []}
         for r in trip_rows.all()
@@ -188,7 +212,10 @@ async def _get_associated_trips(db: AsyncSession, project_id: int, target_place_
 
 
 def _project_to_response(project: Project, visited_count: int = 0, include_pending: bool = False) -> dict:
-    collaborators_list = project.collaborators if include_pending else [c for c in project.collaborators if c.status == "accepted"]
+    if include_pending:
+        collaborators_list = [c for c in project.collaborators if c.status != "declined"]
+    else:
+        collaborators_list = [c for c in project.collaborators if c.status == "accepted"]
     return {
         "id": project.id,
         "title": project.title,
@@ -323,10 +350,11 @@ async def get_shared_project(
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado ou link inválido")
     target_place_ids = {tp.place_id for tp in project.target_places}
-    visit_map, direct_ids = await _compute_place_visit_info(db, project.id, target_place_ids)
+    visit_map, direct_ids = await _compute_place_visit_info(db, project.id, target_place_ids, public_only=True)
     visited_count = len({pid for pid in target_place_ids if pid in visit_map or pid in direct_ids})
-    assoc_trips = await _get_associated_trips(db, project.id, target_place_ids)
+    assoc_trips = await _get_associated_trips(db, project.id, target_place_ids, public_only=True)
     data = _project_to_response(project, visited_count)
+    data["collaborators"] = []
     data["target_places"] = [
         _place_to_summary(
             tp.place,
@@ -394,7 +422,7 @@ async def get_project(
 @router.post("/{project_id}/shared-users", status_code=status.HTTP_201_CREATED)
 async def add_project_shared_user(
     project_id: int,
-    data: dict,
+    data: SharedUserRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -403,8 +431,7 @@ async def add_project_shared_user(
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
     from app.services.user_service import get_user_by_username
-    username = data.get("username", "")
-    target = await get_user_by_username(db, username)
+    target = await get_user_by_username(db, data.username)
     if not target:
         raise HTTPException(status_code=404, detail="Utilizador não encontrado")
     if target.id == current_user.id:
@@ -481,7 +508,9 @@ async def update_project(
 
 
 @router.post("/{project_id}/cover", response_model=ProjectResponse)
+@limiter.limit("10/minute")
 async def upload_project_cover(
+    request: Request,
     project_id: int,
     file: UploadFile,
     background_tasks: BackgroundTasks,
@@ -538,7 +567,9 @@ async def delete_project_cover(
 
 
 @router.post("/{project_id}/generate-cover", response_model=ProjectResponse)
+@limiter.limit("5/hour")
 async def generate_project_cover(
+    request: Request,
     project_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -629,6 +660,8 @@ async def invite_collaborator(
     invitee = await get_user_by_username(db, username)
     if not invitee:
         raise HTTPException(status_code=404, detail="Utilizador não encontrado")
+    if invitee.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Não pode convidar-se a si próprio")
 
     db.add(ProjectCollaborator(
         project_id=project_id,
@@ -708,6 +741,36 @@ async def accept_project_invite_as_me(
     return {"detail": "Convite aceite"}
 
 
+@router.post("/{project_id}/collaborators/leave-me", status_code=status.HTTP_200_OK)
+async def leave_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.project_id == project_id,
+            ProjectCollaborator.user_id == current_user.id,
+            ProjectCollaborator.status == "accepted",
+        )
+    )
+    collaborator = result.scalar_one_or_none()
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Não és colaborador aceite deste projeto")
+
+    project = await db.get(Project, project_id)
+    db.add(Notification(
+        recipient_id=project.creator_id,
+        notification_type="collaborator_left",
+        entity_type="project",
+        entity_id=project_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} saiu do projeto «{project.title}»",
+    ))
+    await db.delete(collaborator)
+    return {"detail": "Saíste do projeto"}
+
+
 @router.post("/{project_id}/collaborators/decline-me", status_code=status.HTTP_200_OK)
 async def decline_project_invite_as_me(
     project_id: int,
@@ -738,7 +801,9 @@ async def decline_project_invite_as_me(
 
 
 @router.post("/{project_id}/import-places", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute")
 async def import_places_from_text(
+    request: Request,
     project_id: int,
     data: PlaceImportRequest,
     current_user: User = Depends(get_current_user),
@@ -912,6 +977,10 @@ async def disassociate_trip_from_project(
     if project.creator_id != current_user.id and current_user.id not in accepted_ids:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Só o criador da viagem pode desassociá-la")
+
     result = await db.execute(
         select(TripProject).where(TripProject.trip_id == trip_id, TripProject.project_id == project_id)
     )
@@ -998,6 +1067,8 @@ async def unmark_place_visited(
     )
     visit = result.scalar_one_or_none()
     if visit:
+        if visit.marked_by_user_id != current_user.id and project.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão para remover esta marcação")
         await db.delete(visit)
 
 
@@ -1007,7 +1078,7 @@ async def unmark_place_visited(
 async def create_trip_for_place(
     project_id: int,
     place_id: int,
-    data: dict,
+    data: TripForPlaceCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -1027,17 +1098,13 @@ async def create_trip_for_place(
     if not is_target:
         raise HTTPException(status_code=404, detail="Lugar não é um objetivo deste projeto")
 
-    title = (data.get("title") or "").strip()
-    if not title:
-        raise HTTPException(status_code=422, detail="O título da viagem é obrigatório")
-
     # Create the trip
     from app.models.trip import Trip as TripModel, TripPlace as TripPlaceModel, TripProject as TripProjectModel, TripCompanion as TripCompanionModel
     import random as _rand
     trip = TripModel(
         creator_id=current_user.id,
-        title=title,
-        description=data.get("description") or None,
+        title=data.title,
+        description=data.description,
         visibility=current_user.default_trip_visibility,
         cover_colour=_rand.choice(_COVER_COLOURS),
     )

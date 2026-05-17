@@ -25,6 +25,9 @@ def create_access_token(subject: str | int, extra: dict[str, Any] | None = None)
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
+    _RESERVED = {"sub", "exp", "type", "jti"}
+    if extra and (_RESERVED & extra.keys()):
+        raise ValueError(f"extra must not contain reserved claims: {_RESERVED & extra.keys()}")
     payload: dict[str, Any] = {"sub": str(subject), "exp": expire, "type": "access"}
     if extra:
         payload.update(extra)

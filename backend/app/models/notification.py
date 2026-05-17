@@ -25,6 +25,8 @@ class Notification(Base, TimestampMixin):
             "removed_from_project",
             "cover_generation_failed",
             "added_to_trip_via_project",
+            "companion_left",
+            "collaborator_left",
             name="notification_type",
             create_type=False,
         ),

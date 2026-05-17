@@ -1,24 +1,32 @@
 from datetime import date
+from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, field_validator
+
+_VISIBILITY = Literal["public", "private", "link", "users"]
 
 
 class TripCreate(BaseModel):
-    title: str
-    description: str | None = None
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=10000)
     start_date: date | None = None
     end_date: date | None = None
-    visibility: str = "private"
-    cover_colour: str | None = None
+    visibility: _VISIBILITY = "private"
+    cover_colour: str | None = Field(None, max_length=7)
 
 
 class TripUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
+    title: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=10000)
     start_date: date | None = None
     end_date: date | None = None
-    visibility: str | None = None
-    cover_colour: str | None = None
+    visibility: _VISIBILITY | None = None
+    cover_colour: str | None = Field(None, max_length=7)
+
+
+class SharedUserRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=50)
 
 
 class PlaceSummaryResponse(BaseModel):
@@ -48,7 +56,15 @@ class TripCompanionResponse(BaseModel):
 
 
 class MediaLinkCreate(BaseModel):
-    url: str
+    url: str = Field(max_length=2000)
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        p = urlparse(v)
+        if p.scheme not in ("http", "https") or not p.netloc:
+            raise ValueError("URL deve começar com http:// ou https://")
+        return v
 
 
 class MediaLinkResponse(BaseModel):

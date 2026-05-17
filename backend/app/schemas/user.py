@@ -1,14 +1,17 @@
 from datetime import date
+from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, EmailStr, field_validator
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field, field_validator
+
+_VISIBILITY = Literal["public", "private", "link", "users"]
 
 
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
-    password: str
-    display_name: str
-    role: str = "user"
+    password: str = Field(min_length=8, max_length=128)
+    display_name: str = Field(min_length=1, max_length=100)
+    role: Literal["admin", "user"] = "user"
 
     @field_validator("username")
     @classmethod
@@ -28,13 +31,13 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    display_name: str | None = None
+    display_name: str | None = Field(None, max_length=100)
     biography: str | None = None
     website_url: AnyHttpUrl | None = None
     avatar_url: AnyHttpUrl | None = None
-    default_trip_visibility: str | None = None
-    default_project_visibility: str | None = None
-    visited_places_visibility: str | None = None
+    default_trip_visibility: _VISIBILITY | None = None
+    default_project_visibility: _VISIBILITY | None = None
+    visited_places_visibility: _VISIBILITY | None = None
 
     @field_validator("website_url", "avatar_url", mode="before")
     @classmethod

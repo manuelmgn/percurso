@@ -46,7 +46,7 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> U
 
 
 async def update_user(db: AsyncSession, user: User, data: UserUpdate) -> User:
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     await db.flush()
     return user

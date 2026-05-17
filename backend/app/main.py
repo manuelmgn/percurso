@@ -47,6 +47,16 @@ app.add_middleware(
 )
 
 
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https://i.ibb.co https://image.pollinations.ai; "
+    "connect-src 'self' https:; "
+    "frame-ancestors 'none'"
+)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -54,7 +64,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
-        if request.url.scheme == "https":
+        response.headers["Content-Security-Policy"] = _CSP
+        # Key HSTS on X-Forwarded-Proto so it is sent even behind a TLS-terminating proxy.
+        proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
+        if proto == "https":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
@@ -111,7 +124,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok"}
 
 
 _static_dir = Path(__file__).parent.parent / "static"

@@ -1,11 +1,15 @@
 from collections import defaultdict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, UploadFile, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user, get_optional_current_user, require_admin
+from app.core.limiter import limiter
+
+settings = get_settings()
 from app.models.place import Place
 from app.models.project import Project, ProjectTargetPlace
 from app.models.trip import Trip, TripCompanion, TripPlace
@@ -168,19 +172,22 @@ async def update_me(
 
 
 @router.post("/me/avatar", response_model=UserResponse)
+@limiter.limit("10/minute")
 async def upload_my_avatar(
+    request: Request,
     file: UploadFile,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    from app.services.storage_service import delete_from_imgbb, upload_to_imgbb
-    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-    if file.content_type not in allowed:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de imagem não suportado (jpeg, png, webp ou gif)")
+    from app.services.storage_service import _detect_mime_type, delete_from_imgbb, upload_to_imgbb
     image_bytes = await file.read()
     if len(image_bytes) > 5 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A imagem não pode ter mais de 5 MB")
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    detected = _detect_mime_type(image_bytes)
+    if detected not in allowed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de imagem não suportado (jpeg, png, webp ou gif)")
     url, delete_url = await upload_to_imgbb(image_bytes, name=f"avatar-{current_user.id}")
     old_delete_url = current_user.avatar_delete_url
     current_user.avatar_url = url
@@ -192,7 +199,9 @@ async def upload_my_avatar(
 
 
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 async def change_my_password(
+    request: Request,
     data: PasswordChangeRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -205,13 +214,17 @@ async def change_my_password(
 
 
 async def _load_visited_places_public(db: AsyncSession, user_id: int) -> list[dict]:
-    """Load a user's distinct visited places without dates or trip details."""
-    from sqlalchemy import func
+    """Load a user's distinct visited places without dates or trip details.
+    Only includes places from non-private trips so that private trip
+    destinations are not exposed through the public visited-places feature."""
     rows = (
         await db.execute(
             select(TripPlace.place_id)
             .join(Trip, Trip.id == TripPlace.trip_id)
-            .where(Trip.creator_id == user_id)
+            .where(
+                Trip.creator_id == user_id,
+                Trip.visibility != "private",
+            )
             .distinct()
         )
     ).all()
@@ -239,6 +252,7 @@ async def _load_visited_places_public(db: AsyncSession, user_id: int) -> list[di
 async def get_user_visited_places(
     username: str,
     token: str | None = None,
+    x_share_token: str | None = Header(default=None, alias="X-Share-Token"),
     requesting_user: User | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -248,11 +262,14 @@ async def get_user_visited_places(
 
     is_owner = requesting_user is not None and requesting_user.id == user.id
     vis = user.visited_places_visibility
+    # Prefer header; fall back to query param for backward compatibility.
+    # Sending via header avoids token leakage in server logs / Referer.
+    effective_token = x_share_token or token
 
     if not is_owner:
         if vis == "public":
             pass  # allowed
-        elif vis == "link" and token and token == user.visited_places_sharing_token:
+        elif vis == "link" and effective_token == user.visited_places_sharing_token:
             pass  # allowed
         else:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado")

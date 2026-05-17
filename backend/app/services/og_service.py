@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -40,15 +41,26 @@ _PRIVATE_NETS = [
 ]
 
 
-def _is_private(host: str) -> bool:
+def _ip_is_private(ip_str: str) -> bool:
     try:
-        addr = ipaddress.ip_address(socket.gethostbyname(host))
-        return any(addr in net for net in _PRIVATE_NETS)
-    except (socket.gaierror, ValueError):
-        return True  # fail safe: block unresolvable hosts
+        return any(ipaddress.ip_address(ip_str) in net for net in _PRIVATE_NETS)
+    except ValueError:
+        return True
 
 
-def _validate_url(url: str) -> bool:
+async def _resolve_and_check(host: str) -> bool:
+    """Resolve host once in a thread, return True if the IP is safe (public).
+    Performing a single resolution here and re-using it reduces the DNS
+    rebinding window compared to letting httpx resolve independently."""
+    try:
+        loop = asyncio.get_event_loop()
+        ip_str = await loop.run_in_executor(None, socket.gethostbyname, host)
+        return not _ip_is_private(ip_str)
+    except (socket.gaierror, OSError):
+        return False  # unresolvable — block
+
+
+async def _host_is_safe(url: str) -> bool:
     try:
         parsed = urlparse(url)
         if parsed.scheme != "https":
@@ -56,13 +68,13 @@ def _validate_url(url: str) -> bool:
         host = parsed.hostname
         if not host:
             return False
-        return not _is_private(host)
+        return await _resolve_and_check(host)
     except Exception:
         return False
 
 
 async def fetch_og_metadata(url: str) -> dict:
-    if not _validate_url(url):
+    if not await _host_is_safe(url):
         return {"url": url}
 
     headers = {
@@ -70,12 +82,14 @@ async def fetch_og_metadata(url: str) -> dict:
         "Accept": "text/html",
     }
     try:
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, max_redirects=3) as client:
+        async with httpx.AsyncClient(
+            timeout=8.0, follow_redirects=True, max_redirects=3
+        ) as client:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
 
-            # Re-validate after redirect — the final URL may be internal
-            if not _validate_url(str(resp.url)):
+            # Re-validate after redirect — the final URL may be internal.
+            if not await _host_is_safe(str(resp.url)):
                 return {"url": url}
 
             content_type = resp.headers.get("content-type", "")

@@ -1,10 +1,31 @@
 from datetime import date
+from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+_VISIBILITY = Literal["public", "private", "link", "users"]
 
 
 class MediaLinkCreate(BaseModel):
-    url: str
+    url: str = Field(max_length=2000)
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        p = urlparse(v)
+        if p.scheme not in ("http", "https") or not p.netloc:
+            raise ValueError("URL deve começar com http:// ou https://")
+        return v
+
+
+class SharedUserRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=50)
+
+
+class TripForPlaceCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=10000)
 
 
 class MediaLinkResponse(BaseModel):
@@ -56,19 +77,19 @@ class MissingMember(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    title: str
-    description: str | None = None
-    goal_description: str | None = None
-    visibility: str = "private"
-    cover_colour: str | None = None
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=10000)
+    goal_description: str | None = Field(None, max_length=10000)
+    visibility: _VISIBILITY = "private"
+    cover_colour: str | None = Field(None, max_length=7)
 
 
 class ProjectUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    goal_description: str | None = None
-    visibility: str | None = None
-    cover_colour: str | None = None
+    title: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=10000)
+    goal_description: str | None = Field(None, max_length=10000)
+    visibility: _VISIBILITY | None = None
+    cover_colour: str | None = Field(None, max_length=7)
 
 
 class ProjectCollaboratorResponse(BaseModel):

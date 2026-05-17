@@ -3,18 +3,19 @@ import random
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
 from app.core.security import generate_sharing_token, generate_invite_token
 from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripProject, TripSharedUser
 from app.models.user import User
 from app.models.project import Project, ProjectCollaborator
-from app.schemas.trip import MediaLinkCreate, TripCreate, TripDetailResponse, TripResponse, TripUpdate
+from app.schemas.trip import MediaLinkCreate, SharedUserRequest, TripCreate, TripDetailResponse, TripResponse, TripUpdate
 from app.services.og_service import fetch_og_metadata
 from app.services.storage_service import delete_from_imgbb, upload_cover_image
 
@@ -68,7 +69,10 @@ def _check_trip_access(trip: Trip, current_user: User) -> bool:
 
 
 def _trip_to_response(trip: Trip, include_pending: bool = False) -> dict:
-    companions_list = trip.companions if include_pending else [c for c in trip.companions if c.status == "accepted"]
+    if include_pending:
+        companions_list = [c for c in trip.companions if c.status != "declined"]
+    else:
+        companions_list = [c for c in trip.companions if c.status == "accepted"]
     return {
         "id": trip.id,
         "title": trip.title,
@@ -205,6 +209,7 @@ async def get_shared_trip(
     if not trip:
         raise HTTPException(status_code=404, detail="Viagem não encontrada ou link inválido")
     data = _trip_to_response(trip)
+    data["companions"] = []
     data["media_links"] = [
         {
             "id": m.id,
@@ -311,7 +316,9 @@ async def delete_trip(
 
 
 @router.post("/{trip_id}/cover", response_model=TripResponse)
+@limiter.limit("10/minute")
 async def upload_trip_cover(
+    request: Request,
     trip_id: int,
     file: UploadFile,
     background_tasks: BackgroundTasks,
@@ -368,7 +375,9 @@ async def delete_trip_cover(
 
 
 @router.post("/{trip_id}/generate-cover", response_model=TripResponse)
+@limiter.limit("5/hour")
 async def generate_trip_cover(
+    request: Request,
     trip_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -519,7 +528,7 @@ async def remove_companion(
 @router.post("/{trip_id}/shared-users", status_code=status.HTTP_201_CREATED)
 async def add_trip_shared_user(
     trip_id: int,
-    data: dict,
+    data: SharedUserRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -528,8 +537,7 @@ async def add_trip_shared_user(
         raise HTTPException(status_code=404, detail="Viagem não encontrada")
 
     from app.services.user_service import get_user_by_username
-    username = data.get("username", "")
-    target = await get_user_by_username(db, username)
+    target = await get_user_by_username(db, data.username)
     if not target:
         raise HTTPException(status_code=404, detail="Utilizador não encontrado")
     if target.id == current_user.id:
@@ -654,6 +662,37 @@ async def decline_trip_invite_as_me(
         message=f"{current_user.display_name} recusou o convite para a viagem «{trip.title}»",
     ))
     return {"detail": "Convite recusado"}
+
+
+@router.post("/{trip_id}/companions/leave-me", status_code=status.HTTP_200_OK)
+async def leave_trip(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(
+        select(TripCompanion).where(
+            TripCompanion.trip_id == trip_id,
+            TripCompanion.user_id == current_user.id,
+            TripCompanion.status == "accepted",
+        )
+    )
+    companion = result.scalar_one_or_none()
+    if not companion:
+        raise HTTPException(status_code=404, detail="Não és acompanhante aceite desta viagem")
+
+    trip = await db.get(Trip, trip_id)
+    from app.models.notification import Notification
+    db.add(Notification(
+        recipient_id=trip.creator_id,
+        notification_type="companion_left",
+        entity_type="trip",
+        entity_id=trip_id,
+        actor_id=current_user.id,
+        message=f"{current_user.display_name} saiu da viagem «{trip.title}»",
+    ))
+    await db.delete(companion)
+    return {"detail": "Saíste da viagem"}
 
 
 @router.delete("/{trip_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)

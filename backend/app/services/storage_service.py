@@ -17,6 +17,8 @@ def _detect_mime_type(data: bytes) -> str | None:
         return "image/png"
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
     return None
 
 
