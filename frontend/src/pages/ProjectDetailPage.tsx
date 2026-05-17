@@ -690,6 +690,14 @@ export default function ProjectDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
+  const leaveProjectMutation = useMutation({
+    mutationFn: () => projectsApi.leaveProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+
   const addSharedUserMutation = useMutation({
     mutationFn: (username: string) => projectsApi.addSharedUser(projectId, username),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
@@ -1414,6 +1422,49 @@ export default function ProjectDetailPage() {
           <p className="mt-2 text-sm text-destructive">{(addMediaMutation.error as Error).message}</p>
         )}
       </div>
+
+      {/* Colaboradores */}
+      {(() => {
+        const accepted = (project.collaborators ?? []).filter((c) => c.status === "accepted")
+        if (accepted.length === 0) return null
+        return (
+          <div className="glass-card p-5">
+            <h2 className="font-semibold mb-4">
+              Colaboradores <span className="text-sm font-normal text-muted-foreground">({accepted.length})</span>
+            </h2>
+            <ul className="space-y-2">
+              {accepted.map((c) => (
+                <li key={c.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  {c.avatar_url ? (
+                    <img src={c.avatar_url} alt="" className="size-7 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="size-7 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-medium">
+                      {c.display_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <Link to={`/perfil/${c.username}`} className="flex-1 min-w-0 hover:text-primary transition-colors">
+                    <span className="font-medium truncate block">{c.display_name}</span>
+                    <span className="text-xs text-muted-foreground">@{c.username}</span>
+                  </Link>
+                  {!isCreator && c.user_id === user?.id && (
+                    <button
+                      type="button"
+                      onClick={() => leaveProjectMutation.mutate()}
+                      disabled={leaveProjectMutation.isPending}
+                      className="shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    >
+                      {leaveProjectMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Sair do projeto"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {leaveProjectMutation.error && (
+              <p className="mt-2 text-sm text-destructive">{(leaveProjectMutation.error as Error).message}</p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Details slide-over */}
       {isCreator && (

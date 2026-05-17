@@ -196,6 +196,10 @@ export const tripsApi = {
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/accept-me`),
   declineInviteAsMe: (tripId: number) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/decline-me`),
+  leaveTrip: (tripId: number) =>
+    request<unknown>("POST", `/api/v1/trips/${tripId}/companions/leave-me`),
+  leaveProject: (projectId: number) =>
+    request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/leave-me`),
   removeMedia: (tripId: number, mediaId: number) =>
     request<void>("DELETE", `/api/v1/trips/${tripId}/media/${mediaId}`),
   uploadCover: (tripId: number, file: File) => {

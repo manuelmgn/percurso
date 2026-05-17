@@ -532,6 +532,14 @@ export default function TripDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
 
+  const leaveTripMutation = useMutation({
+    mutationFn: () => tripsApi.leaveTrip(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
+      queryClient.invalidateQueries({ queryKey: ["trips"] })
+    },
+  })
+
   const addSharedUserMutation = useMutation({
     mutationFn: (username: string) => tripsApi.addSharedUser(tripId, username),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
@@ -936,6 +944,50 @@ export default function TripDetailPage() {
           </ul>
         )}
       </div>
+
+      {/* Acompanhantes */}
+      {(() => {
+        const accepted = (trip.companions ?? []).filter((c) => c.status === "accepted")
+        const myCompanion = accepted.find((c) => c.user_id === user?.id)
+        if (accepted.length === 0 && !myCompanion) return null
+        return (
+          <div className="glass-card p-5">
+            <h2 className="font-semibold mb-4">
+              Acompanhantes <span className="text-sm font-normal text-muted-foreground">({accepted.length})</span>
+            </h2>
+            <ul className="space-y-2">
+              {accepted.map((c) => (
+                <li key={c.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  {c.avatar_url ? (
+                    <img src={c.avatar_url} alt="" className="size-7 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="size-7 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-medium">
+                      {c.display_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <Link to={`/perfil/${c.username}`} className="flex-1 min-w-0 hover:text-primary transition-colors">
+                    <span className="font-medium truncate block">{c.display_name}</span>
+                    <span className="text-xs text-muted-foreground">@{c.username}</span>
+                  </Link>
+                  {!isCreator && c.user_id === user?.id && (
+                    <button
+                      type="button"
+                      onClick={() => leaveTripMutation.mutate()}
+                      disabled={leaveTripMutation.isPending}
+                      className="shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    >
+                      {leaveTripMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Sair da viagem"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {leaveTripMutation.error && (
+              <p className="mt-2 text-sm text-destructive">{(leaveTripMutation.error as Error).message}</p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Project selector modal */}
       {showProjectModal && (
