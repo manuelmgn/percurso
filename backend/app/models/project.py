@@ -78,7 +78,7 @@ class ProjectSharedUser(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
 
     project: Mapped["Project"] = relationship("Project", back_populates="shared_with")
     user: Mapped["User"] = relationship("User")
@@ -91,7 +91,7 @@ class ProjectDirectVisit(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
     place_id: Mapped[int] = mapped_column(ForeignKey("places.id"), nullable=False, index=True)
-    marked_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    marked_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
 
     project: Mapped["Project"] = relationship("Project", back_populates="direct_visits")
 
