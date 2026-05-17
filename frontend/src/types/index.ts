@@ -171,6 +171,7 @@ export interface ProjectTargetPlace {
   region_name: string | null
   centroid_lng: number | null
   centroid_lat: number | null
+  geometry_geojson: Record<string, unknown> | null
   visited: boolean
   direct_visit: boolean
   visit_trips: TripSummaryForPlace[]

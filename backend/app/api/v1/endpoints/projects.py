@@ -48,6 +48,7 @@ def _place_to_summary(
         "region_name": place.region_name,
         "centroid_lng": lng,
         "centroid_lat": lat,
+        "geometry_geojson": place.geometry_geojson,
         "visited": visited,
         "visit_trips": visit_trips or [],
         "direct_visit": direct_visit,

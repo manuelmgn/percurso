@@ -22,6 +22,7 @@ export interface MapPlace {
   geometry_geojson?: Record<string, unknown> | null
   visit_count?: number
   first_visited?: string | null
+  dimmed?: boolean
 }
 
 interface Props {
@@ -30,6 +31,7 @@ interface Props {
   showHeatmap?: boolean
   showRoute?: boolean
   colourByType?: boolean
+  fitBounds?: boolean
   className?: string
 }
 
@@ -42,7 +44,7 @@ function whenReady(map: maplibregl.Map, fn: () => void): () => void {
   return () => map.off("load", fn)
 }
 
-export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute, colourByType, className }: Props) {
+export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute, colourByType, fitBounds, className }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
@@ -80,6 +82,7 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
     const map: maplibregl.Map = _map
 
     function getColour(place: MapPlace): string {
+      if (place.dimmed) return "#9CA3AF"
       if (colourByType) return getPlaceColour(place.place_type)
       return getCategoryColour(place.place_type)
     }
@@ -208,10 +211,24 @@ export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute,
           markersRef.current.push(marker)
         }
       })
+
+      if (fitBounds && places.length > 0) {
+        const bounds = new maplibregl.LngLatBounds()
+        let hasBounds = false
+        places.forEach((place) => {
+          if (place.centroid_lng != null && place.centroid_lat != null) {
+            bounds.extend([place.centroid_lng, place.centroid_lat])
+            hasBounds = true
+          }
+        })
+        if (hasBounds) {
+          map.fitBounds(bounds, { padding: 60, maxZoom: 13, duration: 0 })
+        }
+      }
     }
 
     return whenReady(map, updateAll)
-  }, [places, colourByType, markerColour, onPlaceClick, showRoute, polygonAsPointIds, style])
+  }, [places, colourByType, fitBounds, markerColour, onPlaceClick, showRoute, polygonAsPointIds, style])
 
   // ── Effect 3: heatmap layer ──────────────────────────────────────────────────
   useEffect(() => {

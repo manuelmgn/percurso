@@ -55,6 +55,7 @@ class PlaceSummaryResponse(BaseModel):
     region_name: str | None
     centroid_lng: float | None = None
     centroid_lat: float | None = None
+    geometry_geojson: dict | None = None
     visited: bool = False
     direct_visit: bool = False
     visit_trips: list[TripSummaryForPlace] = []
