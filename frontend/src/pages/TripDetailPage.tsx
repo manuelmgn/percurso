@@ -3,16 +3,16 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Search, X, UserPlus, Link2,
-  ExternalLink, Clock, Pencil, Info, Trash2,
+  ExternalLink, Clock, Pencil, Info, Trash2, Layers, AlertCircle,
 } from "lucide-react"
-import { tripsApi, placesApi } from "@/lib/api"
+import { tripsApi, placesApi, projectsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
 import { getPlaceLabel } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
-import type { PlaceSearchResult, PlaceType, Trip, Visibility } from "@/types"
+import type { PlaceSearchResult, PlaceType, Trip, Visibility, MissingMember } from "@/types"
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -414,6 +414,10 @@ export default function TripDetailPage() {
   const [mediaUrl, setMediaUrl] = useState("")
   const [coverLoaded, setCoverLoaded] = useState(false)
   const [coverGenFailed, setCoverGenFailed] = useState(false)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [pendingProjectId, setPendingProjectId] = useState<number | null>(null)
+  const [memberWarning, setMemberWarning] = useState<MissingMember[] | null>(null)
+  const [checkingMembers, setCheckingMembers] = useState(false)
   const prevGeneratingRef = useRef<boolean>(false)
   const prevCoverUrlRef = useRef<string | null | undefined>(undefined)
   const pollCountRef = useRef(0)
@@ -559,6 +563,49 @@ export default function TripDetailPage() {
     mutationFn: (mediaId: number) => tripsApi.removeMedia(tripId, mediaId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trip", tripId] }),
   })
+
+  const { data: myProjects, isLoading: loadingProjects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => projectsApi.list(),
+    enabled: showProjectModal,
+    staleTime: 30_000,
+  })
+
+  const associateProjectMutation = useMutation({
+    mutationFn: (projectId: number) => tripsApi.associateProject(tripId, projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      setShowProjectModal(false)
+      setPendingProjectId(null)
+      setMemberWarning(null)
+    },
+  })
+
+  const disassociateProjectMutation = useMutation({
+    mutationFn: (projectId: number) => tripsApi.disassociateProject(tripId, projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trip", tripId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+
+  async function handleSelectProject(projectId: number) {
+    setCheckingMembers(true)
+    try {
+      const res = await tripsApi.checkProjectMembers(tripId, projectId)
+      if (res.missing_members.length > 0) {
+        setPendingProjectId(projectId)
+        setMemberWarning(res.missing_members)
+      } else {
+        associateProjectMutation.mutate(projectId)
+      }
+    } catch {
+      associateProjectMutation.mutate(projectId)
+    } finally {
+      setCheckingMembers(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -851,6 +898,131 @@ export default function TripDetailPage() {
           <p className="mt-2 text-sm text-destructive">{(addMediaMutation.error as Error).message}</p>
         )}
       </div>
+
+      {/* Projetos associados */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold">Projetos</h2>
+          {isCreator && (
+            <Button size="sm" variant="outline" onClick={() => setShowProjectModal(true)}>
+              <Layers className="size-3.5" />
+              Associar
+            </Button>
+          )}
+        </div>
+        {(trip.associated_projects ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum projeto associado a esta viagem.</p>
+        ) : (
+          <ul className="space-y-2">
+            {(trip.associated_projects ?? []).map((p) => (
+              <li key={p.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                <div className="h-5 w-5 rounded-sm shrink-0" style={{ backgroundColor: p.cover_colour ?? "#7C3AED" }} />
+                <Link to={`/projetos/${p.id}`} className="flex-1 font-medium hover:text-primary transition-colors truncate">
+                  {p.title}
+                </Link>
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={() => disassociateProjectMutation.mutate(p.id)}
+                    disabled={disassociateProjectMutation.isPending}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    aria-label="Remover associação"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Project selector modal */}
+      {showProjectModal && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+            onClick={() => { setShowProjectModal(false); setPendingProjectId(null); setMemberWarning(null) }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-background border shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <h3 className="font-semibold">Associar a projeto</h3>
+                <button
+                  onClick={() => { setShowProjectModal(false); setPendingProjectId(null); setMemberWarning(null) }}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              {memberWarning ? (
+                <div className="p-5 space-y-4">
+                  <div className="flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 p-4">
+                    <AlertCircle className="size-4 shrink-0 text-amber-500 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Colaboradores sem acesso à viagem</p>
+                      <p className="text-xs text-muted-foreground">
+                        Estes colaboradores do projeto não são acompanhantes desta viagem e não terão a viagem contabilizada no seu progresso:
+                      </p>
+                      <ul className="text-xs space-y-1">
+                        {memberWarning.map((m) => (
+                          <li key={m.user_id} className="font-medium">
+                            {m.display_name} <span className="text-muted-foreground font-normal">@{m.username}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setPendingProjectId(null); setMemberWarning(null) }}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={associateProjectMutation.isPending}
+                      onClick={() => pendingProjectId && associateProjectMutation.mutate(pendingProjectId)}
+                    >
+                      {associateProjectMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Associar mesmo assim
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+                  {loadingProjects ? (
+                    <div className="flex justify-center py-6">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (() => {
+                    const associatedIds = new Set((trip.associated_projects ?? []).map((p) => p.id))
+                    const available = (myProjects ?? []).filter((p) => !associatedIds.has(p.id))
+                    return available.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">Nenhum projeto disponível para associar.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {available.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-3 rounded-lg border bg-muted/30 hover:bg-muted/60 px-3 py-2.5 text-sm transition-colors text-left disabled:opacity-60"
+                              onClick={() => handleSelectProject(p.id)}
+                              disabled={checkingMembers || associateProjectMutation.isPending}
+                            >
+                              <div className="h-5 w-5 rounded-sm shrink-0" style={{ backgroundColor: p.cover_colour ?? "#7C3AED" }} />
+                              <span className="font-medium flex-1 truncate">{p.title}</span>
+                              {checkingMembers && <Loader2 className="size-3.5 animate-spin shrink-0 text-muted-foreground" />}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Sharing link */}
       {trip.sharing_token && (

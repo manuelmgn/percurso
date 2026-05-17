@@ -4,15 +4,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Target, Search, X,
   UserPlus, FileText, Check, AlertCircle, Pencil, Info, Trash2, Link2, ExternalLink,
+  CheckCircle2, Layers,
 } from "lucide-react"
-import { projectsApi, placesApi } from "@/lib/api"
+import { projectsApi, placesApi, tripsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
 import { getPlaceLabel } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
-import type { PlaceSearchResult, PlaceType, Project, Visibility } from "@/types"
+import type { PlaceSearchResult, PlaceType, Project, ProjectTargetPlace, Visibility, MissingMember } from "@/types"
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -555,6 +556,13 @@ export default function ProjectDetailPage() {
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [coverLoaded, setCoverLoaded] = useState(false)
   const [coverGenFailed, setCoverGenFailed] = useState(false)
+  const [showTripModal, setShowTripModal] = useState(false)
+  const [visitPlace, setVisitPlace] = useState<ProjectTargetPlace | null>(null)
+  const [visitMode, setVisitMode] = useState<"trip" | null>(null)
+  const [newTripTitle, setNewTripTitle] = useState("")
+  const [newTripDescription, setNewTripDescription] = useState("")
+  const [tripMemberWarning, setTripMemberWarning] = useState<{ tripId: number; missing: MissingMember[] } | null>(null)
+  const [checkingTripMembers, setCheckingTripMembers] = useState(false)
   const prevGeneratingRef = useRef<boolean>(false)
   const prevCoverUrlRef = useRef<string | null | undefined>(undefined)
   const pollCountRef = useRef(0)
@@ -599,6 +607,8 @@ export default function ProjectDetailPage() {
   }, [dataUpdatedAt])
 
   const isCreator = project?.creator_id === user?.id
+  const isCollaborator = !isCreator && !!(project && user && (project.collaborators ?? []).some((c) => c.user_id === user.id && c.status === "accepted"))
+  const canEdit = isCreator || isCollaborator
   const overlayVisible = coverHover || coverTap
 
   const uploadMutation = useMutation({
@@ -697,6 +707,81 @@ export default function ProjectDetailPage() {
       navigate("/projetos")
     },
   })
+
+  const { data: myTrips, isLoading: loadingTrips } = useQuery({
+    queryKey: ["trips"],
+    queryFn: () => tripsApi.list(),
+    enabled: showTripModal,
+    staleTime: 30_000,
+  })
+
+  const associateTripMutation = useMutation({
+    mutationFn: (tripId: number) => projectsApi.associateTrip(projectId, tripId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["project", projectId], data)
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      setShowTripModal(false)
+      setTripMemberWarning(null)
+    },
+  })
+
+  const disassociateTripMutation = useMutation({
+    mutationFn: (tripId: number) => projectsApi.disassociateTrip(projectId, tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+
+  const markVisitedMutation = useMutation({
+    mutationFn: (placeId: number) => projectsApi.markPlaceVisited(projectId, placeId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["project", projectId], data)
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      setVisitPlace(null)
+      setVisitMode(null)
+    },
+  })
+
+  const unmarkVisitedMutation = useMutation({
+    mutationFn: (placeId: number) => projectsApi.unmarkPlaceVisited(projectId, placeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+
+  const createTripForPlaceMutation = useMutation({
+    mutationFn: ({ placeId, title, description }: { placeId: number; title: string; description: string | null }) =>
+      projectsApi.createTripForPlace(projectId, placeId, { title, description }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["project", projectId], data)
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      queryClient.invalidateQueries({ queryKey: ["trips"] })
+      const newTripId = data.new_trip_id
+      setVisitPlace(null)
+      setVisitMode(null)
+      setNewTripTitle("")
+      setNewTripDescription("")
+      if (newTripId) navigate(`/viagens/${newTripId}`)
+    },
+  })
+
+  async function handleSelectTrip(selectedTripId: number) {
+    setCheckingTripMembers(true)
+    try {
+      const res = await tripsApi.checkProjectMembers(selectedTripId, projectId)
+      if (res.missing_members.length > 0) {
+        setTripMemberWarning({ tripId: selectedTripId, missing: res.missing_members })
+      } else {
+        associateTripMutation.mutate(selectedTripId)
+      }
+    } catch {
+      associateTripMutation.mutate(selectedTripId)
+    } finally {
+      setCheckingTripMembers(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -900,30 +985,69 @@ export default function ProjectDetailPage() {
         {project.target_places && project.target_places.length > 0 && (
           <ul className="mb-4 space-y-1.5">
             {project.target_places.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-                <Link to={`/lugares/${p.osm_id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
-                  <PlaceIcon
-                    type={p.place_type as PlaceType}
-                    size={15}
-                    className="shrink-0 text-muted-foreground"
-                    title={getPlaceLabel(p.place_type)}
-                  />
-                  <span className="font-medium truncate">{p.name_pt ?? p.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {p.country_code ? p.country_code.toUpperCase() : ""}
-                  </span>
-                </Link>
-                {isCreator && (
-                  <button
-                    type="button"
-                    onClick={() => removePlaceMutation.mutate(p.id)}
-                    disabled={removePlaceMutation.isPending}
-                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                    aria-label="Remover lugar"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
+              <li key={p.id} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${p.visited ? "bg-green-500/5 border-green-500/20" : "bg-muted/30"}`}>
+                <PlaceIcon
+                  type={p.place_type as PlaceType}
+                  size={15}
+                  className="shrink-0 text-muted-foreground mt-0.5"
+                  title={getPlaceLabel(p.place_type)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link to={`/lugares/${p.osm_id}`} className="font-medium hover:text-primary transition-colors">
+                      {p.name_pt ?? p.name}
+                    </Link>
+                    {p.country_code && (
+                      <span className="text-xs text-muted-foreground">{p.country_code.toUpperCase()}</span>
+                    )}
+                    {p.visited && (
+                      <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <CheckCircle2 className="size-3" />
+                        Visitado
+                      </span>
+                    )}
+                  </div>
+                  {p.visit_trips.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      via {p.visit_trips.map((t) => t.title).join(", ")}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                  {!p.visited && canEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs px-2"
+                      onClick={() => { setVisitPlace(p); setVisitMode(null) }}
+                    >
+                      Marcar
+                    </Button>
+                  )}
+                  {p.direct_visit && canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => unmarkVisitedMutation.mutate(p.id)}
+                      disabled={unmarkVisitedMutation.isPending}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Retirar visita direta"
+                      title="Retirar visita direta"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => removePlaceMutation.mutate(p.id)}
+                      disabled={removePlaceMutation.isPending}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover lugar"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -972,6 +1096,258 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Viagens associadas */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold">Viagens associadas</h2>
+          {canEdit && (
+            <Button size="sm" variant="outline" onClick={() => setShowTripModal(true)}>
+              <Layers className="size-3.5" />
+              Associar
+            </Button>
+          )}
+        </div>
+        {(project.associated_trips ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma viagem associada a este projeto.</p>
+        ) : (
+          <ul className="space-y-2">
+            {(project.associated_trips ?? []).map((t) => {
+              const n = t.covered_place_ids.length
+              return (
+                <li key={t.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <Link to={`/viagens/${t.id}`} className="font-medium hover:text-primary transition-colors">
+                      {t.title}
+                    </Link>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t.start_date ? new Date(t.start_date + "T00:00:00").toLocaleDateString("pt-PT") : "Sem data"}
+                      {n > 0 && ` · ${n} lugar${n !== 1 ? "es" : ""} coberto${n !== 1 ? "s" : ""}`}
+                    </p>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => disassociateTripMutation.mutate(t.id)}
+                      disabled={disassociateTripMutation.isPending}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      aria-label="Remover associação"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Trip selector modal */}
+      {showTripModal && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+            onClick={() => { setShowTripModal(false); setTripMemberWarning(null) }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-background border shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <h3 className="font-semibold">Associar viagem</h3>
+                <button
+                  onClick={() => { setShowTripModal(false); setTripMemberWarning(null) }}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              {tripMemberWarning ? (
+                <div className="p-5 space-y-4">
+                  <div className="flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 p-4">
+                    <AlertCircle className="size-4 shrink-0 text-amber-500 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Colaboradores do projeto sem acesso à viagem</p>
+                      <p className="text-xs text-muted-foreground">
+                        Estes colaboradores não são acompanhantes da viagem selecionada:
+                      </p>
+                      <ul className="text-xs space-y-1">
+                        {tripMemberWarning.missing.map((m) => (
+                          <li key={m.user_id} className="font-medium">
+                            {m.display_name} <span className="text-muted-foreground font-normal">@{m.username}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setTripMemberWarning(null)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={associateTripMutation.isPending}
+                      onClick={() => associateTripMutation.mutate(tripMemberWarning.tripId)}
+                    >
+                      {associateTripMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Associar mesmo assim
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+                  {loadingTrips ? (
+                    <div className="flex justify-center py-6">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (() => {
+                    const associatedIds = new Set((project.associated_trips ?? []).map((t) => t.id))
+                    const available = (myTrips ?? []).filter((t) => !associatedIds.has(t.id))
+                    return available.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">Nenhuma viagem disponível para associar.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {available.map((t) => (
+                          <li key={t.id}>
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-3 rounded-lg border bg-muted/30 hover:bg-muted/60 px-3 py-2.5 text-sm transition-colors text-left disabled:opacity-60"
+                              onClick={() => handleSelectTrip(t.id)}
+                              disabled={checkingTripMembers || associateTripMutation.isPending}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{t.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {t.start_date ? new Date(t.start_date + "T00:00:00").toLocaleDateString("pt-PT") : "Sem data"}
+                                  {" · "}{t.place_count} lugar{t.place_count !== 1 ? "es" : ""}
+                                </p>
+                              </div>
+                              {checkingTripMembers && <Loader2 className="size-3.5 animate-spin shrink-0 text-muted-foreground" />}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mark visited modal */}
+      {visitPlace !== null && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+            onClick={() => { setVisitPlace(null); setVisitMode(null); setNewTripTitle(""); setNewTripDescription("") }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-background border shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <h3 className="font-semibold truncate pr-2">
+                  Marcar «{visitPlace.name_pt ?? visitPlace.name}»
+                </h3>
+                <button
+                  onClick={() => { setVisitPlace(null); setVisitMode(null); setNewTripTitle(""); setNewTripDescription("") }}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                {visitMode === null ? (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => markVisitedMutation.mutate(visitPlace.id)}
+                      disabled={markVisitedMutation.isPending}
+                      className="w-full flex items-start gap-3 rounded-lg border bg-muted/30 hover:bg-muted/60 p-4 text-sm text-left transition-colors disabled:opacity-60"
+                    >
+                      {markVisitedMutation.isPending
+                        ? <Loader2 className="size-4 shrink-0 mt-0.5 animate-spin" />
+                        : <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-green-600" />
+                      }
+                      <div>
+                        <p className="font-medium">Marcar como visitado diretamente</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Sem criar uma viagem. Contabiliza para o teu progresso pessoal.
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVisitMode("trip")}
+                      className="w-full flex items-start gap-3 rounded-lg border bg-muted/30 hover:bg-muted/60 p-4 text-sm text-left transition-colors"
+                    >
+                      <Layers className="size-4 shrink-0 mt-0.5 text-primary" />
+                      <div>
+                        <p className="font-medium">Criar uma nova viagem</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Cria uma viagem com este lugar e associa-a ao projeto. Os outros membros serão adicionados automaticamente.
+                        </p>
+                      </div>
+                    </button>
+                    {markVisitedMutation.error && (
+                      <p className="text-sm text-destructive">{(markVisitedMutation.error as Error).message}</p>
+                    )}
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (newTripTitle.trim()) {
+                        createTripForPlaceMutation.mutate({
+                          placeId: visitPlace.id,
+                          title: newTripTitle.trim(),
+                          description: newTripDescription.trim() || null,
+                        })
+                      }
+                    }}
+                    className="space-y-3"
+                  >
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Título da viagem *</label>
+                      <Input
+                        value={newTripTitle}
+                        onChange={(e) => setNewTripTitle(e.target.value)}
+                        placeholder={`Visita a ${visitPlace.name_pt ?? visitPlace.name}`}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Descrição (opcional)</label>
+                      <textarea
+                        value={newTripDescription}
+                        onChange={(e) => setNewTripDescription(e.target.value)}
+                        rows={2}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    {createTripForPlaceMutation.error && (
+                      <p className="text-sm text-destructive">{(createTripForPlaceMutation.error as Error).message}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" type="button" className="flex-1" onClick={() => setVisitMode(null)}>
+                        Voltar
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={createTripForPlaceMutation.isPending || !newTripTitle.trim()}
+                      >
+                        {createTripForPlaceMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                        Criar viagem
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Media links */}
       <div className="glass-card p-5">

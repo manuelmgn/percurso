@@ -155,6 +155,48 @@ export interface MediaLink {
   og_site_name: string | null
 }
 
+export interface TripSummaryForPlace {
+  id: number
+  title: string
+  start_date: string | null
+}
+
+export interface ProjectTargetPlace {
+  id: number
+  osm_id: number
+  name: string
+  name_pt: string | null
+  place_type: PlaceType
+  country_code: string | null
+  region_name: string | null
+  centroid_lng: number | null
+  centroid_lat: number | null
+  visited: boolean
+  direct_visit: boolean
+  visit_trips: TripSummaryForPlace[]
+}
+
+export interface AssociatedProject {
+  id: number
+  title: string
+  cover_colour: string | null
+  cover_image_url: string | null
+}
+
+export interface AssociatedTrip {
+  id: number
+  title: string
+  start_date: string | null
+  end_date: string | null
+  covered_place_ids: number[]
+}
+
+export interface MissingMember {
+  user_id: number
+  display_name: string
+  username: string
+}
+
 export interface Trip {
   id: number
   title: string
@@ -174,6 +216,7 @@ export interface Trip {
   places?: PlaceSummary[]
   media_links?: MediaLink[]
   shared_with?: SharedUser[]
+  associated_projects?: AssociatedProject[]
 }
 
 export interface Project {
@@ -192,9 +235,11 @@ export interface Project {
   collaborators: Companion[]
   target_place_count: number
   visited_place_count: number
-  target_places?: PlaceSummary[]
+  target_places?: ProjectTargetPlace[]
   shared_with?: SharedUser[]
   media_links?: MediaLink[]
+  associated_trips?: AssociatedTrip[]
+  new_trip_id?: number
 }
 
 export interface Notification {

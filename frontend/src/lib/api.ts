@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth"
-import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace } from "@/types"
+import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace, MissingMember } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
@@ -209,6 +209,12 @@ export const tripsApi = {
     request<Trip>("DELETE", `/api/v1/trips/${tripId}/cover`),
   addMedia: (tripId: number, url: string) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/media`, { url }),
+  associateProject: (tripId: number, projectId: number) =>
+    request<Trip>("POST", `/api/v1/trips/${tripId}/projects/${projectId}`),
+  disassociateProject: (tripId: number, projectId: number) =>
+    request<void>("DELETE", `/api/v1/trips/${tripId}/projects/${projectId}`),
+  checkProjectMembers: (tripId: number, projectId: number) =>
+    request<{ missing_members: MissingMember[] }>("GET", `/api/v1/trips/${tripId}/projects/member-check/${projectId}`),
 }
 
 // Projects
@@ -250,6 +256,16 @@ export const projectsApi = {
     request<Project>("POST", `/api/v1/projects/${projectId}/media`, { url }),
   removeMedia: (projectId: number, mediaId: number) =>
     request<void>("DELETE", `/api/v1/projects/${projectId}/media/${mediaId}`),
+  associateTrip: (projectId: number, tripId: number) =>
+    request<Project>("POST", `/api/v1/projects/${projectId}/trips/${tripId}`),
+  disassociateTrip: (projectId: number, tripId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/trips/${tripId}`),
+  markPlaceVisited: (projectId: number, placeId: number) =>
+    request<Project>("POST", `/api/v1/projects/${projectId}/target-places/${placeId}/visit`),
+  unmarkPlaceVisited: (projectId: number, placeId: number) =>
+    request<void>("DELETE", `/api/v1/projects/${projectId}/target-places/${placeId}/visit`),
+  createTripForPlace: (projectId: number, placeId: number, data: { title: string; description?: string | null }) =>
+    request<Project & { new_trip_id: number }>("POST", `/api/v1/projects/${projectId}/target-places/${placeId}/trip`, data),
 }
 
 // Notifications
