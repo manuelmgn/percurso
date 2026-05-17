@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, UploadFile, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -329,34 +329,39 @@ async def get_user_profile(
     projects_rows = projects_result.scalars().all()
 
     projects_summary = []
-    for p in projects_rows:
-        target_count_result = await db.execute(
-            select(func.count(ProjectTargetPlace.place_id)).where(ProjectTargetPlace.project_id == p.id)
-        )
-        target_count = target_count_result.scalar() or 0
+    if projects_rows:
+        project_ids = [p.id for p in projects_rows]
 
-        visited_count_result = await db.execute(
-            select(func.count()).select_from(
-                select(TripPlace.place_id).distinct()
-                .join(Trip, Trip.id == TripPlace.trip_id)
-                .join(ProjectTargetPlace, ProjectTargetPlace.place_id == TripPlace.place_id)
-                .where(
-                    ProjectTargetPlace.project_id == p.id,
-                    Trip.creator_id == user.id,
-                )
-                .subquery()
+        # Batch target place counts — one query for all projects
+        target_rows = await db.execute(
+            select(ProjectTargetPlace.project_id, func.count(ProjectTargetPlace.place_id))
+            .where(ProjectTargetPlace.project_id.in_(project_ids))
+            .group_by(ProjectTargetPlace.project_id)
+        )
+        target_counts: dict[int, int] = dict(target_rows.all())
+
+        # Batch visited counts — distinct places visited via trips the user owns
+        visited_rows = await db.execute(
+            select(ProjectTargetPlace.project_id, func.count(distinct(TripPlace.place_id)))
+            .join(TripPlace, TripPlace.place_id == ProjectTargetPlace.place_id)
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .where(
+                ProjectTargetPlace.project_id.in_(project_ids),
+                Trip.creator_id == user.id,
             )
+            .group_by(ProjectTargetPlace.project_id)
         )
-        visited_count = visited_count_result.scalar() or 0
+        visited_counts: dict[int, int] = dict(visited_rows.all())
 
-        projects_summary.append({
-            "id": p.id,
-            "title": p.title,
-            "cover_image_url": p.cover_image_url,
-            "cover_colour": p.cover_colour,
-            "target_place_count": target_count,
-            "visited_place_count": visited_count,
-        })
+        for p in projects_rows:
+            projects_summary.append({
+                "id": p.id,
+                "title": p.title,
+                "cover_image_url": p.cover_image_url,
+                "cover_colour": p.cover_colour,
+                "target_place_count": target_counts.get(p.id, 0),
+                "visited_place_count": visited_counts.get(p.id, 0),
+            })
 
     # Visited places (if public)
     visited_places: list[dict] = []
