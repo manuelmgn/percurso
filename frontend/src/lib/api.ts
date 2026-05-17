@@ -198,8 +198,6 @@ export const tripsApi = {
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/decline-me`),
   leaveTrip: (tripId: number) =>
     request<unknown>("POST", `/api/v1/trips/${tripId}/companions/leave-me`),
-  leaveProject: (projectId: number) =>
-    request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/leave-me`),
   removeMedia: (tripId: number, mediaId: number) =>
     request<void>("DELETE", `/api/v1/trips/${tripId}/media/${mediaId}`),
   uploadCover: (tripId: number, file: File) => {
@@ -270,6 +268,8 @@ export const projectsApi = {
     request<void>("DELETE", `/api/v1/projects/${projectId}/target-places/${placeId}/visit`),
   createTripForPlace: (projectId: number, placeId: number, data: { title: string; description?: string | null }) =>
     request<Project & { new_trip_id: number }>("POST", `/api/v1/projects/${projectId}/target-places/${placeId}/trip`, data),
+  leaveProject: (projectId: number) =>
+    request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/leave-me`),
 }
 
 // Notifications
