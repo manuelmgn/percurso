@@ -26,6 +26,7 @@ class TripSummaryForPlace(BaseModel):
 
 class PlaceSummaryResponse(BaseModel):
     id: int
+    osm_id: int
     name: str
     name_pt: str | None
     place_type: str
@@ -116,6 +117,7 @@ class ProjectDetailResponse(ProjectResponse):
     shared_with: list[SharedUserResponse] = []
     media_links: list[MediaLinkResponse] = []
     associated_trips: list[AssociatedTripResponse] = []
+    new_trip_id: int | None = None
 
 
 class PlaceImportLine(BaseModel):
