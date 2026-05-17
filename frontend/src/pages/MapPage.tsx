@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
 import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
@@ -28,20 +28,23 @@ export default function MapPage() {
   const { data: visitedPlaces = [], isLoading: placesLoading } = useQuery({
     queryKey: ["my-places"],
     queryFn: usersApi.myPlaces,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,   // visited places change only after adding/removing a trip place
+    gcTime: 10 * 60_000,
   })
 
   const { data: trips = [] } = useQuery({
     queryKey: ["trips"],
     queryFn: tripsApi.list,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   })
 
   const { data: selectedTrip, isLoading: tripLoading } = useQuery({
     queryKey: ["trip", selectedTripId],
     queryFn: () => tripsApi.get(selectedTripId!),
     enabled: !!selectedTripId,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   })
 
   const isLoading = placesLoading || (!!selectedTripId && tripLoading)
@@ -50,16 +53,21 @@ export default function MapPage() {
   const displayPlaces = selectedTripId ? tripPlaces : visitedPlaces
   const placeCount = displayPlaces.length
 
-  // Available categories from current display set
-  const availableCategories = Array.from(
-    new Set(displayPlaces.map((p) => getPlaceCategory(p.place_type)))
-  ).sort() as PlaceCategory[]
+  const availableCategories = useMemo(
+    () =>
+      Array.from(new Set(displayPlaces.map((p) => getPlaceCategory(p.place_type)))).sort() as PlaceCategory[],
+    [displayPlaces],
+  )
 
-  const filteredPlaces = categoryFilter
-    ? displayPlaces.filter((p) => getPlaceCategory(p.place_type) === categoryFilter)
-    : displayPlaces
+  const filteredPlaces = useMemo(
+    () =>
+      categoryFilter
+        ? displayPlaces.filter((p) => getPlaceCategory(p.place_type) === categoryFilter)
+        : displayPlaces,
+    [displayPlaces, categoryFilter],
+  )
 
-  const sortedPlaces = [...filteredPlaces].sort((a, b) => {
+  const sortedPlaces = useMemo(() => [...filteredPlaces].sort((a, b) => {
     let aVal: string | number
     let bVal: string | number
     switch (sortBy) {
@@ -86,7 +94,7 @@ export default function MapPage() {
     if (aVal < bVal) return sortDir === "asc" ? -1 : 1
     if (aVal > bVal) return sortDir === "asc" ? 1 : -1
     return 0
-  })
+  }), [filteredPlaces, sortBy, sortDir])
 
   const viewModes: { mode: MapViewMode; icon: React.ElementType; label: string }[] = [
     { mode: "map", icon: Map, label: "Mapa" },
