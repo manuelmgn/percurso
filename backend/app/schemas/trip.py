@@ -104,6 +104,7 @@ class TripResponse(BaseModel):
     creator_display_name: str
     companions: list[TripCompanionResponse] = []
     place_count: int = 0
+    is_pinned: bool = False
 
     model_config = {"from_attributes": True}
 

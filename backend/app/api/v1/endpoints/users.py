@@ -12,10 +12,22 @@ from app.core.limiter import limiter
 settings = get_settings()
 from app.models.place import Place
 from app.models.project import Project, ProjectTargetPlace
+from app.models.settings import SiteSettings
 from app.models.trip import Trip, TripCompanion, TripPlace
 from app.models.user import User
 from app.schemas.place import VisitedPlaceResponse
-from app.schemas.user import UserCreate, UserProfileResponse, UserPublicResponse, UserResponse, UserUpdate, PasswordChangeRequest, VisitedPlacePublic
+from app.schemas.user import (
+    PasswordChangeRequest,
+    ProfileStats,
+    TripPublicSummary,
+    ProjectPublicSummary,
+    UserCreate,
+    UserProfileResponse,
+    UserPublicResponse,
+    UserResponse,
+    UserUpdate,
+    VisitedPlacePublic,
+)
 from app.services.user_service import (
     create_user,
     deactivate_user,
@@ -27,6 +39,15 @@ from app.services.user_service import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+async def _get_site_settings(db: AsyncSession) -> SiteSettings:
+    row = await db.get(SiteSettings, 1)
+    if row is None:
+        row = SiteSettings(id=1, allow_public_profiles_without_auth=True)
+        db.add(row)
+        await db.flush()
+    return row
 
 
 @router.get("/me", response_model=UserResponse)
@@ -214,7 +235,7 @@ async def change_my_password(
 
 
 async def _load_visited_places_public(db: AsyncSession, user_id: int) -> list[dict]:
-    """Load a user's distinct visited places without dates or trip details.
+    """Load a user's distinct visited places with coordinates for map rendering.
     Only includes places from non-private trips so that private trip
     destinations are not exposed through the public visited-places feature."""
     rows = (
@@ -235,17 +256,33 @@ async def _load_visited_places_public(db: AsyncSession, user_id: int) -> list[di
         select(Place).where(Place.id.in_(place_ids)).order_by(Place.name)
     )
     places = place_result.scalars().all()
-    return [
-        {
+
+    def _coords(p) -> tuple[float | None, float | None]:
+        lng, lat = p.centroid_lng, p.centroid_lat
+        if (lng is None or lat is None) and p.centroid is not None:
+            try:
+                from geoalchemy2.shape import to_shape
+                pt = to_shape(p.centroid)
+                lng, lat = pt.x, pt.y
+            except Exception:
+                pass
+        return lng, lat
+
+    result = []
+    for p in places:
+        lng, lat = _coords(p)
+        result.append({
             "id": p.id,
             "name": p.name,
             "name_pt": p.name_pt,
             "place_type": p.place_type,
             "country_code": p.country_code,
             "region_name": p.region_name,
-        }
-        for p in places
-    ]
+            "centroid_lng": lng,
+            "centroid_lat": lat,
+            "geometry_geojson": p.geometry_geojson,
+        })
+    return result
 
 
 @router.get("/{username}/places", response_model=list[VisitedPlacePublic])
@@ -277,37 +314,38 @@ async def get_user_visited_places(
     return await _load_visited_places_public(db, user.id)
 
 
-@router.get("/{username}", response_model=UserProfileResponse)
-async def get_user_profile(
+@router.get("/{username}/trips", response_model=list[TripPublicSummary])
+async def get_user_public_trips(
     username: str,
-    _current_user: User = Depends(get_current_user),
+    page: int = 1,
+    limit: int = 20,
+    requesting_user: User | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
+    """All public trips for a user, pinned first then newest."""
     user = await get_user_by_username(db, username)
     if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado")
 
-    from sqlalchemy import func
-
-    # Public trips
     trips_result = await db.execute(
         select(Trip)
         .where(Trip.creator_id == user.id, Trip.visibility == "public")
-        .order_by(Trip.start_date.desc().nullslast())
+        .order_by(Trip.is_pinned.desc(), Trip.start_date.desc().nullslast())
+        .offset((page - 1) * limit)
+        .limit(limit)
     )
     trips_rows = trips_result.scalars().all()
+    if not trips_rows:
+        return []
 
-    # Place counts for each trip
-    trip_place_counts: dict[int, int] = {}
-    if trips_rows:
-        counts_result = await db.execute(
-            select(TripPlace.trip_id, func.count(TripPlace.place_id).label("cnt"))
-            .where(TripPlace.trip_id.in_([t.id for t in trips_rows]))
-            .group_by(TripPlace.trip_id)
-        )
-        trip_place_counts = {row.trip_id: row.cnt for row in counts_result.all()}
+    counts_result = await db.execute(
+        select(TripPlace.trip_id, func.count(TripPlace.place_id).label("cnt"))
+        .where(TripPlace.trip_id.in_([t.id for t in trips_rows]))
+        .group_by(TripPlace.trip_id)
+    )
+    place_counts = {row.trip_id: row.cnt for row in counts_result.all()}
 
-    trips_summary = [
+    return [
         {
             "id": t.id,
             "title": t.title,
@@ -315,24 +353,170 @@ async def get_user_profile(
             "end_date": t.end_date,
             "cover_image_url": t.cover_image_url,
             "cover_colour": t.cover_colour,
-            "place_count": trip_place_counts.get(t.id, 0),
+            "place_count": place_counts.get(t.id, 0),
+            "is_pinned": t.is_pinned,
         }
         for t in trips_rows
     ]
 
-    # Public projects
+
+@router.get("/{username}/projects", response_model=list[ProjectPublicSummary])
+async def get_user_public_projects(
+    username: str,
+    page: int = 1,
+    limit: int = 20,
+    requesting_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """All public non-archived projects for a user, pinned first then by completion desc."""
+    user = await get_user_by_username(db, username)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado")
+
     projects_result = await db.execute(
         select(Project)
-        .where(Project.creator_id == user.id, Project.visibility == "public")
-        .order_by(Project.id.desc())
+        .where(
+            Project.creator_id == user.id,
+            Project.visibility == "public",
+            Project.is_archived.is_(False),
+        )
+        .order_by(Project.is_pinned.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
     )
     projects_rows = projects_result.scalars().all()
+    if not projects_rows:
+        return []
 
-    projects_summary = []
-    if projects_rows:
-        project_ids = [p.id for p in projects_rows]
+    project_ids = [p.id for p in projects_rows]
 
-        # Batch target place counts — one query for all projects
+    target_rows = await db.execute(
+        select(ProjectTargetPlace.project_id, func.count(ProjectTargetPlace.place_id))
+        .where(ProjectTargetPlace.project_id.in_(project_ids))
+        .group_by(ProjectTargetPlace.project_id)
+    )
+    target_counts: dict[int, int] = dict(target_rows.all())
+
+    visited_rows = await db.execute(
+        select(ProjectTargetPlace.project_id, func.count(distinct(TripPlace.place_id)))
+        .join(TripPlace, TripPlace.place_id == ProjectTargetPlace.place_id)
+        .join(Trip, Trip.id == TripPlace.trip_id)
+        .where(
+            ProjectTargetPlace.project_id.in_(project_ids),
+            Trip.creator_id == user.id,
+        )
+        .group_by(ProjectTargetPlace.project_id)
+    )
+    visited_counts: dict[int, int] = dict(visited_rows.all())
+
+    summaries = [
+        {
+            "id": p.id,
+            "title": p.title,
+            "cover_image_url": p.cover_image_url,
+            "cover_colour": p.cover_colour,
+            "target_place_count": target_counts.get(p.id, 0),
+            "visited_place_count": visited_counts.get(p.id, 0),
+            "is_pinned": p.is_pinned,
+            "is_archived": p.is_archived,
+        }
+        for p in projects_rows
+    ]
+    # Sort by pinned first, then by completion percentage descending
+    summaries.sort(
+        key=lambda s: (
+            not s["is_pinned"],
+            -(s["visited_place_count"] / s["target_place_count"] if s["target_place_count"] else 0),
+        )
+    )
+    return summaries
+
+
+@router.get("/{username}", response_model=UserProfileResponse)
+async def get_user_profile(
+    username: str,
+    requesting_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    user = await get_user_by_username(db, username)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
+
+    # Unauthenticated access controlled by site settings
+    if requesting_user is None:
+        site = await _get_site_settings(db)
+        if not site.allow_public_profiles_without_auth:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Inicia sessão para ver perfis de utilizadores.",
+            )
+
+    # ── Trips section ────────────────────────────────────────────────────────
+    pinned_trips: list[dict] = []
+    recent_trips: list[dict] = []
+    total_public_trip_count = 0
+
+    trips_result = await db.execute(
+        select(Trip)
+        .where(Trip.creator_id == user.id, Trip.visibility == "public")
+        .order_by(Trip.is_pinned.desc(), Trip.start_date.desc().nullslast())
+    )
+    all_public_trips = trips_result.scalars().all()
+    total_public_trip_count = len(all_public_trips)
+
+    if all_public_trips:
+        trip_ids = [t.id for t in all_public_trips]
+        counts_result = await db.execute(
+            select(TripPlace.trip_id, func.count(TripPlace.place_id).label("cnt"))
+            .where(TripPlace.trip_id.in_(trip_ids))
+            .group_by(TripPlace.trip_id)
+        )
+        trip_place_counts = {row.trip_id: row.cnt for row in counts_result.all()}
+
+        pinned = [t for t in all_public_trips if t.is_pinned][:2]
+        recent_pool = [t for t in all_public_trips if not t.is_pinned]
+        recent_limit = max(0, 6 - len(pinned))
+        # aim for even total
+        total_shown = len(pinned) + min(len(recent_pool), recent_limit)
+        if total_shown % 2 != 0 and recent_limit < len(recent_pool):
+            recent_limit += 1
+        recent = recent_pool[:recent_limit]
+
+        def _trip_summary(t) -> dict:
+            return {
+                "id": t.id,
+                "title": t.title,
+                "start_date": t.start_date,
+                "end_date": t.end_date,
+                "cover_image_url": t.cover_image_url,
+                "cover_colour": t.cover_colour,
+                "place_count": trip_place_counts.get(t.id, 0),
+                "is_pinned": t.is_pinned,
+            }
+
+        pinned_trips = [_trip_summary(t) for t in pinned]
+        recent_trips = [_trip_summary(t) for t in recent]
+
+    # ── Projects section ─────────────────────────────────────────────────────
+    pinned_projects: list[dict] = []
+    active_projects: list[dict] = []
+    total_public_project_count = 0
+
+    projects_result = await db.execute(
+        select(Project)
+        .where(
+            Project.creator_id == user.id,
+            Project.visibility == "public",
+            Project.is_archived.is_(False),
+        )
+        .order_by(Project.is_pinned.desc())
+    )
+    all_public_projects = projects_result.scalars().all()
+    total_public_project_count = len(all_public_projects)
+
+    if all_public_projects:
+        project_ids = [p.id for p in all_public_projects]
+
         target_rows = await db.execute(
             select(ProjectTargetPlace.project_id, func.count(ProjectTargetPlace.place_id))
             .where(ProjectTargetPlace.project_id.in_(project_ids))
@@ -340,7 +524,6 @@ async def get_user_profile(
         )
         target_counts: dict[int, int] = dict(target_rows.all())
 
-        # Batch visited counts — distinct places visited via trips the user owns
         visited_rows = await db.execute(
             select(ProjectTargetPlace.project_id, func.count(distinct(TripPlace.place_id)))
             .join(TripPlace, TripPlace.place_id == ProjectTargetPlace.place_id)
@@ -353,22 +536,66 @@ async def get_user_profile(
         )
         visited_counts: dict[int, int] = dict(visited_rows.all())
 
-        for p in projects_rows:
-            projects_summary.append({
+        def _pct(p) -> float:
+            t = target_counts.get(p.id, 0)
+            return visited_counts.get(p.id, 0) / t if t else 0.0
+
+        def _project_summary(p) -> dict:
+            return {
                 "id": p.id,
                 "title": p.title,
                 "cover_image_url": p.cover_image_url,
                 "cover_colour": p.cover_colour,
                 "target_place_count": target_counts.get(p.id, 0),
                 "visited_place_count": visited_counts.get(p.id, 0),
-            })
+                "is_pinned": p.is_pinned,
+                "is_archived": p.is_archived,
+            }
 
-    # Visited places (if public)
+        pinned = [p for p in all_public_projects if p.is_pinned][:2]
+        active_pool = sorted(
+            [p for p in all_public_projects if not p.is_pinned],
+            key=_pct,
+            reverse=True,
+        )
+        active_limit = max(0, 4 - len(pinned))
+        total_shown = len(pinned) + min(len(active_pool), active_limit)
+        if total_shown % 2 != 0 and active_limit < len(active_pool):
+            active_limit += 1
+        active = active_pool[:active_limit]
+
+        pinned_projects = [_project_summary(p) for p in pinned]
+        active_projects = [_project_summary(p) for p in active]
+
+    # ── Visited places & stats ────────────────────────────────────────────────
     visited_places: list[dict] = []
     visited_place_count: int | None = None
+    stats: dict | None = None
+
     if user.visited_places_visibility == "public":
         visited_places = await _load_visited_places_public(db, user.id)
         visited_place_count = len(visited_places)
+
+        # Country count from country_code
+        country_codes = {p["country_code"] for p in visited_places if p.get("country_code")}
+        total_countries = len(country_codes)
+
+        # Average completion across all public active projects
+        if all_public_projects and target_counts:  # type: ignore[possibly-undefined]
+            pcts = []
+            for p in all_public_projects:
+                t = target_counts.get(p.id, 0)  # type: ignore[possibly-undefined]
+                v = visited_counts.get(p.id, 0)  # type: ignore[possibly-undefined]
+                pcts.append((v / t * 100) if t else 0.0)
+            avg_completion = sum(pcts) / len(pcts) if pcts else 0.0
+        else:
+            avg_completion = 0.0
+
+        stats = {
+            "total_places": visited_place_count,
+            "total_countries": total_countries,
+            "avg_project_completion": round(avg_completion, 1),
+        }
 
     return {
         "id": user.id,
@@ -377,8 +604,13 @@ async def get_user_profile(
         "avatar_url": user.avatar_url,
         "biography": user.biography,
         "website_url": user.website_url,
-        "trips": trips_summary,
-        "projects": projects_summary,
+        "pinned_trips": pinned_trips,
+        "recent_trips": recent_trips,
+        "total_public_trip_count": total_public_trip_count,
+        "pinned_projects": pinned_projects,
+        "active_projects": active_projects,
+        "total_public_project_count": total_public_project_count,
+        "stats": stats,
         "visited_place_count": visited_place_count,
         "visited_places": visited_places,
     }

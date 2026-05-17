@@ -11,6 +11,7 @@ import app.models.place  # noqa: F401
 import app.models.trip  # noqa: F401
 import app.models.project  # noqa: F401
 import app.models.notification  # noqa: F401
+import app.models.settings  # noqa: F401
 
 config = context.config
 

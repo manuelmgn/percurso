@@ -98,6 +98,7 @@ class TripPublicSummary(BaseModel):
     cover_image_url: str | None
     cover_colour: str | None
     place_count: int
+    is_pinned: bool = False
 
 
 class ProjectPublicSummary(BaseModel):
@@ -107,6 +108,8 @@ class ProjectPublicSummary(BaseModel):
     cover_colour: str | None
     target_place_count: int
     visited_place_count: int
+    is_pinned: bool = False
+    is_archived: bool = False
 
 
 class VisitedPlacePublic(BaseModel):
@@ -116,11 +119,28 @@ class VisitedPlacePublic(BaseModel):
     place_type: str
     country_code: str | None
     region_name: str | None
+    centroid_lng: float | None = None
+    centroid_lat: float | None = None
+    geometry_geojson: dict | None = None
+
+
+class ProfileStats(BaseModel):
+    total_places: int
+    total_countries: int
+    avg_project_completion: float
 
 
 class UserProfileResponse(UserPublicResponse):
-    trips: list[TripPublicSummary] = []
-    projects: list[ProjectPublicSummary] = []
+    # Trips section (only present if trip visibility is public)
+    pinned_trips: list[TripPublicSummary] = []
+    recent_trips: list[TripPublicSummary] = []
+    total_public_trip_count: int = 0
+    # Projects section (only present if project visibility is public)
+    pinned_projects: list[ProjectPublicSummary] = []
+    active_projects: list[ProjectPublicSummary] = []
+    total_public_project_count: int = 0
+    # Stats + visited places (only present if visited_places_visibility is public)
+    stats: ProfileStats | None = None
     visited_place_count: int | None = None
     visited_places: list[VisitedPlacePublic] = []
 

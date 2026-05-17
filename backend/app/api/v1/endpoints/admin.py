@@ -2,6 +2,7 @@ import asyncio
 import re
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +11,30 @@ from app.core.dependencies import require_admin
 from app.core.redis import get_redis
 from app.models.place import Place
 from app.models.project import Project
+from app.models.settings import SiteSettings
 from app.models.trip import Trip
 from app.models.user import User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class SiteSettingsResponse(BaseModel):
+    allow_public_profiles_without_auth: bool
+
+    model_config = {"from_attributes": True}
+
+
+class SiteSettingsUpdate(BaseModel):
+    allow_public_profiles_without_auth: bool | None = None
+
+
+async def _get_or_create_settings(db: AsyncSession) -> SiteSettings:
+    row = await db.get(SiteSettings, 1)
+    if row is None:
+        row = SiteSettings(id=1, allow_public_profiles_without_auth=True)
+        db.add(row)
+        await db.flush()
+    return row
 
 
 @router.get("/stats")
@@ -104,3 +125,24 @@ async def celery_debug_status(_admin=Depends(require_admin)):
         "workers": worker_ping or {},
         "worker_error": worker_error,
     }
+
+
+@router.get("/settings", response_model=SiteSettingsResponse)
+async def get_settings_endpoint(
+    _admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    return await _get_or_create_settings(db)
+
+
+@router.patch("/settings", response_model=SiteSettingsResponse)
+async def update_settings_endpoint(
+    data: SiteSettingsUpdate,
+    _admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    row = await _get_or_create_settings(db)
+    if data.allow_public_profiles_without_auth is not None:
+        row.allow_public_profiles_without_auth = data.allow_public_profiles_without_auth
+    await db.flush()
+    return row

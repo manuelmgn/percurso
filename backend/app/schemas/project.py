@@ -120,6 +120,8 @@ class ProjectResponse(BaseModel):
     collaborators: list[ProjectCollaboratorResponse] = []
     target_place_count: int = 0
     visited_place_count: int = 0
+    is_pinned: bool = False
+    is_archived: bool = False
 
     model_config = {"from_attributes": True}
 

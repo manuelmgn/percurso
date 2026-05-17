@@ -4,7 +4,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1160,3 +1160,69 @@ async def create_trip_for_place(
     data_resp["associated_trips"] = assoc_trips
     data_resp["new_trip_id"] = trip.id
     return data_resp
+
+
+@router.post("/{project_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def pin_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if project.is_pinned:
+        return
+    pinned_count = await db.scalar(
+        select(func.count(Project.id)).where(
+            Project.creator_id == current_user.id,
+            Project.is_pinned.is_(True),
+        )
+    )
+    if (pinned_count or 0) >= 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Já tens 2 projetos fixados. Remove um para fixar este.",
+        )
+    project.is_pinned = True
+    await db.flush()
+
+
+@router.delete("/{project_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def unpin_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    project.is_pinned = False
+    await db.flush()
+
+
+@router.post("/{project_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
+async def archive_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    project.is_archived = True
+    project.is_pinned = False  # unpin on archive
+    await db.flush()
+
+
+@router.post("/{project_id}/unarchive", status_code=status.HTTP_204_NO_CONTENT)
+async def unarchive_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await db.get(Project, project_id)
+    if not project or project.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    project.is_archived = False
+    await db.flush()

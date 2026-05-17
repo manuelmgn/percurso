@@ -4,7 +4,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -836,3 +836,42 @@ async def disassociate_trip_from_project(
     assoc = result.scalar_one_or_none()
     if assoc:
         await db.delete(assoc)
+
+
+@router.post("/{trip_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def pin_trip(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    if trip.is_pinned:
+        return
+    pinned_count = await db.scalar(
+        select(func.count(Trip.id)).where(
+            Trip.creator_id == current_user.id,
+            Trip.is_pinned.is_(True),
+        )
+    )
+    if (pinned_count or 0) >= 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Já tens 2 viagens fixadas. Remove uma para fixar esta.",
+        )
+    trip.is_pinned = True
+    await db.flush()
+
+
+@router.delete("/{trip_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def unpin_trip(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip or trip.creator_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    trip.is_pinned = False
+    await db.flush()
