@@ -6,6 +6,7 @@ Create Date: 2026-05-18
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql as pg
 
 revision = "0018"
 down_revision = "0017"
@@ -32,7 +33,7 @@ def upgrade() -> None:
         sa.Column("actor_id", sa.Integer(), nullable=False),
         sa.Column(
             "event_type",
-            sa.Enum(
+            pg.ENUM(
                 "place_added_to_trip",
                 "place_visited_in_project",
                 "companion_joined",
@@ -44,7 +45,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "entity_type",
-            sa.Enum("trip", "project", name="entity_type", create_type=False),
+            pg.ENUM("trip", "project", name="entity_type", create_type=False),
             nullable=False,
         ),
         sa.Column("entity_id", sa.Integer(), nullable=False),
