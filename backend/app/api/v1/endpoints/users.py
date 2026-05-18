@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import and_, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -317,9 +317,8 @@ async def get_user_visited_places(
 @router.get("/{username}/trips", response_model=list[TripPublicSummary])
 async def get_user_public_trips(
     username: str,
-    page: int = 1,
-    limit: int = 20,
-    requesting_user: User | None = Depends(get_optional_current_user),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db_session),
 ):
     """All public trips for a user, pinned first then newest."""
@@ -363,9 +362,8 @@ async def get_user_public_trips(
 @router.get("/{username}/projects", response_model=list[ProjectPublicSummary])
 async def get_user_public_projects(
     username: str,
-    page: int = 1,
-    limit: int = 20,
-    requesting_user: User | None = Depends(get_optional_current_user),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db_session),
 ):
     """All public non-archived projects for a user, pinned first then by completion desc."""
@@ -619,8 +617,8 @@ async def get_user_profile(
 # Admin-only endpoints
 @router.get("", response_model=list[UserResponse])
 async def list_all_users(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     _admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db_session),
 ):

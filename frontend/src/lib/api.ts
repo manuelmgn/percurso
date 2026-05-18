@@ -76,6 +76,7 @@ async function request<T>(
   path: string,
   body?: unknown,
   isFormData = false,
+  extraHeaders?: Record<string, string>,
   _isRetry = false,
 ): Promise<T> {
   const token = getToken()
@@ -83,6 +84,7 @@ async function request<T>(
 
   if (token) headers["Authorization"] = `Bearer ${token}`
   if (body && !isFormData) headers["Content-Type"] = "application/json"
+  if (extraHeaders) Object.assign(headers, extraHeaders)
 
   let response: Response
   try {
@@ -103,7 +105,7 @@ async function request<T>(
     if (!_isRetry) {
       try {
         await tryRefresh()
-        return request<T>(method, path, body, isFormData, true)
+        return request<T>(method, path, body, isFormData, extraHeaders, true)
       } catch {
         return handleUnauthorized()
       }
@@ -153,8 +155,8 @@ export const usersApi = {
   publicProjects: (username: string, page = 1) =>
     request<ProjectPublicSummary[]>("GET", `/api/v1/users/${username}/projects?page=${page}`),
   userPlaces: (username: string, token?: string) => {
-    const params = token ? `?token=${encodeURIComponent(token)}` : ""
-    return request<VisitedPlacePublic[]>("GET", `/api/v1/users/${username}/places${params}`)
+    const hdrs = token ? { "X-Share-Token": token } : undefined
+    return request<VisitedPlacePublic[]>("GET", `/api/v1/users/${username}/places`, undefined, false, hdrs)
   },
   list: () => request<User[]>("GET", "/api/v1/users"),
   create: (data: unknown) => request<User>("POST", "/api/v1/users", data),

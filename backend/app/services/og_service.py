@@ -31,13 +31,16 @@ class _OGParser(HTMLParser):
 
 
 _PRIVATE_NETS = [
+    ipaddress.ip_network("0.0.0.0/8"),        # "this" network (RFC 1122)
     ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),     # CGNAT shared address space
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),    # link-local / cloud metadata
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),  # link-local / cloud metadata
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("::ffff:0:0/96"),     # IPv4-mapped IPv6
 ]
 
 

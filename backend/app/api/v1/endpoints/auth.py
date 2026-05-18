@@ -55,7 +55,7 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 @limiter.limit(f"{settings.rate_limit_auth}/minute")
-async def refresh_token(request: Request, response: Response):
+async def refresh_token(request: Request, response: Response, db: AsyncSession = Depends(get_db_session)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token de actualização inválido",
@@ -78,7 +78,12 @@ async def refresh_token(request: Request, response: Response):
     if not await verify_and_revoke_refresh_jti(jti):
         raise credentials_exception
 
-    new_access = create_access_token(user_id)
+    from app.services.user_service import get_user_by_id
+    user = await get_user_by_id(db, user_id)
+    if not user or not user.is_active:
+        raise credentials_exception
+
+    new_access = create_access_token(user_id, {"role": user.role})
     new_refresh, new_jti = create_refresh_token(user_id)
     await store_refresh_jti(new_jti, _REFRESH_TTL)
 

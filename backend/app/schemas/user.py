@@ -34,12 +34,11 @@ class UserUpdate(BaseModel):
     display_name: str | None = Field(None, max_length=100)
     biography: str | None = None
     website_url: AnyHttpUrl | None = None
-    avatar_url: AnyHttpUrl | None = None
     default_trip_visibility: _VISIBILITY | None = None
     default_project_visibility: _VISIBILITY | None = None
     visited_places_visibility: _VISIBILITY | None = None
 
-    @field_validator("website_url", "avatar_url", mode="before")
+    @field_validator("website_url", mode="before")
     @classmethod
     def empty_str_to_none(cls, v: object) -> object:
         if isinstance(v, str) and v.strip() == "":

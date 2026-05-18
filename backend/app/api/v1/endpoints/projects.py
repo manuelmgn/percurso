@@ -3,7 +3,7 @@ import random
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -281,8 +281,8 @@ async def create_project(
 
 @router.get("", response_model=list[ProjectResponse])
 async def list_my_projects(
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -663,6 +663,15 @@ async def invite_collaborator(
         raise HTTPException(status_code=404, detail="Utilizador não encontrado")
     if invitee.id == current_user.id:
         raise HTTPException(status_code=400, detail="Não pode convidar-se a si próprio")
+
+    existing = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.project_id == project_id,
+            ProjectCollaborator.user_id == invitee.id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Utilizador já convidado")
 
     db.add(ProjectCollaborator(
         project_id=project_id,
@@ -1137,7 +1146,7 @@ async def create_trip_for_place(
             entity_type="trip",
             entity_id=trip.id,
             actor_id=current_user.id,
-            message=f"Foste adicionado à viagem \"{title}\" no projeto \"{project.title}\". Completa os detalhes quando quiseres.",
+            message=f"Foste adicionado à viagem \"{data.title}\" no projeto \"{project.title}\". Completa os detalhes quando quiseres.",
         ))
 
     await db.flush()
