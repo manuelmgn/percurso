@@ -16,13 +16,13 @@ function VisibilitySelect({
   onChange: (v: Visibility) => void
 }) {
   return (
-    <div className="glass flex rounded-xl p-1 gap-1">
+    <div className="glass flex rounded-xl p-1 gap-1 flex-wrap sm:flex-nowrap">
       {(["public", "private", "link", "users"] as Visibility[]).map((v) => (
         <button
           key={v}
           type="button"
           onClick={() => onChange(v)}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+          className={`flex-1 min-w-0 rounded-lg px-2 py-2 text-xs font-medium transition-all whitespace-nowrap ${
             value === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -113,12 +113,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Definições</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         {/* Profile */}
-        <div className="glass-card p-6 space-y-4">
+        <div className="glass-card p-5 md:p-6 space-y-5">
           <h2 className="font-semibold text-base">Perfil</h2>
 
           {/* Avatar */}
@@ -162,20 +162,35 @@ export default function SettingsPage() {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nome de apresentação</label>
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="h-11 text-base md:h-9 md:text-sm"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">Biografia</label>
-            <Input value={biography} onChange={(e) => setBiography(e.target.value)} placeholder="Conta algo sobre ti…" />
+            <Input
+              value={biography}
+              onChange={(e) => setBiography(e.target.value)}
+              placeholder="Conta algo sobre ti…"
+              className="h-11 text-base md:h-9 md:text-sm"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">Website ou rede social</label>
-            <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://…" type="text" />
+            <Input
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://…"
+              type="text"
+              className="h-11 text-base md:h-9 md:text-sm"
+            />
           </div>
         </div>
 
         {/* Privacy */}
-        <div className="glass-card p-6 space-y-5">
+        <div className="glass-card p-5 md:p-6 space-y-5">
           <h2 className="font-semibold text-base">Privacidade</h2>
           <div>
             <label className="mb-2 block text-sm font-medium">Visibilidade predefinida das novas viagens</label>
@@ -214,37 +229,43 @@ export default function SettingsPage() {
           <p className="text-sm text-destructive">{mutation.error.message}</p>
         )}
 
-        <Button type="submit" disabled={mutation.isPending} className="w-full">
+        <Button type="submit" disabled={mutation.isPending} className="w-full h-11 md:h-9 text-base md:text-sm">
           {mutation.isPending ? <Loader2 className="animate-spin" /> : saved ? <><Check className="size-4" /> Guardado</> : "Guardar alterações"}
         </Button>
       </form>
 
       {/* Password */}
-      <div className="glass-card p-6 flex items-center justify-between">
+      <div className="glass-card p-5 md:p-6 flex items-center justify-between gap-4">
         <div>
           <h2 className="font-semibold text-base">Palavra-passe</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Altera a tua palavra-passe de acesso</p>
         </div>
-        <Button type="button" variant="outline" onClick={openPasswordModal}>
-          Alterar palavra-passe
+        <Button type="button" variant="outline" onClick={openPasswordModal} className="shrink-0">
+          Alterar
         </Button>
       </div>
 
-      {/* Password modal */}
+      {/* Password modal — bottom sheet on mobile */}
       {showPasswordModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowPasswordModal(false) }}
         >
-          <div className="glass-card w-full max-w-sm mx-4 p-6 space-y-4">
+          <div
+            className="relative glass-sheet md:glass-card w-full md:max-w-sm md:mx-4 p-6 space-y-4 animate-slide-up md:animate-fade-in md:rounded-2xl"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+          >
+            {/* Drag handle — mobile only */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/30 md:hidden" />
+
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-base">Alterar palavra-passe</h2>
               <button
                 type="button"
                 onClick={() => setShowPasswordModal(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
               >
-                <X className="size-4" />
+                <X className="size-5" />
               </button>
             </div>
             <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
@@ -255,6 +276,7 @@ export default function SettingsPage() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   autoComplete="current-password"
+                  className="h-11 text-base md:h-9 md:text-sm"
                 />
               </div>
               <div>
@@ -265,6 +287,7 @@ export default function SettingsPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   autoComplete="new-password"
                   placeholder="Mínimo 8 caracteres"
+                  className="h-11 text-base md:h-9 md:text-sm"
                 />
               </div>
               <div>
@@ -274,13 +297,14 @@ export default function SettingsPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
+                  className="h-11 text-base md:h-9 md:text-sm"
                 />
               </div>
               {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
               <Button
                 type="submit"
                 disabled={passwordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-                className="w-full"
+                className="w-full h-11 md:h-9 text-base md:text-sm"
               >
                 {passwordMutation.isPending
                   ? <Loader2 className="animate-spin" />

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2, Pin } from "lucide-react"
+import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2, Pin, X } from "lucide-react"
 import { tripsApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,7 @@ function TripCard({ trip, onClick, isOwner }: { trip: Trip; onClick: () => void;
         <button
           onClick={(e) => { e.stopPropagation(); pinMutation.mutate() }}
           title={trip.is_pinned ? "Desafixar viagem" : "Fixar viagem no perfil"}
-          className={`absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full transition-all ${
+          className={`absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full transition-all ${
             trip.is_pinned
               ? "bg-primary text-primary-foreground opacity-100 shadow"
               : "bg-black/30 text-white opacity-40 hover:opacity-80"
@@ -114,9 +114,26 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="glass-panel w-full max-w-md p-6 animate-fade-in">
-        <h2 className="text-lg font-semibold mb-4">Nova viagem</h2>
+    /* Backdrop — items-end on mobile (bottom sheet), items-center on desktop */
+    <div
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="relative glass-sheet md:glass-panel w-full md:max-w-md p-6 animate-slide-up md:animate-fade-in md:rounded-3xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Nova viagem</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 -mr-1"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Drag handle — mobile only */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/30 md:hidden" />
+
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -132,6 +149,7 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Viagem ao Porto"
               required
+              className="h-11 text-base md:h-9 md:text-sm"
             />
           </div>
           <div>
@@ -140,16 +158,17 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Uma breve descrição…"
+              className="h-11 text-base md:h-9 md:text-sm"
             />
           </div>
           {mutation.error && (
             <p className="text-sm text-destructive">{mutation.error.message}</p>
           )}
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+          <div className="flex gap-3 pt-2" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            <Button type="button" variant="outline" className="flex-1 h-11 md:h-9" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1" disabled={mutation.isPending}>
+            <Button type="submit" className="flex-1 h-11 md:h-9" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="animate-spin" /> : "Criar"}
             </Button>
           </div>
@@ -170,7 +189,7 @@ export default function TripsPage() {
   })
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Viagens</h1>
@@ -178,7 +197,8 @@ export default function TripsPage() {
         </div>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="size-4" />
-          Nova viagem
+          <span className="hidden sm:inline">Nova viagem</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </div>
 
@@ -187,7 +207,7 @@ export default function TripsPage() {
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : trips.length === 0 ? (
-        <div className="glass-card p-16 text-center">
+        <div className="glass-card p-12 md:p-16 text-center">
           <Briefcase className="mx-auto mb-4 size-12 text-purple-300" />
           <h3 className="text-lg font-semibold mb-2">Ainda sem viagens</h3>
           <p className="text-muted-foreground mb-6">Começa por criar a tua primeira viagem.</p>
@@ -197,6 +217,7 @@ export default function TripsPage() {
           </Button>
         </div>
       ) : (
+        /* 1 col mobile, 2 tablet, 3 desktop, 4 xl */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {trips.map((trip) => (
             <TripCard key={trip.id} trip={trip} isOwner={trip.creator_id === user?.id} onClick={() => navigate(`/viagens/${trip.id}`)} />
