@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
-import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal, X } from "lucide-react"
 import { PlaceInfoButton } from "@/components/shared/PlaceInfoButton"
 import { usersApi, tripsApi } from "@/lib/api"
 import PlaceMap from "@/components/map/PlaceMap"
@@ -25,11 +25,12 @@ export default function MapPage() {
   const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | "">("")
   const [sortBy, setSortBy] = useState<SortCol>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [showControlsSheet, setShowControlsSheet] = useState(false)
 
   const { data: visitedPlaces = [], isLoading: placesLoading } = useQuery({
     queryKey: ["my-places"],
     queryFn: usersApi.myPlaces,
-    staleTime: 5 * 60_000,   // visited places change only after adding/removing a trip place
+    staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
   })
 
@@ -144,7 +145,7 @@ export default function MapPage() {
       <div className="flex items-center gap-1.5 flex-wrap">
         <button
           onClick={() => setCategoryFilter("")}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
             categoryFilter === ""
               ? "bg-primary text-primary-foreground"
               : "glass text-muted-foreground hover:text-foreground"
@@ -156,7 +157,7 @@ export default function MapPage() {
           <button
             key={cat}
             onClick={() => setCategoryFilter(cat === categoryFilter ? "" : cat)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
               categoryFilter === cat
                 ? "bg-primary text-primary-foreground"
                 : "glass text-muted-foreground hover:text-foreground"
@@ -169,10 +170,14 @@ export default function MapPage() {
     )
   }
 
+  const placeCountLabel = selectedTripId
+    ? `${placeCount} lugares na viagem`
+    : `${placeCount} lugares visitados`
+
   return (
-    <div className="flex h-full flex-col">
-      {/* Header toolbar */}
-      <div className="glass border-b border-border/50 px-6 py-3 flex items-center gap-3 flex-wrap">
+    <div className="flex h-full flex-col relative">
+      {/* ── Desktop toolbar (md+) ── */}
+      <div className="hidden md:flex glass border-b border-border/50 px-6 py-3 items-center gap-3 flex-wrap shrink-0">
         <h2 className="text-lg font-semibold mr-2">Os meus lugares</h2>
 
         {/* View mode toggle */}
@@ -194,7 +199,6 @@ export default function MapPage() {
 
         {viewMode === "map" && (
           <>
-            {/* Map style */}
             <div className="glass flex rounded-xl p-1 gap-1">
               {mapStyles.map(({ value, label }) => (
                 <button
@@ -211,11 +215,7 @@ export default function MapPage() {
               ))}
             </div>
 
-            <Button
-              variant={showHeatmap ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowHeatmap(!showHeatmap)}
-            >
+            <Button variant={showHeatmap ? "default" : "outline"} size="sm" onClick={() => setShowHeatmap(!showHeatmap)}>
               <Flame className="size-3.5" />
               Mapa de calor
             </Button>
@@ -244,7 +244,6 @@ export default function MapPage() {
           </>
         )}
 
-        {/* Trip selector — visible in all view modes */}
         <select
           value={selectedTripId ?? ""}
           onChange={handleTripChange}
@@ -256,7 +255,6 @@ export default function MapPage() {
           ))}
         </select>
 
-        {/* Route — only meaningful when a trip is selected */}
         {viewMode === "map" && (
           <Button
             variant={showRoute ? "default" : "outline"}
@@ -272,15 +270,29 @@ export default function MapPage() {
 
         <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
           {isLoading && <Loader2 className="size-3.5 animate-spin" />}
-          {selectedTripId
-            ? `${placeCount} lugares na viagem`
-            : `${placeCount} lugares visitados`
-          }
+          {placeCountLabel}
         </div>
       </div>
 
+      {/* ── Mobile toolbar (compact strip) ── */}
+      <div className="md:hidden glass border-b border-border/50 px-4 py-2.5 flex items-center gap-2 shrink-0">
+        <select
+          value={selectedTripId ?? ""}
+          onChange={handleTripChange}
+          className="flex-1 min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Todas as viagens</option>
+          {trips.map((t) => (
+            <option key={t.id} value={t.id}>{t.title}</option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+          {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : placeCountLabel}
+        </span>
+      </div>
+
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative min-h-0">
         {viewMode === "map" && (
           <PlaceMap
             places={displayPlaces}
@@ -288,12 +300,12 @@ export default function MapPage() {
             showHeatmap={showHeatmap}
             showRoute={showRoute && !!selectedTripId}
             colourByType={colourByType}
-            className="h-full min-h-[500px] w-full"
+            className="h-full min-h-[300px] w-full"
           />
         )}
 
         {viewMode === "list" && (
-          <div className="p-6 space-y-4">
+          <div className="p-4 md:p-6 space-y-4">
             <CategoryFilterChips />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {isLoading ? (
@@ -380,11 +392,10 @@ export default function MapPage() {
         )}
 
         {viewMode === "table" && (
-          <div className="p-6 space-y-3">
+          <div className="p-4 md:p-6 space-y-3">
             <CategoryFilterChips />
-
-            <div className="glass-card overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="glass-card overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead className="border-b border-border/50">
                   <tr className="text-left">
                     {(
@@ -505,7 +516,136 @@ export default function MapPage() {
             </div>
           </div>
         )}
+
+        {/* Mobile floating controls button (map view only) */}
+        {viewMode === "map" && (
+          <button
+            onClick={() => setShowControlsSheet(true)}
+            className="md:hidden absolute bottom-4 right-4 z-30 flex h-11 w-11 items-center justify-center rounded-full glass shadow-xl text-foreground"
+            aria-label="Opções do mapa"
+          >
+            <SlidersHorizontal className="size-4" />
+          </button>
+        )}
       </div>
+
+      {/* Mobile floating view-mode pill (always visible on mobile) */}
+      <div className="md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div className="pill-float flex items-center gap-1 p-1 pointer-events-auto">
+          {viewModes.map(({ mode, icon: Icon, label }) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium transition-all duration-200 ${
+                viewMode === mode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile controls bottom sheet */}
+      {showControlsSheet && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex items-end bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowControlsSheet(false)}
+        >
+          <div
+            className="glass-sheet w-full p-5 space-y-5 animate-slide-up"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Opções do mapa</h3>
+              <button
+                onClick={() => setShowControlsSheet(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Style */}
+            <div>
+              <p className="text-sm font-medium mb-2">Estilo</p>
+              <div className="glass flex rounded-xl p-1 gap-1">
+                {mapStyles.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setStyle(value)}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      style === value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-3">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-sm">Mapa de calor</span>
+                <button
+                  role="switch"
+                  aria-checked={showHeatmap}
+                  onClick={() => setShowHeatmap((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors ${showHeatmap ? "bg-primary" : "bg-input"}`}
+                >
+                  <span className={`block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${showHeatmap ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-sm">Marcadores por tipo</span>
+                <button
+                  role="switch"
+                  aria-checked={colourByType}
+                  onClick={() => setColourByType((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors ${colourByType ? "bg-primary" : "bg-input"}`}
+                >
+                  <span className={`block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${colourByType ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
+
+              {!colourByType && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Cor dos marcadores</span>
+                  <input
+                    type="color"
+                    value={markerColour}
+                    onChange={(e) => setMarkerColour(e.target.value)}
+                    className="h-8 w-12 cursor-pointer rounded border border-border"
+                  />
+                </div>
+              )}
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className={`text-sm ${!selectedTripId ? "text-muted-foreground" : ""}`}>
+                  Mostrar rota{!selectedTripId ? " (seleciona uma viagem)" : ""}
+                </span>
+                <button
+                  role="switch"
+                  aria-checked={showRoute}
+                  disabled={!selectedTripId}
+                  onClick={() => setShowRoute((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors disabled:opacity-40 ${showRoute && selectedTripId ? "bg-primary" : "bg-input"}`}
+                >
+                  <span className={`block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${showRoute && selectedTripId ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
