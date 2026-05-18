@@ -120,51 +120,80 @@ function PlaceSearchAdd({
   )
 }
 
-interface MatchResult {
+interface LineResult {
   query: string
-  match: PlaceSearchResult | null
-  confidence: number | null
-  alternatives: PlaceSearchResult[]
+  matches: PlaceSearchResult[]
 }
 
-function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => void }) {
+const BULK_MAX = 50
+
+function BulkImport({
+  projectId,
+  existingOsmIds,
+  onDone,
+}: {
+  projectId: number
+  existingOsmIds: Set<number>
+  onDone: () => void
+}) {
   const [text, setText] = useState("")
-  const [matches, setMatches] = useState<MatchResult[] | null>(null)
-  const [selected, setSelected] = useState<Record<number, PlaceSearchResult>>({})
-  const [searching, setSearching] = useState(false)
+  const [stage, setStage] = useState<"input" | "results">("input")
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [results, setResults] = useState<LineResult[]>([])
+  const [selected, setSelected] = useState<Record<number, PlaceSearchResult | null>>({})
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef(false)
+
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, BULK_MAX)
+  const overLimit = text.split("\n").map((l) => l.trim()).filter(Boolean).length > BULK_MAX
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean)
-    if (lines.length === 0) return
-    setSearching(true)
+    if (!lines.length) return
+    setStage("results")
+    setProgress({ done: 0, total: lines.length })
+    setResults([])
+    setSelected({})
     setError(null)
-    try {
-      const results = await projectsApi.importPlaces(projectId, lines) as MatchResult[]
-      setMatches(results)
-      const initial: Record<number, PlaceSearchResult> = {}
-      results.forEach((r, i) => { if (r.match) initial[i] = r.match })
-      setSelected(initial)
-    } catch (err: unknown) {
-      setError((err as Error).message)
-    } finally {
-      setSearching(false)
+    abortRef.current = false
+
+    const accumulator: LineResult[] = []
+    const initialSelected: Record<number, PlaceSearchResult | null> = {}
+
+    for (let i = 0; i < lines.length; i++) {
+      if (abortRef.current) break
+      const query = lines[i]
+      try {
+        const found = await placesApi.search(query)
+        const available = found.filter((r) => !existingOsmIds.has(r.osm_id))
+        if (available.length > 0) {
+          accumulator.push({ query, matches: available })
+          initialSelected[accumulator.length - 1] = available[0]
+        }
+        // silently skip if all matches were already added
+      } catch {
+        accumulator.push({ query, matches: [] })
+      }
+      setResults([...accumulator])
+      setSelected({ ...initialSelected })
+      setProgress({ done: i + 1, total: lines.length })
     }
   }
 
   async function handleImport() {
-    if (!matches) return
+    const toAdd = Object.values(selected).filter((v): v is PlaceSearchResult => v !== null)
+    if (!toAdd.length) return
     setImporting(true)
     setError(null)
     try {
-      for (const result of Object.values(selected)) {
+      for (const result of toAdd) {
         const place = await placesApi.import(result.osm_id, result.osm_type)
         await projectsApi.addPlace(projectId, place.id)
       }
-      setMatches(null)
       setText("")
+      setStage("input")
+      setResults([])
       setSelected({})
       onDone()
     } catch (err: unknown) {
@@ -174,74 +203,95 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
     }
   }
 
-  if (matches) {
-    const selectedCount = Object.keys(selected).length
+  function handleBack() {
+    abortRef.current = true
+    setStage("input")
+    setResults([])
+    setSelected({})
+    setError(null)
+  }
+
+  if (stage === "results") {
+    const searching = progress.done < progress.total
+    const confirmCount = Object.values(selected).filter((v) => v !== null).length
+
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Confirma os lugares encontrados. Desseleciona os que não estão corretos.
-        </p>
-        <ul className="space-y-1.5 max-h-72 overflow-y-auto">
-          {matches.map((r, i) => (
-            <li key={i} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${r.match ? "bg-muted/30" : "bg-destructive/5 border-destructive/30"}`}>
-              {r.match ? (
-                <>
-                  <input
-                    type="checkbox"
-                    checked={!!selected[i]}
-                    onChange={(e) => {
-                      const next = { ...selected }
-                      if (e.target.checked) next[i] = r.match!
-                      else delete next[i]
-                      setSelected(next)
-                    }}
-                    className="mt-0.5 accent-primary"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium">{selected[i]?.name ?? r.match.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {selected[i]?.place_type ?? r.match.place_type}
-                      {(selected[i]?.country_code ?? r.match.country_code) ? ` · ${(selected[i]?.country_code ?? r.match.country_code)!.toUpperCase()}` : ""}
-                    </span>
-                    <span className="ml-2 text-xs text-muted-foreground opacity-60">← "{r.query}"</span>
-                    {r.alternatives.length > 0 && (
-                      <select
-                        className="mt-1 block text-xs border rounded px-1 py-0.5 bg-background"
-                        value={`${selected[i]?.osm_type}-${selected[i]?.osm_id}`}
-                        onChange={(e) => {
-                          const [osm_type, osm_id] = e.target.value.split("-")
-                          const alt = [r.match!, ...r.alternatives].find(
-                            (a) => a.osm_type === osm_type && String(a.osm_id) === osm_id
-                          )
-                          if (alt) setSelected({ ...selected, [i]: alt })
-                        }}
-                      >
-                        <option value={`${r.match.osm_type}-${r.match.osm_id}`}>{r.match.name} (melhor resultado)</option>
-                        {r.alternatives.map((a) => (
-                          <option key={`${a.osm_type}-${a.osm_id}`} value={`${a.osm_type}-${a.osm_id}`}>{a.name} — {a.display_name}</option>
-                        ))}
-                      </select>
-                    )}
+        {/* Progress bar */}
+        {searching && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              A pesquisar… {progress.done}/{progress.total}
+            </p>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-200"
+                style={{ width: `${(progress.done / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {results.length > 0 && (
+          <ul className="space-y-2 max-h-80 overflow-y-auto">
+            {results.map((r, i) => (
+              <li key={i} className={`rounded-lg border text-sm ${r.matches.length > 0 ? "bg-muted/30" : "bg-destructive/5 border-destructive/30"}`}>
+                {r.matches.length > 0 ? (
+                  <div className="px-3 py-2 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selected[i] !== null && selected[i] !== undefined}
+                        onChange={(e) => setSelected((prev) => ({ ...prev, [i]: e.target.checked ? r.matches[0] : null }))}
+                        className="accent-primary shrink-0"
+                      />
+                      <span className="text-xs text-muted-foreground truncate">"{r.query}"</span>
+                    </div>
+                    <div className="space-y-1 pl-5">
+                      {r.matches.slice(0, 4).map((m) => {
+                        const isActive = selected[i]?.osm_id === m.osm_id
+                        return (
+                          <button
+                            key={`${m.osm_type}-${m.osm_id}`}
+                            type="button"
+                            onClick={() => setSelected((prev) => ({ ...prev, [i]: m }))}
+                            className={`w-full flex items-center gap-2 rounded-md px-2 py-1 text-xs text-left transition-colors ${isActive ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-background/60 hover:bg-muted text-muted-foreground"}`}
+                          >
+                            <PlaceIcon type={m.place_type as PlaceType} size={11} className="shrink-0" />
+                            <span className="font-medium truncate">{m.name}</span>
+                            {m.country_code && (
+                              <span className="shrink-0 opacity-60">{m.country_code.toUpperCase()}</span>
+                            )}
+                            <span className="ml-auto shrink-0 opacity-50 truncate max-w-[100px]">{m.place_type_label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <Check className="size-3.5 shrink-0 mt-0.5 text-green-500" />
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="size-3.5 shrink-0 mt-0.5 text-destructive" />
-                  <span className="text-muted-foreground">"{r.query}" — sem resultado encontrado</span>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <AlertCircle className="size-3.5 shrink-0 text-destructive" />
+                    <span className="text-muted-foreground text-xs">"{r.query}" — sem resultado</span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {error && <p className="text-sm text-destructive">{error}</p>}
+
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => { setMatches(null); setSelected({}) }}>
+          <Button variant="outline" className="shrink-0" onClick={handleBack} disabled={importing}>
             Voltar
           </Button>
-          <Button className="flex-1" disabled={importing || selectedCount === 0} onClick={handleImport}>
+          <Button
+            className="flex-1"
+            disabled={importing || searching || confirmCount === 0}
+            onClick={handleImport}
+          >
             {importing ? <Loader2 className="size-4 animate-spin" /> : null}
-            Adicionar {selectedCount} {selectedCount === 1 ? "lugar" : "lugares"}
+            Adicionar {confirmCount > 0 ? `${confirmCount} ` : ""}{confirmCount === 1 ? "lugar confirmado" : "lugares confirmados"}
           </Button>
         </div>
       </div>
@@ -257,10 +307,12 @@ function BulkImport({ projectId, onDone }: { projectId: number; onDone: () => vo
         rows={5}
         className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" variant="outline" className="w-full" disabled={searching || !text.trim()}>
-        {searching ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
-        Pesquisar lugares
+      {overLimit && (
+        <p className="text-xs text-amber-600">Máximo de {BULK_MAX} lugares por importação. As linhas extra serão ignoradas.</p>
+      )}
+      <Button type="submit" variant="outline" className="w-full" disabled={!lines.length}>
+        <FileText className="size-4" />
+        Pesquisar {lines.length > 0 ? `${Math.min(lines.length, BULK_MAX)} ` : ""}lugares
       </Button>
     </form>
   )
@@ -1098,6 +1150,7 @@ export default function ProjectDetailPage() {
             ) : (
               <BulkImport
                 projectId={projectId}
+                existingOsmIds={new Set((project.target_places ?? []).map((p) => p.osm_id))}
                 onDone={() => {
                   queryClient.invalidateQueries({ queryKey: ["project", projectId] })
                   setShowBulkImport(false)
