@@ -8,8 +8,6 @@ from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.core.dependencies import get_current_user, get_optional_current_user, require_admin
 from app.core.limiter import limiter
-
-settings = get_settings()
 from app.models.place import Place
 from app.models.project import Project, ProjectTargetPlace
 from app.models.settings import SiteSettings
@@ -18,12 +16,10 @@ from app.models.user import User
 from app.schemas.place import VisitedPlaceResponse
 from app.schemas.user import (
     PasswordChangeRequest,
-    ProfileStats,
     TripPublicSummary,
     ProjectPublicSummary,
     UserCreate,
     UserProfileResponse,
-    UserPublicResponse,
     UserResponse,
     UserUpdate,
     VisitedPlacePublic,
@@ -38,6 +34,7 @@ from app.services.user_service import (
     update_user,
 )
 
+settings = get_settings()
 router = APIRouter(prefix="/users", tags=["users"])
 
 

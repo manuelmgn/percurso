@@ -888,10 +888,10 @@ async def add_project_media(
     link = ProjectMediaLink(
         project_id=project_id,
         url=data.url,
-        og_title=og.get("title"),
-        og_description=og.get("description"),
-        og_image_url=og.get("image"),
-        og_site_name=og.get("site_name"),
+        og_title=og.get("og_title"),
+        og_description=og.get("og_description"),
+        og_image_url=og.get("og_image_url"),
+        og_site_name=og.get("og_site_name"),
     )
     db.add(link)
     await db.flush()

@@ -230,7 +230,7 @@ def generate_cover_image_task(
     title: str,
     description: str | None = None,
 ) -> None:
-    logger.info(f"TASK STARTED: {entity_type} {entity_id}")
+    logger.info("TASK STARTED: %s %d", entity_type, entity_id)
     try:
         _run_generation(entity_id, entity_type, title, description)
     except Exception as exc:

@@ -56,7 +56,7 @@ async def _resolve_and_check(host: str) -> bool:
     Performing a single resolution here and re-using it reduces the DNS
     rebinding window compared to letting httpx resolve independently."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         ip_str = await loop.run_in_executor(None, socket.gethostbyname, host)
         return not _ip_is_private(ip_str)
     except (socket.gaierror, OSError):
@@ -108,5 +108,5 @@ async def fetch_og_metadata(url: str) -> dict:
                 "og_image_url": parser.og.get("og:image"),
                 "og_site_name": parser.og.get("og:site_name"),
             }
-    except (httpx.HTTPError, Exception):
+    except Exception:
         return {"url": url}

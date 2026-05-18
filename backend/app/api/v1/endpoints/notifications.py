@@ -56,6 +56,6 @@ async def mark_all_read(
 ):
     await db.execute(
         update(Notification)
-        .where(Notification.recipient_id == current_user.id, Notification.is_read == False)
+        .where(Notification.recipient_id == current_user.id, Notification.is_read.is_(False))
         .values(is_read=True)
     )
