@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Search, X, UserPlus, Link2,
-  ExternalLink, Clock, Pencil, Info, Trash2, Layers, AlertCircle,
+  ExternalLink, Clock, Pencil, Trash2, Layers, AlertCircle,
 } from "lucide-react"
 import { tripsApi, placesApi, projectsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { useAuthStore } from "@/stores/auth"
 import { getPlaceLabel } from "@/lib/placeTypes"
 import { PlaceIcon } from "@/components/PlaceIcon"
+import { PlaceInfoButton } from "@/components/shared/PlaceInfoButton"
 import MiniMap from "@/components/map/MiniMap"
 import type { PlaceSearchResult, PlaceType, Trip, Visibility, MissingMember } from "@/types"
 
@@ -43,13 +44,11 @@ function PlaceSearchAdd({
   const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [infoKey, setInfoKey] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function doSearch(query: string) {
     setSearching(true)
     setSearchError(null)
-    setInfoKey(null)
     try {
       const found = await placesApi.search(query)
       setResults(found)
@@ -107,26 +106,7 @@ function PlaceSearchAdd({
                     {r.display_name}
                   </p>
                 </div>
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setInfoKey(infoKey === key ? null : key)}
-                    className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
-                    title="Detalhes OSM"
-                  >
-                    <Info className="size-3.5" />
-                  </button>
-                  {infoKey === key && (
-                    <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border bg-background p-2.5 text-xs shadow-lg space-y-1">
-                      <p><span className="text-muted-foreground">Classe:</span> {r.osm_class}</p>
-                      <p><span className="text-muted-foreground">Tipo OSM:</span> {r.osm_type}</p>
-                      {r.importance != null && (
-                        <p><span className="text-muted-foreground">Importância:</span> {r.importance.toFixed(4)}</p>
-                      )}
-                      <p className="break-all"><span className="text-muted-foreground">Nome completo:</span> {r.display_name}</p>
-                    </div>
-                  )}
-                </div>
+                <PlaceInfoButton place={r} />
                 <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={() => { onAdd(r); setResults([]); setQ("") }}>
                   Adicionar
                 </Button>
@@ -798,7 +778,7 @@ export default function TripDetailPage() {
         {trip.places && trip.places.length > 0 && (
           <ul className="mb-4 space-y-1.5">
             {trip.places.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+              <li key={p.id} className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
                 <Link to={`/lugares/${p.osm_id}`} className="flex items-center gap-2 flex-1 min-w-0 hover:text-primary transition-colors">
                   <PlaceIcon
                     type={p.place_type as PlaceType}
@@ -811,6 +791,7 @@ export default function TripDetailPage() {
                     {p.country_code ? p.country_code.toUpperCase() : ""}
                   </span>
                 </Link>
+                <PlaceInfoButton place={p} />
                 {isCreator && (
                   <button
                     type="button"

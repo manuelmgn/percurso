@@ -88,6 +88,7 @@ export interface SiteSettings {
 export interface PlaceSummary {
   id: number
   osm_id: number
+  osm_type: string
   name: string
   name_pt: string | null
   place_type: PlaceType
@@ -185,6 +186,7 @@ export interface TripSummaryForPlace {
 export interface ProjectTargetPlace {
   id: number
   osm_id: number
+  osm_type: string
   name: string
   name_pt: string | null
   place_type: PlaceType

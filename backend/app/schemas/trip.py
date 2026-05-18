@@ -32,6 +32,7 @@ class SharedUserRequest(BaseModel):
 class PlaceSummaryResponse(BaseModel):
     id: int
     osm_id: int
+    osm_type: str
     name: str
     name_pt: str | None
     place_type: str

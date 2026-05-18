@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
 import { Map, List, Table2, Flame, Route, Loader2, MapPin, Layers, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { PlaceInfoButton } from "@/components/shared/PlaceInfoButton"
 import { usersApi, tripsApi } from "@/lib/api"
 import PlaceMap from "@/components/map/PlaceMap"
 import { useMapStore, type MapViewMode, type MapStyle } from "@/stores/map"
@@ -315,20 +316,32 @@ export default function MapPage() {
                 </div>
               ) : (
                 filteredPlaces.map((place) => (
-                  <button
+                  <div
                     key={place.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handlePlaceClick(place.osm_id)}
-                    className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2"
+                    onKeyDown={(e) => e.key === "Enter" && handlePlaceClick(place.osm_id)}
+                    className="glass-card p-4 text-left hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 space-y-2 cursor-pointer"
                   >
-                    <div>
-                      <p className="font-medium leading-snug flex items-center gap-2">
-                        <PlaceIcon type={place.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" title={getPlaceLabel(place.place_type)} />
-                        {place.name_pt ?? place.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 pl-6">
-                        {getPlaceLabel(place.place_type)}
-                        {place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""}
-                      </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium leading-snug flex items-center gap-2">
+                          <PlaceIcon type={place.place_type as PlaceType} size={15} className="shrink-0 text-muted-foreground" title={getPlaceLabel(place.place_type)} />
+                          {place.name_pt ?? place.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+                          {getPlaceLabel(place.place_type)}
+                          {place.country_code ? ` · ${place.country_code.toUpperCase()}` : ""}
+                        </p>
+                      </div>
+                      <PlaceInfoButton
+                        place={{
+                          ...place,
+                          visit_count: isVisited(place) ? place.visit_count : undefined,
+                          first_visited: isVisited(place) ? place.first_visited : undefined,
+                        }}
+                      />
                     </div>
                     {isVisited(place) && (
                       <div className="space-y-1">
@@ -359,7 +372,7 @@ export default function MapPage() {
                         )}
                       </div>
                     )}
-                  </button>
+                  </div>
                 ))
               )}
             </div>
