@@ -17,7 +17,7 @@ const bottomNavItems = [
   { to: "/mapa", icon: Map, label: "Mapa" },
   { to: "/viagens", icon: Briefcase, label: "Viagens" },
   { to: "/projetos", icon: FolderOpen, label: "Projetos" },
-  { to: "/notificacoes", icon: Bell, label: "Notificações" },
+  { to: "/atividade", icon: Bell, label: "Atividade" },
 ]
 
 export default function AppShell() {
@@ -79,7 +79,7 @@ export default function AppShell() {
 
         {/* Bottom section */}
         <div className="space-y-1 px-2 border-t border-border/50 pt-3 pb-3">
-          <NavLink to="/notificacoes" className={sideNavClass}>
+          <NavLink to="/atividade" className={sideNavClass}>
             <div className="relative shrink-0">
               <Bell className="size-4" />
               {unreadCount > 0 && (
@@ -88,7 +88,7 @@ export default function AppShell() {
                 </span>
               )}
             </div>
-            <span className="hidden lg:block">Notificações</span>
+            <span className="hidden lg:block">Atividade</span>
           </NavLink>
 
           <NavLink to="/definicoes" className={sideNavClass}>
@@ -170,15 +170,14 @@ export default function AppShell() {
                 <>
                   <div className="relative">
                     <Icon className={cn("size-5 transition-transform duration-200", isActive && "scale-110")} />
-                    {to === "/notificacoes" && unreadCount > 0 && (
+                    {to === "/atividade" && unreadCount > 0 && (
                       <span className="absolute -right-1.5 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-white">
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
                   </div>
                   <span className={cn("text-[10px] font-medium leading-none", isActive ? "text-primary" : "text-muted-foreground")}>
-                    {/* Shorten "Notificações" to fit */}
-                    {label === "Notificações" ? "Notif." : label}
+                    {label}
                   </span>
                 </>
               )}

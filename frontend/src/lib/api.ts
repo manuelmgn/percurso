@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth"
-import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace, MissingMember, TripPublicSummary, ProjectPublicSummary, SiteSettings } from "@/types"
+import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, ActivityEvent, VisitedPlace, MissingMember, TripPublicSummary, ProjectPublicSummary, SiteSettings } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
@@ -289,6 +289,11 @@ export const notificationsApi = {
   list: () => request<Notification[]>("GET", "/api/v1/notifications"),
   markRead: (id: number) => request<void>("POST", `/api/v1/notifications/${id}/read`),
   markAllRead: () => request<void>("POST", "/api/v1/notifications/read-all"),
+}
+
+// Activity feed
+export const activityApi = {
+  list: () => request<ActivityEvent[]>("GET", "/api/v1/activity"),
 }
 
 // Admin

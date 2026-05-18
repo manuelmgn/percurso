@@ -12,6 +12,8 @@ from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.limiter import limiter
 from app.core.security import generate_sharing_token, generate_invite_token
+from app.models.activity import ActivityEvent
+from app.models.place import Place
 from app.models.trip import Trip, TripCompanion, TripMediaLink, TripPlace, TripProject, TripSharedUser
 from app.models.user import User
 from app.models.project import Project, ProjectCollaborator
@@ -427,6 +429,16 @@ async def add_place_to_trip(
     if existing.scalar_one_or_none():
         return
     db.add(TripPlace(trip_id=trip_id, place_id=place_id))
+    place = await db.get(Place, place_id)
+    place_name = (place.name_pt or place.name) if place else str(place_id)
+    db.add(ActivityEvent(
+        actor_id=current_user.id,
+        event_type="place_added_to_trip",
+        entity_type="trip",
+        entity_id=trip_id,
+        entity_name=trip.title,
+        secondary_name=place_name,
+    ))
 
 
 @router.delete("/{trip_id}/places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -592,15 +604,21 @@ async def accept_trip_invite(
 
     trip = await db.get(Trip, trip_id)
     from app.models.notification import Notification
-    notification = Notification(
+    db.add(Notification(
         recipient_id=trip.creator_id,
         notification_type="invite_accepted",
         entity_type="trip",
         entity_id=trip_id,
         actor_id=current_user.id,
         message=f"{current_user.display_name} aceitou o convite para a viagem «{trip.title}»",
-    )
-    db.add(notification)
+    ))
+    db.add(ActivityEvent(
+        actor_id=current_user.id,
+        event_type="companion_joined",
+        entity_type="trip",
+        entity_id=trip_id,
+        entity_name=trip.title,
+    ))
     return {"detail": "Convite aceite"}
 
 
@@ -630,6 +648,13 @@ async def accept_trip_invite_as_me(
         entity_id=trip_id,
         actor_id=current_user.id,
         message=f"{current_user.display_name} aceitou o convite para a viagem «{trip.title}»",
+    ))
+    db.add(ActivityEvent(
+        actor_id=current_user.id,
+        event_type="companion_joined",
+        entity_type="trip",
+        entity_id=trip_id,
+        entity_name=trip.title,
     ))
     return {"detail": "Convite aceite"}
 

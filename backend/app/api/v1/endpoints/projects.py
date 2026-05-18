@@ -12,6 +12,7 @@ from app.core.database import get_db_session
 from app.core.dependencies import get_current_user
 from app.core.limiter import limiter
 from app.core.security import generate_invite_token, generate_sharing_token
+from app.models.activity import ActivityEvent
 from app.models.notification import Notification
 from app.models.project import Project, ProjectCollaborator, ProjectDirectVisit, ProjectMediaLink, ProjectSharedUser, ProjectTargetPlace
 from app.models.trip import Trip, TripPlace, TripProject
@@ -748,6 +749,13 @@ async def accept_project_invite_as_me(
         actor_id=current_user.id,
         message=f"{current_user.display_name} aceitou o convite para o projeto «{project.title}»",
     ))
+    db.add(ActivityEvent(
+        actor_id=current_user.id,
+        event_type="collaborator_joined",
+        entity_type="project",
+        entity_id=project_id,
+        entity_name=project.title,
+    ))
     return {"detail": "Convite aceite"}
 
 
@@ -1031,6 +1039,18 @@ async def mark_place_visited(
             project_id=project_id,
             place_id=place_id,
             marked_by_user_id=current_user.id,
+        ))
+        target = next((tp for tp in project.target_places if tp.place_id == place_id), None)
+        place_name = (
+            (target.place.name_pt or target.place.name) if target and target.place else str(place_id)
+        )
+        db.add(ActivityEvent(
+            actor_id=current_user.id,
+            event_type="place_visited_in_project",
+            entity_type="project",
+            entity_id=project_id,
+            entity_name=project.title,
+            secondary_name=place_name,
         ))
         await db.flush()
 

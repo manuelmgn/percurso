@@ -279,6 +279,30 @@ export interface Notification {
   created_at: string
 }
 
+export type ActivityEventType =
+  | "place_added_to_trip"
+  | "place_visited_in_project"
+  | "companion_joined"
+  | "collaborator_joined"
+
+export interface ActivityActor {
+  id: number
+  username: string
+  display_name: string
+  avatar_url: string | null
+}
+
+export interface ActivityEvent {
+  id: number
+  event_type: ActivityEventType
+  entity_type: "trip" | "project"
+  entity_id: number
+  entity_name: string
+  secondary_name: string | null
+  created_at: string
+  actor: ActivityActor | null
+}
+
 export interface TokenResponse {
   access_token: string
   token_type: string

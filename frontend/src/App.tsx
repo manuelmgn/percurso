@@ -8,7 +8,7 @@ import LoginPage from "@/pages/LoginPage"
 import MapPage from "@/pages/MapPage"
 import TripsPage from "@/pages/TripsPage"
 import ProjectsPage from "@/pages/ProjectsPage"
-import NotificationsPage from "@/pages/NotificationsPage"
+import ActivityPage from "@/pages/ActivityPage"
 import SettingsPage from "@/pages/SettingsPage"
 import AdminPage from "@/pages/AdminPage"
 import TripDetailPage from "@/pages/TripDetailPage"
@@ -128,7 +128,7 @@ export default function App() {
             <Route path="/projetos" element={<ProjectsPage />} />
             <Route path="/projetos/:id" element={<ProjectDetailPage />} />
             <Route path="/lugares/:osmId" element={<PlaceDetailPage />} />
-            <Route path="/notificacoes" element={<NotificationsPage />} />
+            <Route path="/atividade" element={<ActivityPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
               <Route
               path="/admin"
