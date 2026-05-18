@@ -17,6 +17,9 @@ import SharedTripPage from "@/pages/SharedTripPage"
 import SharedProjectPage from "@/pages/SharedProjectPage"
 import PlaceDetailPage from "@/pages/PlaceDetailPage"
 import ProfilePage from "@/pages/ProfilePage"
+import PublicTripsPage from "@/pages/PublicTripsPage"
+import PublicProjectsPage from "@/pages/PublicProjectsPage"
+import PublicLayout from "@/components/layout/PublicLayout"
 import { useAuthStore } from "@/stores/auth"
 import { usersApi } from "@/lib/api"
 import type { User } from "@/types"
@@ -106,6 +109,10 @@ export default function App() {
           {/* Public shared-link routes — no auth required */}
           <Route path="/viagens/partilhada/:token" element={<SharedTripPage />} />
           <Route path="/projetos/partilhada/:token" element={<SharedProjectPage />} />
+          {/* Public profile routes — accessible without auth */}
+          <Route path="/perfil/:username" element={<PublicLayout><ProfilePage /></PublicLayout>} />
+          <Route path="/perfil/:username/viagens" element={<PublicLayout><PublicTripsPage /></PublicLayout>} />
+          <Route path="/perfil/:username/projetos" element={<PublicLayout><PublicProjectsPage /></PublicLayout>} />
 
           <Route
             element={
@@ -123,8 +130,7 @@ export default function App() {
             <Route path="/lugares/:osmId" element={<PlaceDetailPage />} />
             <Route path="/notificacoes" element={<NotificationsPage />} />
             <Route path="/definicoes" element={<SettingsPage />} />
-            <Route path="/perfil/:username" element={<ProfilePage />} />
-            <Route
+              <Route
               path="/admin"
               element={
                 <ProtectedRoute requireAdmin>

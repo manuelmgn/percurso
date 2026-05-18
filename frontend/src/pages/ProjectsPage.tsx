@@ -1,10 +1,12 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Loader2, Target } from "lucide-react"
+import { Plus, Loader2, Target, Pin, Archive } from "lucide-react"
 import { projectsApi } from "@/lib/api"
+import { useAuthStore } from "@/stores/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import type { Project } from "@/types"
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
@@ -25,27 +27,60 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
   )
 }
 
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({ project, onClick, isOwner }: { project: Project; onClick: () => void; isOwner: boolean }) {
+  const queryClient = useQueryClient()
   const colour = project.cover_colour ?? "#7C3AED"
+
+  const pinMutation = useMutation({
+    mutationFn: () => project.is_pinned ? projectsApi.unpin(project.id) : projectsApi.pin(project.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  })
+
   return (
-    <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
-      <div className="relative h-28 overflow-hidden" style={project.cover_image_url ? {} : { backgroundColor: colour }}>
-        {project.cover_image_url ? (
-          <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-end p-3">
-            <span className="text-white font-bold text-sm leading-tight line-clamp-2 drop-shadow">{project.title}</span>
+    <div className="relative">
+      {isOwner && (
+        <button
+          onClick={(e) => { e.stopPropagation(); pinMutation.mutate() }}
+          title={project.is_pinned ? "Desafixar projeto" : "Fixar projeto no perfil"}
+          className={`absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full transition-all ${
+            project.is_pinned
+              ? "bg-primary text-primary-foreground opacity-100 shadow"
+              : "bg-black/30 text-white opacity-40 hover:opacity-80"
+          }`}
+        >
+          <Pin className="size-3.5" />
+        </button>
+      )}
+      <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
+        <div className="relative h-28 overflow-hidden" style={project.cover_image_url ? {} : { backgroundColor: colour }}>
+          {project.cover_image_url ? (
+            <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-end p-3">
+              <span className="text-white font-bold text-sm leading-tight line-clamp-2 drop-shadow">{project.title}</span>
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold leading-tight flex-1 min-w-0 truncate">{project.title}</h3>
+            {project.is_archived && (
+              <Badge variant="secondary" className="shrink-0 text-xs flex items-center gap-1">
+                <Archive className="size-2.5" />
+                Arquivado
+              </Badge>
+            )}
           </div>
-        )}
-      </div>
-      <div className="p-4">
-        <h3 className="font-semibold leading-tight">{project.title}</h3>
-        {project.description && (
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{project.description}</p>
-        )}
-        <ProgressBar current={project.visited_place_count} total={project.target_place_count} />
-      </div>
-    </button>
+          {project.description && (
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{project.description}</p>
+          )}
+          <ProgressBar current={project.visited_place_count} total={project.target_place_count} />
+        </div>
+      </button>
+      {pinMutation.error && (
+        <p className="mt-1 text-xs text-destructive px-1">{(pinMutation.error as Error).message}</p>
+      )}
+    </div>
   )
 }
 
@@ -102,19 +137,24 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 
 export default function ProjectsPage() {
   const [showNew, setShowNew] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: projectsApi.list,
     staleTime: 30_000,
   })
 
+  const visible = showArchived ? projects : projects.filter((p) => !p.is_archived)
+  const archivedCount = projects.filter((p) => p.is_archived).length
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Projetos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{projects.length} projetos ativos</p>
+          <p className="text-sm text-muted-foreground mt-1">{visible.length} projeto{visible.length !== 1 ? "s" : ""}</p>
         </div>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="size-4" />
@@ -122,11 +162,23 @@ export default function ProjectsPage() {
         </Button>
       </div>
 
+      {archivedCount > 0 && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Archive className="size-3.5" />
+            {showArchived ? "Ocultar arquivados" : `Mostrar arquivados (${archivedCount})`}
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
-      ) : projects.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="glass-card p-16 text-center">
           <Target className="mx-auto mb-4 size-12 text-purple-300" />
           <h3 className="text-lg font-semibold mb-2">Ainda sem projetos</h3>
@@ -138,8 +190,13 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} onClick={() => navigate(`/projetos/${p.id}`)} />
+          {visible.map((p) => (
+            <ProjectCard
+              key={p.id}
+              project={p}
+              isOwner={p.creator_id === user?.id}
+              onClick={() => navigate(`/projetos/${p.id}`)}
+            />
           ))}
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth"
-import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace, MissingMember } from "@/types"
+import type { TokenResponse, Trip, Project, Place, PlaceSearchResult, User, UserProfile, VisitedPlacePublic, Notification, VisitedPlace, MissingMember, TripPublicSummary, ProjectPublicSummary, SiteSettings } from "@/types"
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ""
 
@@ -148,6 +148,10 @@ export const usersApi = {
     return request<User>("POST", "/api/v1/users/me/avatar", fd, true)
   },
   profile: (username: string) => request<UserProfile>("GET", `/api/v1/users/${username}`),
+  publicTrips: (username: string, page = 1) =>
+    request<TripPublicSummary[]>("GET", `/api/v1/users/${username}/trips?page=${page}`),
+  publicProjects: (username: string, page = 1) =>
+    request<ProjectPublicSummary[]>("GET", `/api/v1/users/${username}/projects?page=${page}`),
   userPlaces: (username: string, token?: string) => {
     const params = token ? `?token=${encodeURIComponent(token)}` : ""
     return request<VisitedPlacePublic[]>("GET", `/api/v1/users/${username}/places${params}`)
@@ -217,6 +221,8 @@ export const tripsApi = {
     request<void>("DELETE", `/api/v1/trips/${tripId}/projects/${projectId}`),
   checkProjectMembers: (tripId: number, projectId: number) =>
     request<{ missing_members: MissingMember[] }>("GET", `/api/v1/trips/${tripId}/projects/member-check/${projectId}`),
+  pin: (tripId: number) => request<void>("POST", `/api/v1/trips/${tripId}/pin`),
+  unpin: (tripId: number) => request<void>("DELETE", `/api/v1/trips/${tripId}/pin`),
 }
 
 // Projects
@@ -270,6 +276,10 @@ export const projectsApi = {
     request<Project & { new_trip_id: number }>("POST", `/api/v1/projects/${projectId}/target-places/${placeId}/trip`, data),
   leaveProject: (projectId: number) =>
     request<unknown>("POST", `/api/v1/projects/${projectId}/collaborators/leave-me`),
+  pin: (projectId: number) => request<void>("POST", `/api/v1/projects/${projectId}/pin`),
+  unpin: (projectId: number) => request<void>("DELETE", `/api/v1/projects/${projectId}/pin`),
+  archive: (projectId: number) => request<void>("POST", `/api/v1/projects/${projectId}/archive`),
+  unarchive: (projectId: number) => request<void>("POST", `/api/v1/projects/${projectId}/unarchive`),
 }
 
 // Notifications
@@ -283,4 +293,7 @@ export const notificationsApi = {
 export const adminApi = {
   stats: () => request<Record<string, number>>("GET", "/api/v1/admin/stats"),
   health: () => request<Record<string, string>>("GET", "/api/v1/admin/health"),
+  getSettings: () => request<SiteSettings>("GET", "/api/v1/admin/settings"),
+  updateSettings: (data: Partial<SiteSettings>) =>
+    request<SiteSettings>("PATCH", "/api/v1/admin/settings", data),
 }

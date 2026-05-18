@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { adminApi, usersApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
-import { Loader2, Users, Map, Briefcase, FolderOpen, CheckCircle, XCircle, Plus } from "lucide-react"
+import { Loader2, Users, Map, Briefcase, FolderOpen, CheckCircle, XCircle, Plus, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -114,6 +114,7 @@ export default function AdminPage() {
   const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: adminApi.stats })
   const { data: health } = useQuery({ queryKey: ["admin-health"], queryFn: adminApi.health, refetchInterval: 30_000 })
   const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["admin-users"], queryFn: usersApi.list })
+  const { data: siteSettings } = useQuery({ queryKey: ["admin-settings"], queryFn: adminApi.getSettings })
 
   const deactivate = useMutation({
     mutationFn: usersApi.deactivate,
@@ -122,6 +123,10 @@ export default function AdminPage() {
   const reactivate = useMutation({
     mutationFn: usersApi.reactivate,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+  })
+  const updateSettings = useMutation({
+    mutationFn: adminApi.updateSettings,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-settings"] }),
   })
 
   return (
@@ -153,6 +158,43 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Site settings */}
+      {siteSettings !== undefined && (
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="size-4 text-muted-foreground" />
+            <h2 className="font-semibold">Configurações do site</h2>
+          </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <div>
+              <p className="text-sm font-medium">Permitir acesso a perfis públicos sem sessão iniciada</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Quando desativado, utilizadores não autenticados são redirecionados para o login.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={siteSettings.allow_public_profiles_without_auth}
+              onClick={() =>
+                updateSettings.mutate({
+                  allow_public_profiles_without_auth: !siteSettings.allow_public_profiles_without_auth,
+                })
+              }
+              disabled={updateSettings.isPending}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                siteSettings.allow_public_profiles_without_auth ? "bg-primary" : "bg-input"
+              }`}
+            >
+              <span
+                className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                  siteSettings.allow_public_profiles_without_auth ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </label>
         </div>
       )}
 

@@ -306,6 +306,8 @@ function ProjectDetailsPanel({
   isRemovingSharedUser,
   onDelete,
   isDeleting,
+  onArchive,
+  isArchiving,
 }: {
   open: boolean
   onClose: () => void
@@ -326,6 +328,8 @@ function ProjectDetailsPanel({
   isRemovingSharedUser: boolean
   onDelete: () => void
   isDeleting: boolean
+  onArchive: () => void
+  isArchiving: boolean
 }) {
   const [title, setTitle] = useState(project.title)
   const [description, setDescription] = useState(project.description ?? "")
@@ -527,6 +531,15 @@ function ProjectDetailsPanel({
           <Button
             type="button"
             variant="outline"
+            className="w-full"
+            disabled={isArchiving}
+            onClick={onArchive}
+          >
+            {isArchiving ? <Loader2 className="size-4 animate-spin" /> : project.is_archived ? "Desarquivar projeto" : "Arquivar projeto"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive"
             disabled={isDeleting}
             onClick={() => {
@@ -714,6 +727,14 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
       navigate("/projetos")
+    },
+  })
+
+  const archiveProjectMutation = useMutation({
+    mutationFn: () => project!.is_archived ? projectsApi.unarchive(projectId) : projectsApi.archive(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
     },
   })
 
@@ -1510,6 +1531,8 @@ export default function ProjectDetailPage() {
           isRemovingSharedUser={removeSharedUserMutation.isPending}
           onDelete={() => deleteProjectMutation.mutate()}
           isDeleting={deleteProjectMutation.isPending}
+          onArchive={() => archiveProjectMutation.mutate()}
+          isArchiving={archiveProjectMutation.isPending}
         />
       )}
     </div>

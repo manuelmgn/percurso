@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2 } from "lucide-react"
+import { Plus, Briefcase, Calendar, MapPin, Loader2, Globe, Lock, Link2, Pin } from "lucide-react"
 import { tripsApi } from "@/lib/api"
+import { useAuthStore } from "@/stores/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatDateRange } from "@/lib/utils"
@@ -15,61 +16,86 @@ const VISIBILITY_ICONS = {
   users: Lock,
 }
 
-function TripCard({ trip, onClick }: { trip: Trip; onClick: () => void }) {
+function TripCard({ trip, onClick, isOwner }: { trip: Trip; onClick: () => void; isOwner: boolean }) {
+  const queryClient = useQueryClient()
   const Icon = VISIBILITY_ICONS[trip.visibility]
   const colour = trip.cover_colour ?? "#7C3AED"
+
+  const pinMutation = useMutation({
+    mutationFn: () => trip.is_pinned ? tripsApi.unpin(trip.id) : tripsApi.pin(trip.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["trips"] }),
+  })
+
   return (
-    <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
-      {/* Cover */}
-      <div className="relative h-36 overflow-hidden" style={trip.cover_image_url ? {} : { backgroundColor: colour }}>
-        {trip.cover_image_url ? (
-          <img src={trip.cover_image_url} alt={trip.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-end p-4">
-            <span className="text-white font-bold text-base leading-tight line-clamp-3 drop-shadow">{trip.title}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold leading-tight">{trip.title}</h3>
-          <Icon className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-        </div>
-
-        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-          {(trip.start_date || trip.end_date) && (
-            <span className="flex items-center gap-1">
-              <Calendar className="size-3" />
-              {formatDateRange(trip.start_date, trip.end_date)}
-            </span>
+    <div className="relative">
+      {isOwner && (
+        <button
+          onClick={(e) => { e.stopPropagation(); pinMutation.mutate() }}
+          title={trip.is_pinned ? "Desafixar viagem" : "Fixar viagem no perfil"}
+          className={`absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full transition-all ${
+            trip.is_pinned
+              ? "bg-primary text-primary-foreground opacity-100 shadow"
+              : "bg-black/30 text-white opacity-40 hover:opacity-80"
+          }`}
+        >
+          <Pin className="size-3.5" />
+        </button>
+      )}
+      <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
+        {/* Cover */}
+        <div className="relative h-36 overflow-hidden" style={trip.cover_image_url ? {} : { backgroundColor: colour }}>
+          {trip.cover_image_url ? (
+            <img src={trip.cover_image_url} alt={trip.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-end p-4">
+              <span className="text-white font-bold text-base leading-tight line-clamp-3 drop-shadow">{trip.title}</span>
+            </div>
           )}
-          <span className="flex items-center gap-1">
-            <MapPin className="size-3" />
-            {trip.place_count} lugares
-          </span>
         </div>
 
-        {(trip.companions ?? []).length > 0 && (
-          <div className="mt-3 flex -space-x-1.5">
-            {(trip.companions ?? []).slice(0, 4).map((c) => (
-              <div
-                key={c.id}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-[10px] font-semibold ring-2 ring-background"
-                title={c.display_name}
-              >
-                {c.display_name[0]}
-              </div>
-            ))}
-            {(trip.companions ?? []).length > 4 && (
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px] ring-2 ring-background">
-                +{(trip.companions ?? []).length - 4}
-              </div>
-            )}
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-semibold leading-tight">{trip.title}</h3>
+            <Icon className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
           </div>
-        )}
-      </div>
-    </button>
+
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+            {(trip.start_date || trip.end_date) && (
+              <span className="flex items-center gap-1">
+                <Calendar className="size-3" />
+                {formatDateRange(trip.start_date, trip.end_date)}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <MapPin className="size-3" />
+              {trip.place_count} lugares
+            </span>
+          </div>
+
+          {(trip.companions ?? []).length > 0 && (
+            <div className="mt-3 flex -space-x-1.5">
+              {(trip.companions ?? []).slice(0, 4).map((c) => (
+                <div
+                  key={c.id}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-[10px] font-semibold ring-2 ring-background"
+                  title={c.display_name}
+                >
+                  {c.display_name[0]}
+                </div>
+              ))}
+              {(trip.companions ?? []).length > 4 && (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px] ring-2 ring-background">
+                  +{(trip.companions ?? []).length - 4}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </button>
+      {pinMutation.error && (
+        <p className="mt-1 text-xs text-destructive px-1">{(pinMutation.error as Error).message}</p>
+      )}
+    </div>
   )
 }
 
@@ -136,6 +162,7 @@ function NewTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 export default function TripsPage() {
   const [showNew, setShowNew] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const { data: trips = [], isLoading } = useQuery({
     queryKey: ["trips"],
     queryFn: tripsApi.list,
@@ -172,7 +199,7 @@ export default function TripsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} onClick={() => navigate(`/viagens/${trip.id}`)} />
+            <TripCard key={trip.id} trip={trip} isOwner={trip.creator_id === user?.id} onClick={() => navigate(`/viagens/${trip.id}`)} />
           ))}
         </div>
       )}

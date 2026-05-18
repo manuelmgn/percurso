@@ -27,6 +27,9 @@ export interface VisitedPlacePublic {
   place_type: PlaceType
   country_code: string | null
   region_name: string | null
+  centroid_lng: number | null
+  centroid_lat: number | null
+  geometry_geojson: Record<string, unknown> | null
 }
 
 export interface UserPublic {
@@ -46,6 +49,7 @@ export interface TripPublicSummary {
   cover_image_url: string | null
   cover_colour: string | null
   place_count: number
+  is_pinned: boolean
 }
 
 export interface ProjectPublicSummary {
@@ -55,13 +59,30 @@ export interface ProjectPublicSummary {
   cover_colour: string | null
   target_place_count: number
   visited_place_count: number
+  is_pinned: boolean
+  is_archived: boolean
+}
+
+export interface ProfileStats {
+  total_places: number
+  total_countries: number
+  avg_project_completion: number
 }
 
 export interface UserProfile extends UserPublic {
-  trips: TripPublicSummary[]
-  projects: ProjectPublicSummary[]
+  pinned_trips: TripPublicSummary[]
+  recent_trips: TripPublicSummary[]
+  total_public_trip_count: number
+  pinned_projects: ProjectPublicSummary[]
+  active_projects: ProjectPublicSummary[]
+  total_public_project_count: number
+  stats: ProfileStats | null
   visited_place_count: number | null
   visited_places: VisitedPlacePublic[]
+}
+
+export interface SiteSettings {
+  allow_public_profiles_without_auth: boolean
 }
 
 export interface PlaceSummary {
@@ -214,6 +235,7 @@ export interface Trip {
   creator_display_name: string
   companions: Companion[]
   place_count: number
+  is_pinned: boolean
   places?: PlaceSummary[]
   media_links?: MediaLink[]
   shared_with?: SharedUser[]
@@ -236,6 +258,8 @@ export interface Project {
   collaborators: Companion[]
   target_place_count: number
   visited_place_count: number
+  is_pinned: boolean
+  is_archived: boolean
   target_places?: ProjectTargetPlace[]
   shared_with?: SharedUser[]
   media_links?: MediaLink[]
