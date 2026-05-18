@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft, Upload, Sparkles, Loader2, Target, Search, X,
-  UserPlus, FileText, Check, AlertCircle, Pencil, Trash2, Link2, ExternalLink,
+  UserPlus, FileText, AlertCircle, Pencil, Trash2, Link2, ExternalLink,
   CheckCircle2, Layers,
 } from "lucide-react"
 import { projectsApi, placesApi, tripsApi } from "@/lib/api"
