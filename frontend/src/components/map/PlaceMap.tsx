@@ -5,9 +5,9 @@ import { useMapStore } from "@/stores/map"
 import { getPlaceLabel, getPlaceColour, getCategoryColour, POLYGON_PLACE_TYPES } from "@/lib/placeTypes"
 
 const MAP_STYLES = {
-  light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
-  dark: import.meta.env.VITE_MAP_STYLE_DARK ?? "https://tiles.openfreemap.org/styles/dark",
-  minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://tiles.openfreemap.org/styles/positron",
+  light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+  dark: import.meta.env.VITE_MAP_STYLE_DARK ?? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
 }
 
 export interface MapPlace {
@@ -40,8 +40,13 @@ function whenReady(map: maplibregl.Map, fn: () => void): () => void {
     fn()
     return () => {}
   }
-  map.once("load", fn)
-  return () => map.off("load", fn)
+  let called = false
+  const run = () => { if (!called) { called = true; fn() } }
+  // `load` fires after style + glyphs are ready; `error` fires on style fetch failure.
+  // Guard with `called` so only one path wins.
+  map.once("load", run)
+  map.once("error", run)
+  return () => { map.off("load", run); map.off("error", run) }
 }
 
 export default function PlaceMap({ places, onPlaceClick, showHeatmap, showRoute, colourByType, fitBounds, className }: Props) {
