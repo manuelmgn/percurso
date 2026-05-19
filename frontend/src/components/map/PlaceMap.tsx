@@ -1,13 +1,34 @@
 import { useEffect, useRef, useState } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
+import type { StyleSpecification } from "maplibre-gl"
 import { useMapStore } from "@/stores/map"
 import { getPlaceLabel, getPlaceColour, getCategoryColour, POLYGON_PLACE_TYPES } from "@/lib/placeTypes"
+import type { MapStyle } from "@/stores/map"
 
-const MAP_STYLES = {
-  light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-  dark: import.meta.env.VITE_MAP_STYLE_DARK ?? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+// Carto's classic raster tiles have been free without an API key since 2014.
+// These are separate from the newer GL vector basemaps which now require a key.
+const DARK_RASTER: StyleSpecification = {
+  version: 8,
+  sources: {
+    carto: {
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      attribution: "© CARTO © OpenStreetMap contributors",
+    },
+  },
+  layers: [{ id: "carto-dark", type: "raster", source: "carto" }],
+}
+
+const MAP_STYLES: Record<MapStyle, string | StyleSpecification> = {
+  light: import.meta.env.VITE_MAP_STYLE_LIGHT ?? "https://tiles.openfreemap.org/styles/liberty",
+  dark: import.meta.env.VITE_MAP_STYLE_DARK ?? DARK_RASTER,
+  minimal: import.meta.env.VITE_MAP_STYLE_MINIMAL ?? "https://tiles.openfreemap.org/styles/positron",
 }
 
 export interface MapPlace {
