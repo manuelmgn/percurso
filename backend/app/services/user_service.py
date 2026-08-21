@@ -1,75 +1,70 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone
+from typing import Optional
 
-from app.core.security import hash_password, verify_password
-from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from sqlalchemy.orm import Session
 
-
-async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-    result = await db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+from app.auth import hash_password, verify_password, needs_rehash
+from app.models import User, UserRole
+from app.schemas import UserCreate, UserUpdate, UserPasswordChange
 
 
-async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
-    result = await db.execute(select(User).where(User.username == username))
-    return result.scalar_one_or_none()
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    return db.query(User).filter(User.username == username.strip().lower()).first()
 
 
-async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
-    return result.scalar_one_or_none()
-
-
-async def create_user(db: AsyncSession, data: UserCreate) -> User:
+def create_user(db: Session, data: UserCreate) -> User:
     user = User(
-        username=data.username,
-        email=data.email,
-        hashed_password=hash_password(data.password),
-        display_name=data.display_name,
+        username=data.username.strip().lower(),
+        password_hash=hash_password(data.password),
         role=data.role,
     )
     db.add(user)
-    await db.flush()
+    db.commit()
+    db.refresh(user)
     return user
 
 
-async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
-    user = await get_user_by_username(db, username)
-    if user is None:
-        return None
-    if not verify_password(password, user.hashed_password):
-        return None
-    if not user.is_active:
-        return None
+def update_user(db: Session, user: User, data: UserUpdate) -> User:
+    if data.username is not None:
+        user.username = data.username.strip().lower()
+    if data.role is not None:
+        user.role = data.role
+    if data.is_active is not None:
+        user.is_active = data.is_active
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
     return user
 
 
-async def update_user(db: AsyncSession, user: User, data: UserUpdate) -> User:
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
-    await db.flush()
+def change_password(db: Session, user: User, data: UserPasswordChange) -> bool:
+    if not verify_password(data.current_password, user.password_hash):
+        return False
+    user.password_hash = hash_password(data.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+def reset_password(db: Session, user: User, new_password: str) -> User:
+    user.password_hash = hash_password(new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
     return user
 
 
-async def deactivate_user(db: AsyncSession, user: User) -> User:
-    user.is_active = False
-    await db.flush()
+def check_and_update_password_hash(db: Session, user: User, password: str) -> User:
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(password)
+        db.commit()
+        db.refresh(user)
     return user
 
 
-async def reactivate_user(db: AsyncSession, user: User) -> User:
-    user.is_active = True
-    await db.flush()
-    return user
+def has_users(db: Session) -> bool:
+    return db.query(User).first() is not None
 
 
-async def change_password(db: AsyncSession, user: User, new_password: str) -> User:
-    user.hashed_password = hash_password(new_password)
-    await db.flush()
-    return user
-
-
-async def list_users(db: AsyncSession, skip: int = 0, limit: int = 50) -> list[User]:
-    result = await db.execute(select(User).offset(skip).limit(limit))
-    return list(result.scalars().all())
+def list_users(db: Session) -> list[User]:
+    return db.query(User).order_by(User.username).all()

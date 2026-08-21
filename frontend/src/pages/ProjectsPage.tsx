@@ -1,243 +1,109 @@
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
-import { Plus, Loader2, Target, Pin, Archive, X } from "lucide-react"
-import { projectsApi } from "@/lib/api"
-import { useAuthStore } from "@/stores/auth"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import type { Project } from "@/types"
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '@/api'
+import type { ProjectListItem } from '@/types'
 
-function ProgressBar({ current, total }: { current: number; total: number }) {
-  const pct = total === 0 ? 0 : Math.round((current / total) * 100)
-  return (
-    <div className="mt-3">
-      <div className="flex justify-between text-xs text-muted-foreground mb-1">
-        <span>{current} de {total} lugares visitados</span>
-        <span>{pct}%</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-400 transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  )
+const visibilityLabels: Record<ProjectListItem['visibility'], string> = {
+  all: 'Todos',
+  specific: 'Utilizadores específicos',
+  private: 'Privado',
 }
 
-function ProjectCard({ project, onClick, isOwner }: { project: Project; onClick: () => void; isOwner: boolean }) {
-  const queryClient = useQueryClient()
-  const colour = project.cover_colour ?? "#7C3AED"
+export function ProjectsPage() {
+  const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const pinMutation = useMutation({
-    mutationFn: () => project.is_pinned ? projectsApi.unpin(project.id) : projectsApi.pin(project.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
-  })
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true)
+        setProjects(await api.projects.list())
+      } catch (err: any) {
+        setError(err.message || 'Erro ao carregar projetos')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [])
 
-  return (
-    <div className="relative">
-      {isOwner && (
-        <button
-          onClick={(e) => { e.stopPropagation(); pinMutation.mutate() }}
-          title={project.is_pinned ? "Desafixar projeto" : "Fixar projeto no perfil"}
-          className={`absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full transition-all ${
-            project.is_pinned
-              ? "bg-primary text-primary-foreground opacity-100 shadow"
-              : "bg-black/30 text-white opacity-40 hover:opacity-80"
-          }`}
-        >
-          <Pin className="size-3.5" />
-        </button>
-      )}
-      <button onClick={onClick} className="glass-card p-0 text-left overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-200 w-full">
-        <div className="relative h-28 overflow-hidden" style={project.cover_image_url ? {} : { backgroundColor: colour }}>
-          {project.cover_image_url ? (
-            <img src={project.cover_image_url} alt={project.title} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-end p-3">
-              <span className="text-white font-bold text-sm leading-tight line-clamp-2 drop-shadow">{project.title}</span>
-            </div>
-          )}
-        </div>
-        <div className="p-4">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold leading-tight flex-1 min-w-0 truncate">{project.title}</h3>
-            {project.is_archived && (
-              <Badge variant="secondary" className="shrink-0 text-xs flex items-center gap-1">
-                <Archive className="size-2.5" />
-                Arquivado
-              </Badge>
-            )}
-          </div>
-          {project.description && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{project.description}</p>
-          )}
-          <ProgressBar current={project.visited_place_count} total={project.target_place_count} />
-        </div>
-      </button>
-      {pinMutation.error && (
-        <p className="mt-1 text-xs text-destructive px-1">{(pinMutation.error as Error).message}</p>
-      )}
-    </div>
-  )
-}
-
-function NewProjectModal({ onClose }: { onClose: () => void }) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [goal, setGoal] = useState("")
-  const queryClient = useQueryClient()
-
-  const mutation = useMutation({
-    mutationFn: (data: unknown) => projectsApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] })
-      onClose()
-    },
-  })
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="relative glass-sheet md:glass-panel w-full md:max-w-md p-6 animate-slide-up md:animate-fade-in md:rounded-3xl">
-        {/* Drag handle — mobile only */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/30 md:hidden" />
-
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Novo projeto</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1 -mr-1"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            mutation.mutate({ title, description, goal_description: goal })
-          }}
-          className="space-y-4"
-          noValidate
-        >
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Título</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Comarcas da Galiza"
-              required
-              className="h-11 text-base md:h-9 md:text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Descrição (opcional)</label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Breve descrição…"
-              className="h-11 text-base md:h-9 md:text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Objetivo (opcional)</label>
-            <Input
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="Visitar todas as comarcas…"
-              className="h-11 text-base md:h-9 md:text-sm"
-            />
-          </div>
-          {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
-          <div className="flex gap-3 pt-2" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-            <Button type="button" variant="outline" className="flex-1 h-11 md:h-9" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="flex-1 h-11 md:h-9" disabled={mutation.isPending}>
-              {mutation.isPending ? <Loader2 className="animate-spin" /> : "Criar"}
-            </Button>
-          </div>
-        </form>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <span className="sr-only">A carregar...</span>
       </div>
-    </div>
-  )
-}
-
-export default function ProjectsPage() {
-  const [showNew, setShowNew] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
-  const navigate = useNavigate()
-  const { user } = useAuthStore()
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["projects"],
-    queryFn: projectsApi.list,
-    staleTime: 30_000,
-  })
-
-  const visible = showArchived ? projects : projects.filter((p) => !p.is_archived)
-  const archivedCount = projects.filter((p) => p.is_archived).length
+    )
+  }
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Projetos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{visible.length} projeto{visible.length !== 1 ? "s" : ""}</p>
-        </div>
-        <Button onClick={() => setShowNew(true)}>
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Novo projeto</span>
-          <span className="sm:hidden">Novo</span>
-        </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl font-bold">Projetos</h2>
+        <Link to="/projetos/novo" className="btn-primary">
+          Novo projeto
+        </Link>
       </div>
 
-      {archivedCount > 0 && (
-        <div className="mb-4">
-          <button
-            onClick={() => setShowArchived((v) => !v)}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Archive className="size-3.5" />
-            {showArchived ? "Ocultar arquivados" : `Mostrar arquivados (${archivedCount})`}
-          </button>
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {error}
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : visible.length === 0 ? (
-        <div className="glass-card p-12 md:p-16 text-center">
-          <Target className="mx-auto mb-4 size-12 text-purple-300" />
-          <h3 className="text-lg font-semibold mb-2">Ainda sem projetos</h3>
-          <p className="text-muted-foreground mb-6">Cria um projeto para organizar as tuas metas de viagem.</p>
-          <Button onClick={() => setShowNew(true)}>
-            <Plus className="size-4" />
-            Criar projeto
-          </Button>
+      {projects.length === 0 && !error ? (
+        <div className="card flex flex-col items-center py-12 text-center">
+          <svg className="h-12 w-12 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="mt-4 font-display text-lg font-semibold">Ainda não tens projetos</h3>
+          <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
+            Cria um projeto para juntares lugares e acompanhares o teu progresso.
+          </p>
+          <Link to="/projetos/novo" className="btn-primary mt-6">
+            Criar o meu primeiro projeto
+          </Link>
         </div>
       ) : (
-        /* 1 col mobile, 2 tablet, 3 desktop */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((p) => (
-            <ProjectCard
-              key={p.id}
-              project={p}
-              isOwner={p.creator_id === user?.id}
-              onClick={() => navigate(`/projetos/${p.id}`)}
-            />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map((project) => (
+            <Link
+              key={project.id}
+              to={`/projetos/${project.id}`}
+              className="card block transition-shadow hover:shadow-lg"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                  {project.name}
+                </p>
+                {project.is_completed && (
+                  <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
+                    Concluído
+                  </span>
+                )}
+              </div>
+              {project.description && (
+                <p className="mt-1 line-clamp-2 text-sm text-neutral-500 dark:text-neutral-400">
+                  {project.description}
+                </p>
+              )}
+              <div className="mt-4">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                  <div
+                    className="h-full rounded-full bg-primary-600 transition-all"
+                    style={{ width: `${project.progress_percent}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  {project.visited_places} de {project.total_places} visitados · {Math.round(project.progress_percent)}% ·{' '}
+                  {visibilityLabels[project.visibility]}
+                </p>
+              </div>
+            </Link>
           ))}
         </div>
       )}
-
-      {showNew && <NewProjectModal onClose={() => setShowNew(false)} />}
     </div>
   )
 }

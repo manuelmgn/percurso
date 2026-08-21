@@ -1,0 +1,298 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { api } from '@/api'
+import { useAuth } from '@/context/AuthContext'
+import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
+import type { ProjectListItem, User, Visibility } from '@/types'
+
+function UserChecklist({
+  users,
+  selectedIds,
+  onToggle,
+}: {
+  users: User[]
+  selectedIds: number[]
+  onToggle: (id: number) => void
+}) {
+  if (users.length === 0) {
+    return <p className="text-sm text-neutral-500 dark:text-neutral-400">Não há outros utilizadores.</p>
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {users.map((u) => {
+        const checked = selectedIds.includes(u.id)
+        return (
+          <label
+            key={u.id}
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
+              checked
+                ? 'border-primary-500 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggle(u.id)}
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+            />
+            {u.username}
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
+export function TripEditPage() {
+  const { id } = useParams<{ id: string }>()
+  const isEdit = Boolean(id)
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const presetProjectId = Number(searchParams.get('projeto')) || null
+
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [companionsText, setCompanionsText] = useState('')
+  const [visibility, setVisibility] = useState<Visibility>('all')
+  const [places, setPlaces] = useState<PickedPlace[]>([])
+  const [participantIds, setParticipantIds] = useState<number[]>([])
+  const [visibleUserIds, setVisibleUserIds] = useState<number[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [projects, setProjects] = useState<ProjectListItem[]>([])
+  const [projectIds, setProjectIds] = useState<number[]>(presetProjectId ? [presetProjectId] : [])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true)
+        const allUsers = await api.users.list()
+        setUsers(allUsers.filter((u) => u.id !== user?.id))
+        setProjects(await api.projects.list())
+
+        if (isEdit) {
+          const trip = await api.trips.get(Number(id))
+          setStartDate(trip.start_date)
+          setEndDate(trip.end_date)
+          setNotes(trip.notes || '')
+          setCompanionsText(trip.companions_text || '')
+          setVisibility(trip.visibility)
+          setPlaces(
+            trip.places.map((p) => ({
+              id: p.place_id,
+              name: p.place_name,
+              place_type: p.place_type,
+              hierarchy: p.place_hierarchy,
+            }))
+          )
+          setParticipantIds(trip.participants.map((u) => u.id))
+          setVisibleUserIds(trip.visible_users.map((u) => u.id))
+          setProjectIds(trip.projects.map((p) => p.id))
+        }
+      } catch (err: any) {
+        setError(err.message || 'Erro ao carregar dados')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [id, isEdit, user?.id])
+
+  const toggleId = (list: number[], idToToggle: number) =>
+    list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsSubmitting(true)
+
+    const data = {
+      start_date: startDate,
+      end_date: endDate || startDate,
+      notes: notes || undefined,
+      companions_text: companionsText || undefined,
+      visibility,
+      place_ids: places.map((p) => p.id),
+      project_ids: projectIds,
+      participant_ids: participantIds,
+      visible_user_ids: visibility === 'specific' ? visibleUserIds : [],
+    }
+
+    try {
+      if (isEdit) {
+        const trip = await api.trips.update(Number(id), data)
+        navigate(`/viagens/${trip.id}`)
+      } else {
+        const trip = await api.trips.create(data)
+        navigate(`/viagens/${trip.id}`)
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao guardar viagem')
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCancel = () => {
+    navigate(isEdit ? `/viagens/${id}` : '/viagens')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <span className="sr-only">A carregar...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="font-display text-2xl font-bold">{isEdit ? 'Editar viagem' : 'Nova viagem'}</h2>
+
+      <div className="card max-w-2xl">
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="start_date">Data de início</label>
+              <input
+                id="start_date"
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="end_date">Data de fim</label>
+              <input
+                id="end_date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="input"
+              />
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                Se ficar vazia, usa a data de início.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Lugares visitados</label>
+            <PlacePicker selected={places} onChange={setPlaces} />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Projetos</label>
+            {projects.length === 0 ? (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Não há projetos disponíveis.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {projects.map((p) => {
+                  const checked = projectIds.includes(p.id)
+                  return (
+                    <label
+                      key={p.id}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
+                        checked
+                          ? 'border-primary-500 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                          : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setProjectIds((prev) => toggleId(prev, p.id))}
+                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      {p.name}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="notes">Notas</label>
+            <textarea
+              id="notes"
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Companheiros (utilizadores)</label>
+            <UserChecklist
+              users={users}
+              selectedIds={participantIds}
+              onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="companions">Outra companhia (texto livre)</label>
+            <input
+              id="companions"
+              type="text"
+              value={companionsText}
+              onChange={(e) => setCompanionsText(e.target.value)}
+              placeholder="Ex.: família, amigos, sozinho..."
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="visibility">Visibilidade</label>
+            <select
+              id="visibility"
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Visibility)}
+              className="input"
+            >
+              <option value="all">Todos</option>
+              <option value="specific">Utilizadores específicos</option>
+              <option value="private">Privado</option>
+            </select>
+          </div>
+
+          {visibility === 'specific' && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Visível para</label>
+              <UserChecklist
+                users={users}
+                selectedIds={visibleUserIds}
+                onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button type="submit" disabled={isSubmitting} className="btn-primary">
+              {isSubmitting ? 'A guardar...' : 'Guardar'}
+            </button>
+            <button type="button" onClick={handleCancel} className="btn-outline">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

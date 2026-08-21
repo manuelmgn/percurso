@@ -1,334 +1,185 @@
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { adminApi, usersApi } from "@/lib/api"
-import { useAuthStore } from "@/stores/auth"
-import { Loader2, Users, Map, Briefcase, FolderOpen, CheckCircle, XCircle, Plus, Settings, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import type { User } from "@/types"
+import { useEffect, useState } from 'react'
+import { api } from '@/api'
+import type { User, UserCreate } from '@/types'
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number | string }) {
-  return (
-    <div className="glass-card p-4 md:p-5 flex items-center gap-3 md:gap-4">
-      <div className="flex h-10 w-10 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-        <Icon className="size-5 md:size-6 text-primary" />
-      </div>
-      <div>
-        <p className="text-xl md:text-2xl font-bold">{value}</p>
-        <p className="text-xs md:text-sm text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  )
-}
+export function AdminPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newRole, setNewRole] = useState<UserCreate['role']>('user')
 
-function CreateUserForm({ onCreated }: { onCreated: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [role, setRole] = useState<"user" | "admin">("user")
-  const queryClient = useQueryClient()
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true)
+      const data = await api.users.list()
+      setUsers(data)
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar utilizadores')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const mutation = useMutation({
-    mutationFn: (data: unknown) => usersApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] })
-      setUsername("")
-      setEmail("")
-      setPassword("")
-      setRole("user")
-      setOpen(false)
-      onCreated()
-    },
-  })
+  useEffect(() => {
+    loadUsers()
+  }, [])
 
-  if (!open) {
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await api.users.create({ username: newUsername, password: newPassword, role: newRole })
+      setNewUsername('')
+      setNewPassword('')
+      setNewRole('user')
+      await loadUsers()
+    } catch (err: any) {
+      setError(err.message || 'Erro ao criar utilizador')
+    }
+  }
+
+  const handleToggleActive = async (user: User) => {
+    try {
+      await api.users.update(user.id, { is_active: !user.is_active })
+      await loadUsers()
+    } catch (err: any) {
+      setError(err.message || 'Erro ao atualizar utilizador')
+    }
+  }
+
+  const handleResetPassword = async (user: User) => {
+    const password = prompt(`Nova palavra-passe para ${user.username} (mín. 8 caracteres):`)
+    if (!password || password.length < 8) return
+    try {
+      await api.users.resetPassword(user.id, password)
+      alert('Palavra-passe redefinida')
+    } catch (err: any) {
+      setError(err.message || 'Erro ao redefinir palavra-passe')
+    }
+  }
+
+  const handleDelete = async (user: User) => {
+    if (!confirm(`Tens a certeza que queres eliminar ${user.username}?`)) return
+    try {
+      await api.users.delete(user.id)
+      await loadUsers()
+    } catch (err: any) {
+      setError(err.message || 'Erro ao eliminar utilizador')
+    }
+  }
+
+  if (isLoading) {
     return (
-      <Button onClick={() => setOpen(true)} size="sm">
-        <Plus className="size-4" />
-        Criar utilizador
-      </Button>
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      </div>
     )
   }
 
   return (
-    <div className="glass-card p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Criar utilizador</h2>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1"
-        >
-          <X className="size-4" />
-        </button>
+    <div className="space-y-6">
+      <h2 className="font-display text-2xl font-bold">Administração</h2>
+
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="glass rounded-2xl p-6">
+        <h3 className="mb-4 font-display text-lg font-semibold">Criar utilizador</h3>
+        <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-4">
+          <input
+            type="text"
+            placeholder="Nome de utilizador"
+            required
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value)}
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <input
+            type="password"
+            placeholder="Palavra-passe"
+            required
+            minLength={8}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <select
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <option value="user">Utilizador</option>
+            <option value="admin">Administrador</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+          >
+            Criar
+          </button>
+        </form>
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          mutation.mutate({ username, email, password, display_name: username, role })
-        }}
-        className="space-y-3"
-        noValidate
-      >
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Nome de utilizador</label>
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="utilizador" required className="h-11 text-base md:h-9 md:text-sm" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Email</label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" required className="h-11 text-base md:h-9 md:text-sm" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Palavra-passe</label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="h-11 text-base md:h-9 md:text-sm" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Função</label>
-            <div className="glass flex rounded-xl p-1 gap-1 h-11 md:h-10">
-              {(["user", "admin"] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex-1 rounded-lg text-xs font-medium transition-all ${
-                    role === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {r === "admin" ? "Admin" : "Utilizador"}
-                </button>
+
+      <div className="glass rounded-2xl p-6">
+        <h3 className="mb-4 font-display text-lg font-semibold">Utilizadores</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-left dark:border-neutral-800">
+                <th className="pb-2 font-medium">Utilizador</th>
+                <th className="pb-2 font-medium">Função</th>
+                <th className="pb-2 font-medium">Estado</th>
+                <th className="pb-2 font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className="border-b border-neutral-100 dark:border-neutral-900">
+                  <td className="py-3">{user.username}</td>
+                  <td className="py-3">{user.role === 'admin' ? 'Administrador' : 'Utilizador'}</td>
+                  <td className="py-3">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${
+                        user.is_active
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                      }`}
+                    >
+                      {user.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="py-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleToggleActive(user)}
+                        className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                      >
+                        {user.is_active ? 'Desativar' : 'Ativar'}
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(user)}
+                        className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                      >
+                        Reset pwd
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user)}
+                        className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
-        {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
-        <div className="flex gap-3 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button type="submit" size="sm" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : "Criar"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-export default function AdminPage() {
-  const queryClient = useQueryClient()
-  const { user: currentUser } = useAuthStore()
-  const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: adminApi.stats })
-  const { data: health } = useQuery({ queryKey: ["admin-health"], queryFn: adminApi.health, refetchInterval: 30_000 })
-  const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["admin-users"], queryFn: usersApi.list })
-  const { data: siteSettings } = useQuery({ queryKey: ["admin-settings"], queryFn: adminApi.getSettings })
-
-  const deactivate = useMutation({
-    mutationFn: usersApi.deactivate,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
-  })
-  const reactivate = useMutation({
-    mutationFn: usersApi.reactivate,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
-  })
-  const updateSettings = useMutation({
-    mutationFn: adminApi.updateSettings,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-settings"] }),
-  })
-
-  return (
-    <div className="p-4 md:p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Painel de administração</h1>
-
-      {/* Stats — 2 cols on mobile, 4 on desktop */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <StatCard icon={Users} label="Utilizadores" value={stats.users} />
-          <StatCard icon={Briefcase} label="Viagens" value={stats.trips} />
-          <StatCard icon={FolderOpen} label="Projetos" value={stats.projects} />
-          <StatCard icon={Map} label="Lugares únicos" value={stats.unique_places} />
-        </div>
-      )}
-
-      {/* Health */}
-      {health && (
-        <div className="glass-card p-4 md:p-5">
-          <h2 className="font-semibold mb-3">Estado do sistema</h2>
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(health).map(([key, status]) => (
-              <div key={key} className="flex items-center gap-2">
-                {status === "ok"
-                  ? <CheckCircle className="size-4 text-green-500" />
-                  : <XCircle className="size-4 text-destructive" />}
-                <span className="text-sm capitalize">{key}</span>
-                <Badge variant={status === "ok" ? "purple" : "destructive"}>{status}</Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Site settings */}
-      {siteSettings !== undefined && (
-        <div className="glass-card p-4 md:p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="size-4 text-muted-foreground" />
-            <h2 className="font-semibold">Configurações do site</h2>
-          </div>
-          <label className="flex items-start sm:items-center justify-between gap-4 cursor-pointer">
-            <div>
-              <p className="text-sm font-medium">Permitir acesso a perfis públicos sem sessão iniciada</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Quando desativado, utilizadores não autenticados são redirecionados para o login.
-              </p>
-            </div>
-            <button
-              role="switch"
-              aria-checked={siteSettings.allow_public_profiles_without_auth}
-              onClick={() =>
-                updateSettings.mutate({
-                  allow_public_profiles_without_auth: !siteSettings.allow_public_profiles_without_auth,
-                })
-              }
-              disabled={updateSettings.isPending}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                siteSettings.allow_public_profiles_without_auth ? "bg-primary" : "bg-input"
-              }`}
-            >
-              <span
-                className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
-                  siteSettings.allow_public_profiles_without_auth ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </label>
-        </div>
-      )}
-
-      {/* Create user */}
-      <CreateUserForm onCreated={() => {}} />
-
-      {/* Users — table on desktop, cards on mobile */}
-      <div className="glass-card overflow-hidden">
-        <div className="p-4 md:p-5 border-b border-border/50">
-          <h2 className="font-semibold">Utilizadores</h2>
-        </div>
-        {usersLoading ? (
-          <div className="flex justify-center p-12">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            {/* Mobile: stacked cards */}
-            <div className="md:hidden divide-y divide-border/50">
-              {users.map((user: User) => (
-                <div key={user.id} className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-sm">{user.display_name}</p>
-                      <p className="text-xs text-muted-foreground">@{user.username}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{user.email}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs">
-                        {user.role === "admin" ? "Admin" : "Utilizador"}
-                      </Badge>
-                      <Badge variant={user.is_active ? "purple" : "outline"} className="text-xs">
-                        {user.is_active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </div>
-                  </div>
-                  {user.id !== currentUser?.id && (
-                    <div className="flex justify-end">
-                      {user.is_active ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => deactivate.mutate(user.id)}
-                          disabled={deactivate.isPending}
-                        >
-                          Desativar
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => reactivate.mutate(user.id)}
-                          disabled={reactivate.isPending}
-                        >
-                          Reativar
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop: table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30">
-                  <tr className="text-left">
-                    <th className="px-5 py-3 font-medium text-muted-foreground">Utilizador</th>
-                    <th className="px-5 py-3 font-medium text-muted-foreground">Email</th>
-                    <th className="px-5 py-3 font-medium text-muted-foreground">Função</th>
-                    <th className="px-5 py-3 font-medium text-muted-foreground">Estado</th>
-                    <th className="px-5 py-3 font-medium text-muted-foreground">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user: User) => (
-                    <tr key={user.id} className="border-t border-border/30 hover:bg-muted/20 transition-colors">
-                      <td className="px-5 py-3">
-                        <div>
-                          <p className="font-medium">{user.display_name}</p>
-                          <p className="text-xs text-muted-foreground">@{user.username}</p>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-muted-foreground">{user.email}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                          {user.role === "admin" ? "Admin" : "Utilizador"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant={user.is_active ? "purple" : "outline"}>
-                          {user.is_active ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3">
-                        {user.id === currentUser?.id ? null : user.is_active ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deactivate.mutate(user.id)}
-                            disabled={deactivate.isPending}
-                          >
-                            Desativar
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => reactivate.mutate(user.id)}
-                            disabled={reactivate.isPending}
-                          >
-                            Reativar
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
       </div>
     </div>
   )

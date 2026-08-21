@@ -1,104 +1,72 @@
-import { useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import { useAuthStore } from "@/stores/auth"
-import { authApi } from "@/lib/api"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
 
-export default function LoginPage() {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { setToken, setUser } = useAuthStore()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from ?? "/mapa"
+export function LoginPage() {
+  const { login } = useAuth()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
+    setError('')
+    setIsSubmitting(true)
+
     try {
-      const result = await authApi.login(username, password)
-      setToken(result.access_token)
-      setUser(result.user)
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao iniciar sessão")
+      await login(username, password)
+    } catch (err: any) {
+      setError(err.message || 'Erro ao iniciar sessão')
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-purple-100 dark:from-purple-950/30 dark:via-background dark:to-purple-900/20 p-4">
-      {/* Background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-purple-200/40 blur-3xl dark:bg-purple-800/20" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-purple-300/30 blur-3xl dark:bg-purple-900/20" />
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-neutral-900 dark:to-neutral-950">
+      <div className="glass w-full max-w-sm rounded-2xl p-8">
+        <h1 className="mb-2 text-center font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
+          Percursos
+        </h1>
+        <p className="mb-8 text-center text-neutral-600 dark:text-neutral-400">Inicia sessão para continuar</p>
 
-      <div className="glass-panel relative w-full max-w-md p-8">
-        {/* Logo */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold gradient-text tracking-tight">Percurso</h1>
-          <p className="mt-2 text-muted-foreground">Os teus lugares, as tuas viagens</p>
-        </div>
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">
-              Nome de utilizador
-            </label>
-            <Input
+            <label className="mb-1 block text-sm font-medium">Nome de utilizador</label>
+            <input
               type="text"
-              placeholder="utilizador"
+              required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              required
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">
-              Palavra-passe
-            </label>
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <label className="mb-1 block text-sm font-medium">Palavra-passe</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+            />
           </div>
 
-          {error && (
-            <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
-          </Button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          >
+            {isSubmitting ? 'A entrar...' : 'Entrar'}
+          </button>
         </form>
-
-
       </div>
     </div>
   )

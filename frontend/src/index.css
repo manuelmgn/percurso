@@ -4,166 +4,98 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
-    --foreground: 260 20% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 260 20% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 260 20% 10%;
-
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 262 20% 95%;
-    --secondary-foreground: 262 50% 30%;
-
-    --muted: 260 10% 94%;
-    --muted-foreground: 260 10% 45%;
-
-    --accent: 262 50% 92%;
-    --accent-foreground: 262 60% 30%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 260 15% 88%;
-    --input: 260 15% 88%;
-    --ring: 262 83% 58%;
-
-    --radius: 0.75rem;
-
-    /* Glass effect tokens — liquid glass, light mode */
-    --glass-bg: rgba(255, 255, 255, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.7);
-    --glass-shadow: 0 8px 40px rgba(124, 58, 237, 0.1), 0 2px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    --glass-blur: 24px;
-
-    /* Bottom nav / sheet */
-    --sheet-bg: rgba(248, 247, 252, 0.88);
-    --sheet-border: rgba(255, 255, 255, 0.65);
+    --color-primary: #c1075d;
+    --color-secondary: #e06f56;
+    --color-accent: #ffd64e;
+    --color-tertiary: #6b21a8;
+    --color-bg: #faf9f8;
+    --color-surface: rgba(255, 255, 255, 0.7);
+    --color-border: rgba(255, 255, 255, 0.4);
+    --color-text: #2a2620;
+    --color-text-muted: #7a756d;
   }
 
   .dark {
-    --background: 260 25% 7%;
-    --foreground: 260 10% 92%;
-
-    --card: 260 22% 10%;
-    --card-foreground: 260 10% 92%;
-
-    --popover: 260 22% 10%;
-    --popover-foreground: 260 10% 92%;
-
-    --primary: 263 70% 65%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 262 20% 18%;
-    --secondary-foreground: 262 30% 80%;
-
-    --muted: 260 15% 16%;
-    --muted-foreground: 260 10% 55%;
-
-    --accent: 262 30% 22%;
-    --accent-foreground: 262 30% 85%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 260 15% 20%;
-    --input: 260 15% 20%;
-    --ring: 263 70% 65%;
-
-    /* Glass effect tokens — liquid glass, dark mode */
-    --glass-bg: rgba(12, 8, 25, 0.82);
-    --glass-border: rgba(124, 58, 237, 0.22);
-    --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), 0 2px 12px rgba(124, 58, 237, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    --glass-blur: 24px;
-
-    --sheet-bg: rgba(18, 12, 35, 0.92);
-    --sheet-border: rgba(124, 58, 237, 0.2);
+    --color-bg: #17140f;
+    --color-surface: rgba(42, 38, 32, 0.7);
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-text: #faf9f8;
+    --color-text-muted: #a09a92;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  html {
+    @apply antialiased;
+    color-scheme: light dark;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    /* Prevent horizontal overflow on mobile */
-    overflow-x: hidden;
+    @apply bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar {
-    @apply w-1.5;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', 'Inter', system-ui, sans-serif;
+    @apply text-neutral-900 dark:text-neutral-50;
   }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-neutral-900;
   }
-  ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-muted-foreground/30;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer components {
-  /* Liquid glass surface */
   .glass {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    backdrop-filter: saturate(180%) blur(var(--glass-blur));
-    -webkit-backdrop-filter: saturate(180%) blur(var(--glass-blur));
+    @apply rounded-glass border backdrop-blur-md transition-all duration-200;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
   }
 
-  .glass-card {
-    @apply glass rounded-2xl;
+  .dark .glass {
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
   }
 
-  .glass-panel {
-    @apply glass rounded-3xl;
+  @media (min-width: 768px) {
+    .glass {
+      @apply backdrop-blur-xl;
+    }
   }
 
-  /* Bottom sheet / bottom nav glass — attaches to bottom edge */
-  .glass-sheet {
-    background: var(--sheet-bg);
-    border-top: 1px solid var(--sheet-border);
-    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12), 0 -2px 8px rgba(124, 58, 237, 0.08);
-    backdrop-filter: saturate(180%) blur(var(--glass-blur));
-    -webkit-backdrop-filter: saturate(180%) blur(var(--glass-blur));
+  .btn-primary {
+    @apply rounded-xl bg-primary-700 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-800 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
 
-  /* Purple gradient text */
-  .gradient-text {
-    @apply bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent;
+  .btn-secondary {
+    @apply rounded-xl bg-secondary-500 px-4 py-2 font-medium text-white transition-colors hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
 
-  /* Subtle purple glow */
-  .glow-purple {
-    box-shadow: 0 0 24px rgba(124, 58, 237, 0.28);
+  .btn-outline {
+    @apply rounded-xl border border-neutral-300 bg-transparent px-4 py-2 font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800;
   }
 
-  .glow-purple:hover {
-    box-shadow: 0 0 36px rgba(124, 58, 237, 0.44);
+  .input {
+    @apply w-full rounded-xl border border-neutral-300 bg-white px-4 py-2 text-neutral-900 placeholder-neutral-400 transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50;
   }
 
-  /* Floating pill — used for map view toggle and similar */
-  .pill-float {
-    @apply glass rounded-full shadow-xl;
+  .card {
+    @apply glass p-6;
   }
 }
 
-/* MapLibre GL */
-.maplibregl-map {
-  font-family: "Inter", sans-serif;
-}
+@layer utilities {
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-primary-700 focus:px-4 focus:py-2 focus:text-white;
+  }
 
-.maplibregl-ctrl-group {
-  @apply glass rounded-xl overflow-hidden;
-  border: 1px solid var(--glass-border) !important;
+  .text-balance {
+    text-wrap: balance;
+  }
 }

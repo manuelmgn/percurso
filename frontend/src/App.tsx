@@ -1,99 +1,67 @@
-import { useState, useEffect } from "react"
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
-import AppShell from "@/components/layout/AppShell"
-import ProtectedRoute from "@/components/shared/ProtectedRoute"
-import LoginPage from "@/pages/LoginPage"
-import MapPage from "@/pages/MapPage"
-import TripsPage from "@/pages/TripsPage"
-import ProjectsPage from "@/pages/ProjectsPage"
-import ActivityPage from "@/pages/ActivityPage"
-import SettingsPage from "@/pages/SettingsPage"
-import AdminPage from "@/pages/AdminPage"
-import TripDetailPage from "@/pages/TripDetailPage"
-import ProjectDetailPage from "@/pages/ProjectDetailPage"
-import SharedTripPage from "@/pages/SharedTripPage"
-import SharedProjectPage from "@/pages/SharedProjectPage"
-import PlaceDetailPage from "@/pages/PlaceDetailPage"
-import ProfilePage from "@/pages/ProfilePage"
-import PublicTripsPage from "@/pages/PublicTripsPage"
-import PublicProjectsPage from "@/pages/PublicProjectsPage"
-import PublicLayout from "@/components/layout/PublicLayout"
-import { useAuthStore } from "@/stores/auth"
-import { usersApi } from "@/lib/api"
-import type { User } from "@/types"
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Layout } from '@/components/Layout'
+import { useAuth } from '@/context/AuthContext'
+import { SetupPage } from '@/pages/SetupPage'
+import { LoginPage } from '@/pages/LoginPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { TripsPage } from '@/pages/TripsPage'
+import { TripDetailPage } from '@/pages/TripDetailPage'
+import { TripEditPage } from '@/pages/TripEditPage'
+import { ProjectsPage } from '@/pages/ProjectsPage'
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage'
+import { ProjectEditPage } from '@/pages/ProjectEditPage'
+import { PlacesPage } from '@/pages/PlacesPage'
+import { PlaceDetailPage } from '@/pages/PlaceDetailPage'
+import { StatsPage } from '@/pages/StatsPage'
+import { SearchPage } from '@/pages/SearchPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { AdminPage } from '@/pages/AdminPage'
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Never retry after a 401 — the user has been logged out already.
-      retry: (failureCount, error) =>
-        !(error instanceof Error && error.message.includes("Sessão expirada")) &&
-        failureCount < 1,
-      staleTime: 30_000,
-    },
-  },
-})
+function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+  const { user, isLoading, isSetupRequired } = useAuth()
 
-// Dark mode: apply class based on system preference or stored preference
-const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-if (prefersDark) document.documentElement.classList.add("dark")
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-  e.matches
-    ? document.documentElement.classList.add("dark")
-    : document.documentElement.classList.remove("dark")
-})
-
-// Background token refresh: retries once before logging out.
-// handleUnauthorized() clears the token immediately on the first 401, so we
-// check for it before retrying to avoid a pointless second request.
-async function refreshUser(setUser: (user: User) => void, logout: () => void) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      setUser(await usersApi.me())
-      return
-    } catch {
-      if (attempt === 0) {
-        // Wait briefly, then check if the token was already cleared by
-        // handleUnauthorized before deciding to retry.
-        await new Promise<void>((r) => setTimeout(r, 1500))
-        if (!useAuthStore.getState().token) return // already logged out
-      } else {
-        logout()
-      }
-    }
-  }
-}
-
-function AuthInitializer({ children }: { children: React.ReactNode }) {
-  const { token, user, setUser, logout } = useAuthStore()
-  // If the user is already in the persisted store we can render immediately.
-  // Otherwise (first load after clearing cache) we must wait for the fetch.
-  const [ready, setReady] = useState(!token || !!user)
-
-  useEffect(() => {
-    if (!token) {
-      setReady(true)
-      return
-    }
-    if (user) {
-      // Render immediately with cached user; refresh in the background to
-      // keep data fresh and to detect expired tokens.
-      setReady(true)
-      refreshUser(setUser, logout)
-      return
-    }
-    // No cached user — block render until the fetch completes.
-    refreshUser(setUser, logout).finally(() => setReady(true))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!ready) {
+  if (isLoading || isSetupRequired === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="A carregar">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <span className="sr-only">A carregar...</span>
       </div>
     )
+  }
+
+  if (isSetupRequired) {
+    return <Navigate to="/setup" replace />
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (adminOnly && user.role !== 'admin') {
+    return <Navigate to="/" replace />
+  }
+
+  return <>{children}</>
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading, isSetupRequired } = useAuth()
+
+  if (isLoading || isSetupRequired === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="A carregar">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <span className="sr-only">A carregar...</span>
+      </div>
+    )
+  }
+
+  if (isSetupRequired) {
+    return <Navigate to="/setup" replace />
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>
@@ -101,49 +69,34 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthInitializer>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/entrar" element={<LoginPage />} />
-          {/* Public shared-link routes — no auth required */}
-          <Route path="/viagens/partilhada/:token" element={<SharedTripPage />} />
-          <Route path="/projetos/partilhada/:token" element={<SharedProjectPage />} />
-          {/* Public profile routes — accessible without auth */}
-          <Route path="/perfil/:username" element={<PublicLayout><ProfilePage /></PublicLayout>} />
-          <Route path="/perfil/:username/viagens" element={<PublicLayout><PublicTripsPage /></PublicLayout>} />
-          <Route path="/perfil/:username/projetos" element={<PublicLayout><PublicProjectsPage /></PublicLayout>} />
-
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/mapa" replace />} />
-            <Route path="/mapa" element={<MapPage />} />
-            <Route path="/viagens" element={<TripsPage />} />
-            <Route path="/viagens/:id" element={<TripDetailPage />} />
-            <Route path="/projetos" element={<ProjectsPage />} />
-            <Route path="/projetos/:id" element={<ProjectDetailPage />} />
-            <Route path="/lugares/:osmId" element={<PlaceDetailPage />} />
-            <Route path="/atividade" element={<ActivityPage />} />
-            <Route path="/definicoes" element={<SettingsPage />} />
-              <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <AdminPage />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/mapa" replace />} />
-        </Routes>
-      </BrowserRouter>
-      </AuthInitializer>
-    </QueryClientProvider>
+    <Routes>
+      <Route path="/setup" element={<SetupPage />} />
+      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="viagens" element={<TripsPage />} />
+        <Route path="viagens/novo" element={<TripEditPage />} />
+        <Route path="viagens/:id" element={<TripDetailPage />} />
+        <Route path="viagens/:id/editar" element={<TripEditPage />} />
+        <Route path="projetos" element={<ProjectsPage />} />
+        <Route path="projetos/novo" element={<ProjectEditPage />} />
+        <Route path="projetos/:id" element={<ProjectDetailPage />} />
+        <Route path="projetos/:id/editar" element={<ProjectEditPage />} />
+        <Route path="lugares" element={<PlacesPage />} />
+        <Route path="lugares/:id" element={<PlaceDetailPage />} />
+        <Route path="estatisticas" element={<StatsPage />} />
+        <Route path="pesquisa" element={<SearchPage />} />
+        <Route path="perfil" element={<ProfilePage />} />
+        <Route path="admin" element={<AdminPage />} />
+        <Route path="*" element={<div className="p-8 text-center">Página não encontrada</div>} />
+      </Route>
+    </Routes>
   )
 }
