@@ -71,7 +71,7 @@ export function ProjectsPage() {
             <Link
               key={project.id}
               to={`/projetos/${project.id}`}
-              className="card block transition-shadow hover:shadow-lg"
+              className="card block"
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">

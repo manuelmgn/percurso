@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
+import { NotesEditor } from '@/components/NotesEditor'
+import { formatTripDateRange } from '@/utils/format'
 import type { ProjectListItem, User, Visibility } from '@/types'
 
 function UserChecklist({
@@ -52,6 +54,7 @@ export function TripEditPage() {
   const [searchParams] = useSearchParams()
   const presetProjectId = Number(searchParams.get('projeto')) || null
 
+  const [title, setTitle] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [notes, setNotes] = useState('')
@@ -77,6 +80,7 @@ export function TripEditPage() {
 
         if (isEdit) {
           const trip = await api.trips.get(Number(id))
+          setTitle(trip.title || '')
           setStartDate(trip.start_date)
           setEndDate(trip.end_date)
           setNotes(trip.notes || '')
@@ -112,6 +116,7 @@ export function TripEditPage() {
     setIsSubmitting(true)
 
     const data = {
+      title: title.trim() || undefined,
       start_date: startDate,
       end_date: endDate || startDate,
       notes: notes || undefined,
@@ -162,6 +167,26 @@ export function TripEditPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="title">Título (opcional)</label>
+            <input
+              id="title"
+              type="text"
+              maxLength={255}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={
+                startDate
+                  ? `Viagem ${formatTripDateRange(startDate, endDate || startDate)}`
+                  : 'Ex.: Férias no Alentejo'
+              }
+              className="input"
+            />
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              Se ficar vazio, usa-se "Viagem data de início – data de fim".
+            </p>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="start_date">Data de início</label>
@@ -227,14 +252,8 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="notes">Notas</label>
-            <textarea
-              id="notes"
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="input"
-            />
+            <label className="mb-1 block text-sm font-medium">Notas</label>
+            <NotesEditor value={notes} onChange={setNotes} />
           </div>
 
           <div>

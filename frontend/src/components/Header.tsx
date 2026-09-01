@@ -21,7 +21,7 @@ export function Header() {
           <Link to="/">Percursos</Link>
         </h1>
 
-        <form onSubmit={handleSearch} className="flex-1" role="search" aria-label="Pesquisa global">
+        <form onSubmit={handleSearch} className="min-w-0 flex-1" role="search" aria-label="Pesquisa global">
           <div className="relative">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400"
@@ -44,13 +44,19 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-2">
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white" aria-hidden="true">
-              {user?.username.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <Link
+            to={`/utilizadores/${user?.username}`}
+            aria-label="Ver o meu perfil público"
+            title="Ver o meu perfil público"
+          >
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white" aria-hidden="true">
+                {user?.username.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </Link>
         </div>
       </div>
     </header>

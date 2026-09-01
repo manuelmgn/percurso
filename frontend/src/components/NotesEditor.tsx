@@ -1,0 +1,269 @@
+import { useEffect, useRef, useState } from 'react'
+import { api } from '@/api'
+
+interface NotesEditorProps {
+  value: string
+  onChange: (html: string) => void
+  placeholder?: string
+}
+
+const toolbarButtonClass =
+  'rounded-lg px-2 py-1 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+
+// Keep in sync with ALLOWED_FONT_FACES in backend/app/sanitize.py.
+const FONT_OPTIONS = [
+  { label: 'Arial', value: 'Arial' },
+  { label: 'Georgia', value: 'Georgia' },
+  { label: 'Times New Roman', value: 'Times New Roman' },
+  { label: 'Courier New', value: 'Courier New' },
+  { label: 'Verdana', value: 'Verdana' },
+]
+
+// Extracts the video ID from the usual YouTube URL shapes.
+function youtubeVideoId(url: string): string | null {
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?[^#]*v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/
+  )
+  return match ? match[1] : null
+}
+
+// Lightweight contentEditable-based rich text editor (no external libs).
+// Controlled via innerHTML: the parent owns the HTML string.
+export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  // Keep the DOM in sync when the value changes from outside (e.g. initial load).
+  useEffect(() => {
+    const el = editorRef.current
+    if (el && el.innerHTML !== value) {
+      el.innerHTML = value
+    }
+  }, [value])
+
+  const handleInput = () => {
+    onChange(editorRef.current?.innerHTML ?? '')
+  }
+
+  const exec = (command: string, commandValue?: string) => {
+    editorRef.current?.focus()
+    document.execCommand(command, false, commandValue)
+    handleInput()
+  }
+
+  const handleLink = () => {
+    const url = window.prompt('URL da hiperligação:')
+    if (!url) return
+    exec('createLink', url)
+  }
+
+  const handleFontChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const font = e.target.value
+    e.target.value = ''
+    if (!font) return
+    exec('fontName', font)
+  }
+
+  const handleVideo = () => {
+    const url = window.prompt('URL do vídeo do YouTube:')
+    if (!url) return
+    const videoId = youtubeVideoId(url.trim())
+    if (!videoId) {
+      setUploadError('URL do YouTube inválido')
+      return
+    }
+    setUploadError('')
+    editorRef.current?.focus()
+    document.execCommand(
+      'insertHTML',
+      false,
+      `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe><p><br></p>`
+    )
+    handleInput()
+  }
+
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadError('')
+    setIsUploading(true)
+    try {
+      const image = await api.images.upload(file)
+      editorRef.current?.focus()
+      document.execCommand('insertHTML', false, `<img src="${image.url}" loading="lazy" alt="">`)
+      handleInput()
+    } catch (err: any) {
+      setUploadError(err.message || 'Erro ao carregar imagem')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-300 bg-white transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-2 py-1 dark:border-neutral-800">
+        <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title="Negrito" aria-label="Negrito">
+          B
+        </button>
+        <button type="button" onClick={() => exec('italic')} className={`${toolbarButtonClass} italic`} title="Itálico" aria-label="Itálico">
+          I
+        </button>
+        <button type="button" onClick={() => exec('underline')} className={`${toolbarButtonClass} underline`} title="Sublinhado" aria-label="Sublinhado">
+          U
+        </button>
+        <button type="button" onClick={() => exec('strikeThrough')} className={`${toolbarButtonClass} line-through`} title="Riscado" aria-label="Riscado">
+          S
+        </button>
+        <button type="button" onClick={() => exec('formatBlock', 'h2')} className={toolbarButtonClass} title="Título" aria-label="Título">
+          H2
+        </button>
+        <button type="button" onClick={() => exec('formatBlock', 'h3')} className={toolbarButtonClass} title="Subtítulo" aria-label="Subtítulo">
+          H3
+        </button>
+        <button type="button" onClick={() => exec('formatBlock', 'p')} className={toolbarButtonClass} title="Texto normal" aria-label="Texto normal">
+          ¶
+        </button>
+        <select
+          onChange={handleFontChange}
+          defaultValue=""
+          className="rounded-lg bg-transparent px-1 py-1 text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          title="Tipo de letra"
+          aria-label="Tipo de letra"
+        >
+          <option value="" disabled>
+            Tipo de letra
+          </option>
+          {FONT_OPTIONS.map((font) => (
+            <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+              {font.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => exec('formatBlock', 'blockquote')}
+          className={toolbarButtonClass}
+          title="Citação"
+          aria-label="Citação"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M6 7h4v4c0 3-1.5 5-4 6v-2c1.2-.6 2-1.7 2-3H6V7zm8 0h4v4c0 3-1.5 5-4 6v-2c1.2-.6 2-1.7 2-3h-2V7z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => exec('insertUnorderedList')}
+          className={toolbarButtonClass}
+          title="Lista com marcas"
+          aria-label="Lista com marcas"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+            <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+            <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+            <line x1="9" y1="6" x2="21" y2="6" />
+            <line x1="9" y1="12" x2="21" y2="12" />
+            <line x1="9" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => exec('insertOrderedList')}
+          className={toolbarButtonClass}
+          title="Lista numerada"
+          aria-label="Lista numerada"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="10" y1="6" x2="21" y2="6" />
+            <line x1="10" y1="12" x2="21" y2="12" />
+            <line x1="10" y1="18" x2="21" y2="18" />
+            <text x="3" y="8" fontSize="8" fill="currentColor" stroke="none">1</text>
+            <text x="3" y="14" fontSize="8" fill="currentColor" stroke="none">2</text>
+            <text x="3" y="20" fontSize="8" fill="currentColor" stroke="none">3</text>
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={handleLink}
+          className={toolbarButtonClass}
+          title="Inserir hiperligação"
+          aria-label="Inserir hiperligação"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className={toolbarButtonClass}
+          title="Inserir imagem"
+          aria-label="Inserir imagem"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={handleVideo}
+          className={toolbarButtonClass}
+          title="Inserir vídeo do YouTube"
+          aria-label="Inserir vídeo do YouTube"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="3" ry="3" />
+            <path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => exec('removeFormat')}
+          className={toolbarButtonClass}
+          title="Limpar formatação"
+          aria-label="Limpar formatação"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 20h16" />
+            <path d="M6 16l6-12 2.5 5" />
+            <path d="M9.5 12h5" />
+            <path d="M18 14l4 4m0-4l-4 4" />
+          </svg>
+        </button>
+        {isUploading && (
+          <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">A carregar imagem...</span>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic"
+          className="hidden"
+          onChange={handleImageFile}
+          aria-hidden="true"
+        />
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        data-placeholder={placeholder || 'Escreve as tuas notas...'}
+        className="notes-content min-h-[120px] px-4 py-3 text-sm text-neutral-900 outline-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)] dark:text-neutral-50"
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Notas"
+      />
+      {uploadError && (
+        <p className="border-t border-neutral-200 px-4 py-2 text-xs text-red-700 dark:border-neutral-800 dark:text-red-300">
+          {uploadError}
+        </p>
+      )}
+    </div>
+  )
+}

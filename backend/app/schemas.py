@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -72,6 +72,14 @@ class PublicStatus(BaseModel):
     setup_required: bool
 
 
+class PublicProfileResponse(BaseModel):
+    username: str
+    avatar_url: Optional[str] = None
+    created_at: datetime
+    trip_count: int
+    place_count: int
+
+
 # --- Place schemas ---
 
 from app.models import PlaceType, Visibility, MapMode
@@ -105,6 +113,23 @@ class PlaceSearchResult(BaseModel):
     lat: float
     lon: float
     is_cached: bool = False
+
+
+class PlaceOverviewItem(BaseModel):
+    """A place relevant to the current user: visited (in a visible trip)
+    and/or a target of a visible project."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    place_type: PlaceType
+    hierarchy: Optional[dict] = None
+    lat: float
+    lon: float
+    visit_count: int  # nº of visible trips that include the place
+    last_visited_at: Optional[date] = None  # latest end_date of those trips
+    is_project_target: bool
+    updated_at: datetime
 
 
 # --- Project schemas ---
@@ -202,6 +227,7 @@ class BulkImportResponse(BaseModel):
 # --- Trip schemas ---
 
 class TripBase(BaseModel):
+    title: Optional[str] = Field(None, max_length=255)
     start_date: datetime
     end_date: Optional[datetime] = None
     notes: Optional[str] = None
@@ -217,6 +243,7 @@ class TripCreate(TripBase):
 
 
 class TripUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=255)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     notes: Optional[str] = None
@@ -258,6 +285,7 @@ class TripListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    title: Optional[str] = None
     start_date: datetime
     end_date: datetime
     visibility: Visibility
@@ -270,6 +298,13 @@ class TripListResponse(BaseModel):
 
 class TripDeleteWarning(BaseModel):
     affected_projects: list[ProjectListResponse] = Field(default_factory=list)
+
+
+class PlaceDetailResponse(PlaceResponse):
+    """Place card plus its context for the current user: visible trips that
+    visited it and visible projects that target it."""
+    trips: list[TripListResponse] = Field(default_factory=list)
+    projects: list[ProjectListResponse] = Field(default_factory=list)
 
 
 # Resolve the forward reference used by ProjectResponse.trips
@@ -341,3 +376,18 @@ class StatsResponse(BaseModel):
     project_stats: list[ProjectStat]
     region_stats: list[RegionStat]
     most_visited: list[PlaceRanking]
+
+
+# --- Milestone schemas ---
+
+class MilestoneInfo(BaseModel):
+    key: str
+    kind: str  # project_progress (only completed projects are celebrated)
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    percent: Optional[int] = None
+    count: Optional[int] = None
+
+
+class MilestoneCheckResponse(BaseModel):
+    new_milestones: list[MilestoneInfo] = Field(default_factory=list)

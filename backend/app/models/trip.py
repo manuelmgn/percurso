@@ -31,6 +31,7 @@ trip_places = Table(
 class Trip(Base, TimestampMixin):
     __tablename__ = "trips"
 
+    title = Column(String(255), nullable=True)  # Optional; UI falls back to "Viagem <dates>"
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     notes = Column(Text, nullable=True)  # Sanitised HTML from WYSIWYG

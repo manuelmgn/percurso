@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
@@ -11,6 +11,25 @@ export function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setAvatarError('')
+    setIsUploadingAvatar(true)
+    try {
+      await api.me.uploadAvatar(file)
+      await refreshUser()
+    } catch (err: any) {
+      setAvatarError(err.message || 'Erro ao carregar fotografia')
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
 
   const handleThemeChange = async (newTheme: ThemePreference) => {
     setTheme(newTheme)
@@ -55,6 +74,49 @@ export function ProfilePage() {
               {user?.role === 'admin' ? 'Administrador' : 'Utilizador'}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="glass rounded-2xl p-6">
+        <h3 className="mb-4 font-display text-lg font-semibold">Fotografia de perfil</h3>
+        {avatarError && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {avatarError}
+          </div>
+        )}
+        <div className="flex items-center gap-4">
+          {user?.avatar_url ? (
+            <img
+              src={user.avatar_url}
+              alt={`Fotografia de ${user.username}`}
+              loading="lazy"
+              className="h-20 w-20 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-100 font-display text-3xl font-bold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+              {user?.username?.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="btn-outline"
+            >
+              {isUploadingAvatar ? 'A carregar...' : 'Alterar fotografia'}
+            </button>
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              JPEG, PNG, WebP ou HEIC. A imagem é convertida para WebP.
+            </p>
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            className="hidden"
+            onChange={handleAvatarChange}
+            aria-hidden="true"
+          />
         </div>
       </div>
 

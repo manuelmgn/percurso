@@ -3,6 +3,7 @@ import type {
   LoginRequest,
   SetupRequest,
   PublicStatus,
+  PublicUserProfile,
   User,
   UserCreate,
   UserUpdate,
@@ -18,11 +19,17 @@ import type {
   ProjectUpdate,
   StatsResponse,
   Place,
+  PlaceDetail,
+  PlaceOverviewItem,
   PlaceSearchResult,
   PlaceType,
   TripDeleteWarning,
   BulkImportLine,
   BulkImportResponse,
+  ActivityItem,
+  ImageUploadResponse,
+  MilestoneCheckResponse,
+  SearchResult,
 } from './types'
 
 async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -71,6 +78,34 @@ export class ApiError extends Error {
   }
 }
 
+// Multipart uploads must not send Content-Type: application/json — the browser
+// sets the multipart boundary itself. Shares fetchJson's error handling.
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const csrfToken = localStorage.getItem('csrf_token') || ''
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(path, {
+    method: 'POST',
+    body: formData,
+    headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    if (response.status === 401) {
+      localStorage.removeItem('csrf_token')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    throw new ApiError(response.status, body.detail || body.message || `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
 export const api = {
   health: () => fetchJson<{ status: string }>('/api/health'),
 
@@ -101,10 +136,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+    uploadAvatar: (file: File) => uploadFile<User>('/api/me/avatar', file),
+  },
+
+  activities: {
+    list: () => fetchJson<ActivityItem[]>('/api/activities/'),
+  },
+
+  images: {
+    upload: (file: File) => uploadFile<ImageUploadResponse>('/api/images/', file),
+  },
+
+  milestones: {
+    check: () => fetchJson<MilestoneCheckResponse>('/api/milestones/check', { method: 'POST' }),
   },
 
   users: {
     list: () => fetchJson<User[]>('/api/users/'),
+    publicProfile: (username: string) => fetchJson<PublicUserProfile>(`/api/users/public/${encodeURIComponent(username)}`),
     create: (data: UserCreate) => fetchJson<User>('/api/users/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -169,13 +218,18 @@ export const api = {
     get: () => fetchJson<StatsResponse>('/api/stats/'),
   },
 
+  search: {
+    query: (q: string) => fetchJson<SearchResult>(`/api/search/?q=${encodeURIComponent(q)}`),
+  },
+
   places: {
     search: (q: string) => fetchJson<PlaceSearchResult[]>(`/api/places/search?q=${encodeURIComponent(q)}`),
     import: (result: PlaceSearchResult) => fetchJson<Place>('/api/places/import', {
       method: 'POST',
       body: JSON.stringify(result),
     }),
-    get: (id: number) => fetchJson<Place>(`/api/places/${id}`),
+    get: (id: number) => fetchJson<PlaceDetail>(`/api/places/${id}`),
     visited: () => fetchJson<Place[]>('/api/places/visited'),
+    overview: () => fetchJson<PlaceOverviewItem[]>('/api/places/overview'),
   },
 }

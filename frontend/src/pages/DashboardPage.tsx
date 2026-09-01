@@ -3,14 +3,43 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/api'
 import { MapView, type MapMarker } from '@/components/MapView'
-import type { Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
+import { formatTripTitle } from '@/utils/format'
+import type { ActivityItem, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
 
-function formatDateRange(start: string, end: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })
-  const startFmt = fmt(start)
-  const endFmt = fmt(end)
-  return startFmt === endFmt ? startFmt : `${startFmt} – ${endFmt}`
+const activityActionLabels: Record<ActivityItem['action'], string> = {
+  created: 'criou',
+  updated: 'editou',
+  deleted: 'eliminou',
+}
+
+const activityEntityLabels: Record<ActivityItem['entity_type'], string> = {
+  trip: 'a viagem',
+  project: 'o projeto',
+  place: 'o lugar',
+  user: 'o utilizador',
+}
+
+function activityEntityPath(activity: ActivityItem): string | null {
+  if (activity.action === 'deleted') return null
+  switch (activity.entity_type) {
+    case 'trip':
+      return `/viagens/${activity.entity_id}`
+    case 'project':
+      return `/projetos/${activity.entity_id}`
+    case 'place':
+      return `/lugares/${activity.entity_id}`
+    default:
+      return null
+  }
+}
+
+function formatActivityDate(iso: string): string {
+  return new Date(iso).toLocaleString('pt-PT', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export function DashboardPage() {
@@ -19,6 +48,7 @@ export function DashboardPage() {
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<Place[]>([])
+  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -38,6 +68,11 @@ export function DashboardPage() {
           setStats(await api.stats.get())
         } catch {
           // stats são opcionais no dashboard
+        }
+        try {
+          setActivities(await api.activities.list())
+        } catch {
+          // a atividade recente é opcional no dashboard
         }
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar o dashboard')
@@ -76,11 +111,19 @@ export function DashboardPage() {
             </div>
           </>
         ) : (
-          <p className="mt-1 text-neutral-600 dark:text-neutral-400">
-            {stats
-              ? `${stats.summary.trip_count} ${stats.summary.trip_count === 1 ? 'viagem' : 'viagens'} · ${stats.summary.place_count} ${stats.summary.place_count === 1 ? 'lugar' : 'lugares'} · ${stats.summary.active_projects} ${stats.summary.active_projects === 1 ? 'projeto ativo' : 'projetos ativos'}`
-              : 'Aqui está um resumo dos teus projetos e viagens.'}
-          </p>
+          <>
+            <p className="mt-1 text-neutral-600 dark:text-neutral-400">
+              {stats
+                ? `${stats.summary.trip_count} ${stats.summary.trip_count === 1 ? 'viagem' : 'viagens'} · ${stats.summary.place_count} ${stats.summary.place_count === 1 ? 'lugar' : 'lugares'} · ${stats.summary.active_projects} ${stats.summary.active_projects === 1 ? 'projeto ativo' : 'projetos ativos'}`
+                : 'Aqui está um resumo dos teus projetos e viagens.'}
+            </p>
+            <Link
+              to="/estatisticas"
+              className="mt-2 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+            >
+              Ver estatísticas →
+            </Link>
+          </>
         )}
       </div>
 
@@ -92,7 +135,12 @@ export function DashboardPage() {
 
       {visitedPlaces.length > 0 && (
         <div className="card">
-          <h3 className="mb-3 font-display text-lg font-semibold">Os teus lugares no mapa</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold">Os teus lugares no mapa</h3>
+            <Link to="/lugares" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
+              Ver lugares →
+            </Link>
+          </div>
           <MapView
             variant="minimal"
             height="300px"
@@ -171,7 +219,7 @@ export function DashboardPage() {
                 <li key={trip.id}>
                   <Link to={`/viagens/${trip.id}`} className="block rounded-xl p-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800">
                     <p className="font-medium text-neutral-900 dark:text-neutral-50">
-                      {formatDateRange(trip.start_date, trip.end_date)}
+                      {formatTripTitle(trip)}
                     </p>
                     <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                       {trip.place_count} {trip.place_count === 1 ? 'lugar' : 'lugares'} ·{' '}
@@ -184,6 +232,40 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {activities.length > 0 && (
+        <div className="card">
+          <h3 className="mb-3 font-display text-lg font-semibold">Atividade recente</h3>
+          <ul className="space-y-3">
+            {activities.map((activity) => {
+              const path = activityEntityPath(activity)
+              return (
+                <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
+                  <p className="text-neutral-700 dark:text-neutral-300">
+                    <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                      {activity.user_username}
+                    </span>{' '}
+                    {activityActionLabels[activity.action]} {activityEntityLabels[activity.entity_type]}{' '}
+                    {path ? (
+                      <Link
+                        to={path}
+                        className="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                      >
+                        {activity.entity_name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{activity.entity_name}</span>
+                    )}
+                  </p>
+                  <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
+                    {formatActivityDate(activity.created_at)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

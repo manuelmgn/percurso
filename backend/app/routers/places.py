@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import User, Place, PlaceType
-from app.schemas import PlaceResponse, PlaceSearchResult
-from app.services import place_service, activity_service, visibility_service
+from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse, TripListResponse, ProjectListResponse
+from app.services import place_service, project_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/places", tags=["places"])
@@ -72,7 +72,32 @@ def visited_places(
     return sorted(places, key=lambda p: p.name)
 
 
-@router.get("/{place_id}", response_model=PlaceResponse)
+@router.get("/overview", response_model=list[PlaceOverviewItem])
+def places_overview(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Places relevant to the current user — visited (via trips they can see)
+    and/or targeted by projects they can see — with visit counts. Read-only:
+    places are only created from OSM via trips/projects."""
+    return [
+        PlaceOverviewItem(
+            id=item["place"].id,
+            name=item["place"].name,
+            place_type=item["place"].place_type,
+            hierarchy=item["place"].hierarchy,
+            lat=item["place"].lat,
+            lon=item["place"].lon,
+            visit_count=item["visit_count"],
+            last_visited_at=item["last_visited_at"],
+            is_project_target=item["is_project_target"],
+            updated_at=item["place"].updated_at,
+        )
+        for item in place_service.get_places_overview(db, user)
+    ]
+
+
+@router.get("/{place_id}", response_model=PlaceDetailResponse)
 def get_place(
     place_id: int,
     db: Session = Depends(get_db),
@@ -81,7 +106,58 @@ def get_place(
     place = place_service.get_place_by_id(db, place_id)
     if not place:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lugar não encontrado")
-    return place
+
+    # Only trips/projects the requester can actually see.
+    trips = [
+        t for t in visibility_service.get_visible_trips(db, user)
+        if any(tp.place_id == place.id for tp in t.places)
+    ]
+    projects = [
+        p for p in visibility_service.get_visible_projects(db, user)
+        if any(pp.place_id == place.id for pp in p.places)
+    ]
+
+    return PlaceDetailResponse(
+        id=place.id,
+        osm_type=place.osm_type,
+        osm_id=place.osm_id,
+        name=place.name,
+        place_type=place.place_type,
+        hierarchy=place.hierarchy,
+        lat=place.lat,
+        lon=place.lon,
+        polygon=place.polygon,
+        created_at=place.created_at,
+        updated_at=place.updated_at,
+        trips=[
+            TripListResponse(
+                id=t.id,
+                title=t.title,
+                start_date=t.start_date,
+                end_date=t.end_date,
+                visibility=t.visibility,
+                creator_username=t.creator.username,
+                place_count=len(t.places),
+                project_count=len(t.projects),
+                created_at=t.created_at,
+                updated_at=t.updated_at,
+            )
+            for t in sorted(trips, key=lambda t: t.start_date, reverse=True)
+        ],
+        projects=[
+            ProjectListResponse(
+                id=p.id,
+                name=p.name,
+                description=p.description,
+                visibility=p.visibility,
+                creator_username=p.creator.username,
+                **project_service.get_project_progress(db, user, p),
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+            )
+            for p in sorted(projects, key=lambda p: p.name)
+        ],
+    )
 
 
 @router.post("/import", response_model=PlaceResponse)

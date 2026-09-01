@@ -15,6 +15,7 @@ import { PlaceDetailPage } from '@/pages/PlaceDetailPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { UserProfilePage } from '@/pages/UserProfilePage'
 import { AdminPage } from '@/pages/AdminPage'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
@@ -94,6 +95,7 @@ export default function App() {
         <Route path="estatisticas" element={<StatsPage />} />
         <Route path="pesquisa" element={<SearchPage />} />
         <Route path="perfil" element={<ProfilePage />} />
+        <Route path="utilizadores/:username" element={<UserProfilePage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<div className="p-8 text-center">Página não encontrada</div>} />
       </Route>

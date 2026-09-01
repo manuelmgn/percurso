@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Place, PlaceType
 from app.schemas import PlaceSearchResult
+from app.services import visibility_service
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup"
@@ -167,6 +168,39 @@ def get_or_create_place(
 
 def get_place_by_id(db: Session, place_id: int) -> Optional[Place]:
     return db.query(Place).filter(Place.id == place_id).first()
+
+
+def get_places_overview(db: Session, user) -> list[dict]:
+    """Places relevant to the user: visited (via visible trips) and/or
+    targeted by visible projects, with visit counts and last visit date."""
+    visit_count: dict[int, int] = {}
+    last_visited: dict[int, object] = {}
+    for trip in visibility_service.get_visible_trips(db, user):
+        visit_date = trip.end_date or trip.start_date
+        for tp in trip.places:
+            visit_count[tp.place_id] = visit_count.get(tp.place_id, 0) + 1
+            if tp.place_id not in last_visited or visit_date > last_visited[tp.place_id]:
+                last_visited[tp.place_id] = visit_date
+
+    target_ids: set[int] = set()
+    for project in visibility_service.get_visible_projects(db, user):
+        for project_place in project.places:
+            target_ids.add(project_place.place_id)
+
+    relevant_ids = set(visit_count) | target_ids
+    if not relevant_ids:
+        return []
+
+    places = db.query(Place).filter(Place.id.in_(relevant_ids)).all()
+    return [
+        {
+            "place": place,
+            "visit_count": visit_count.get(place.id, 0),
+            "last_visited_at": last_visited.get(place.id),
+            "is_project_target": place.id in target_ids,
+        }
+        for place in sorted(places, key=lambda p: p.name)
+    ]
 
 
 def list_places(db: Session, limit: int = 100, offset: int = 0) -> list[Place]:

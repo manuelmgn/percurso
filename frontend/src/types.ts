@@ -47,6 +47,14 @@ export interface PublicStatus {
   setup_required: boolean
 }
 
+export interface PublicUserProfile {
+  username: string
+  avatar_url: string | null
+  created_at: string
+  trip_count: number
+  place_count: number
+}
+
 export interface LoginRequest {
   username: string
   password: string
@@ -106,6 +114,26 @@ export interface PlaceSearchResult {
   lat: number
   lon: number
   is_cached: boolean
+}
+
+// A place relevant to the current user: visited and/or a project target.
+export interface PlaceOverviewItem {
+  id: number
+  name: string
+  place_type: PlaceType
+  hierarchy: Record<string, string> | null
+  lat: number
+  lon: number
+  visit_count: number
+  last_visited_at: string | null
+  is_project_target: boolean
+  updated_at: string
+}
+
+// Place card with its visible trips and projects.
+export interface PlaceDetail extends Place {
+  trips: TripListItem[]
+  projects: ProjectListItem[]
 }
 
 // Project types
@@ -200,6 +228,7 @@ export interface TripPlace {
 
 export interface Trip {
   id: number
+  title: string | null
   start_date: string
   end_date: string
   notes: string | null
@@ -217,6 +246,7 @@ export interface Trip {
 
 export interface TripListItem {
   id: number
+  title: string | null
   start_date: string
   end_date: string
   visibility: Visibility
@@ -228,6 +258,7 @@ export interface TripListItem {
 }
 
 export interface TripCreate {
+  title?: string
   start_date: string
   end_date?: string
   notes?: string
@@ -240,6 +271,7 @@ export interface TripCreate {
 }
 
 export interface TripUpdate {
+  title?: string
   start_date?: string
   end_date?: string
   notes?: string
@@ -262,6 +294,20 @@ export interface Activity {
   user_username: string
   action: string
   entity_type: string
+  entity_id: number
+  entity_name: string
+  created_at: string
+}
+
+export type ActivityAction = 'created' | 'updated' | 'deleted'
+export type ActivityEntityType = 'trip' | 'project' | 'place' | 'user'
+
+export interface ActivityItem {
+  id: number
+  user_id: number
+  user_username: string
+  action: ActivityAction
+  entity_type: ActivityEntityType
   entity_id: number
   entity_name: string
   created_at: string
@@ -314,4 +360,20 @@ export interface StatsResponse {
   project_stats: ProjectStat[]
   region_stats: RegionStat[]
   most_visited: PlaceRanking[]
+}
+
+// Milestone types — só se celebram projetos concluídos.
+export type MilestoneKind = 'project_progress'
+
+export interface MilestoneInfo {
+  key: string
+  kind: MilestoneKind
+  project_id: number | null
+  project_name: string | null
+  percent: number | null
+  count: number | null
+}
+
+export interface MilestoneCheckResponse {
+  new_milestones: MilestoneInfo[]
 }

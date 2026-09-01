@@ -9,10 +9,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import settings
 from app.database import engine, Base
-from app.routers import setup, auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin
+from app.routers import setup, auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones
 
 # Import all models so they are registered with SQLAlchemy before create_all
-from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity  # noqa: F401
+from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone  # noqa: F401
 
 
 def _apply_lightweight_migrations():
@@ -28,6 +28,14 @@ def _apply_lightweight_migrations():
             columns = [c["name"] for c in inspector.get_columns("project_places")]
             if "is_unmarked" not in columns:
                 conn.execute(text("ALTER TABLE project_places ADD COLUMN is_unmarked BOOLEAN NOT NULL DEFAULT 0"))
+        if "trips" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("trips")]
+            if "title" not in columns:
+                conn.execute(text("ALTER TABLE trips ADD COLUMN title VARCHAR(255)"))
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            if "theme" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN theme VARCHAR(6) NOT NULL DEFAULT 'system'"))
 
 
 @asynccontextmanager
@@ -65,6 +73,7 @@ app.include_router(images.router)
 app.include_router(tiles.router)
 app.include_router(search.router)
 app.include_router(stats.router)
+app.include_router(milestones.router)
 app.include_router(admin.router)
 
 
@@ -73,8 +82,18 @@ def health():
     return {"status": "ok"}
 
 
-# Serve uploaded files and tile cache directly
-app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")
+# Serve uploaded files with long-lived cache headers (filenames are UUIDs, so
+# immutable is safe) and tile cache directly.
+@app.api_route("/uploads/{filename}", methods=["GET", "HEAD"])
+def serve_upload(filename: str):
+    if "/" in filename or ".." in filename:
+        raise HTTPException(status_code=404, detail="Not found")
+    file_path = settings.uploads_dir / filename
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(file_path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
 app.mount("/tile-cache", StaticFiles(directory=settings.tile_cache_dir), name="tile-cache")
 
 

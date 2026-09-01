@@ -13,6 +13,7 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
     end_date = data.end_date or data.start_date
 
     trip = Trip(
+        title=(data.title or "").strip() or None,
         start_date=data.start_date,
         end_date=end_date,
         notes=sanitize_notes(data.notes),
@@ -30,6 +31,8 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
 
 
 def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
+    if data.title is not None:
+        trip.title = data.title.strip() or None
     if data.start_date is not None:
         trip.start_date = data.start_date
     if data.end_date is not None:

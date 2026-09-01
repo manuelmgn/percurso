@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '@/api'
+import { useTheme } from '@/components/ThemeProvider'
 import type { User, MeResponse } from '@/types'
 
 interface AuthContextValue {
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSetupRequired, setIsSetupRequired] = useState<boolean | null>(null)
   const navigate = useNavigate()
+  const { setTheme } = useTheme()
 
   useEffect(() => {
     async function bootstrap() {
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setAuth = (me: MeResponse) => {
     setUser(me.user)
     localStorage.setItem('csrf_token', me.csrf_token)
+    if (me.user.theme) setTheme(me.user.theme)
   }
 
   const login = async (username: string, password: string) => {

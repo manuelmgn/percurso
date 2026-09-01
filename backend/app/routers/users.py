@@ -2,12 +2,37 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import require_admin, require_admin_csrf
+from app.auth import get_current_user, require_admin, require_admin_csrf
 from app.models import User
-from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest
-from app.services import user_service
+from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
+from app.services import user_service, visibility_service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+@router.get("/public/{username}", response_model=PublicProfileResponse)
+def get_public_profile(
+    username: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Profile card visible to any logged-in user. Only counts trips the
+    requester is allowed to see."""
+    target = user_service.get_user_by_username(db, username)
+    if not target or not target.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
+
+    visible_trips = [
+        t for t in visibility_service.get_visible_trips(db, user) if t.creator_id == target.id
+    ]
+    place_ids = {tp.place_id for t in visible_trips for tp in t.places}
+    return PublicProfileResponse(
+        username=target.username,
+        avatar_url=target.avatar_url,
+        created_at=target.created_at,
+        trip_count=len(visible_trips),
+        place_count=len(place_ids),
+    )
 
 
 @router.get("/", response_model=list[UserResponse])

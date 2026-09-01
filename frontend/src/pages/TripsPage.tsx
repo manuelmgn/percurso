@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
+import { formatTripTitle } from '@/utils/format'
 import type { TripListItem } from '@/types'
-
-function formatDateRange(start: string, end: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })
-  const startFmt = fmt(start)
-  const endFmt = fmt(end)
-  return startFmt === endFmt ? startFmt : `${startFmt} – ${endFmt}`
-}
 
 export function TripsPage() {
   const [trips, setTrips] = useState<TripListItem[]>([])
@@ -73,10 +66,10 @@ export function TripsPage() {
             <Link
               key={trip.id}
               to={`/viagens/${trip.id}`}
-              className="card block transition-shadow hover:shadow-lg"
+              className="card block"
             >
               <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
-                {formatDateRange(trip.start_date, trip.end_date)}
+                {formatTripTitle(trip)}
               </p>
               <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
                 {trip.place_count} {trip.place_count === 1 ? 'lugar' : 'lugares'} ·{' '}

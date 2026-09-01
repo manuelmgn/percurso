@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { MapView, type MapMarker } from '@/components/MapView'
+import { formatTripTitle } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
 
 function formatDate(iso: string): string {
@@ -151,10 +152,10 @@ export function TripDetailPage() {
       )}
 
       <div className="card">
-        <h2 className="font-display text-2xl font-bold">{formatDateRange(trip.start_date, trip.end_date)}</h2>
+        <h2 className="font-display text-2xl font-bold">{formatTripTitle(trip)}</h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Criada por {trip.creator_username} · Visibilidade: {visibilityLabels[trip.visibility]} · Atualizada em{' '}
-          {formatDate(trip.updated_at)}
+          {formatDateRange(trip.start_date, trip.end_date)} · Criada por {trip.creator_username} ·
+          Visibilidade: {visibilityLabels[trip.visibility]} · Atualizada em {formatDate(trip.updated_at)}
         </p>
       </div>
 
@@ -238,7 +239,11 @@ export function TripDetailPage() {
       {trip.notes && (
         <div className="card">
           <h3 className="mb-3 font-display text-lg font-semibold">Notas</h3>
-          <p className="whitespace-pre-line text-sm text-neutral-700 dark:text-neutral-300">{trip.notes}</p>
+          {/* O HTML das notas é sanitizado no servidor */}
+          <div
+            className="notes-content text-sm text-neutral-700 dark:text-neutral-300"
+            dangerouslySetInnerHTML={{ __html: trip.notes }}
+          />
         </div>
       )}
     </div>

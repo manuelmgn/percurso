@@ -2,6 +2,20 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Geometry } from 'geojson'
+import { useTheme } from '@/components/ThemeProvider'
+
+const TILE_LAYERS = {
+  light: {
+    url: '/api/tiles/light/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  dark: {
+    url: '/api/tiles/dark/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  },
+} as const
 
 export interface MapMarker {
   id: number | string
@@ -57,6 +71,8 @@ export default function MapViewInner({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
+  const tileLayerRef = useRef<L.TileLayer | null>(null)
+  const { resolvedTheme } = useTheme()
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -65,11 +81,6 @@ export default function MapViewInner({
       zoomControl: true,
       scrollWheelZoom: variant === 'detailed',
     })
-
-    L.tileLayer('/api/tiles/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map)
 
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
@@ -80,9 +91,22 @@ export default function MapViewInner({
       map.remove()
       mapRef.current = null
       layerRef.current = null
+      tileLayerRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Swap the base tile layer when the theme changes.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const config = TILE_LAYERS[resolvedTheme]
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
+    tileLayerRef.current = L.tileLayer(config.url, {
+      attribution: config.attribution,
+      maxZoom: 19,
+    }).addTo(map)
+  }, [resolvedTheme])
 
   useEffect(() => {
     const map = mapRef.current

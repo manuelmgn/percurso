@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
-import type { Place } from '@/types'
-import { formatHierarchy } from '@/utils/format'
+import type { PlaceDetail } from '@/types'
+import { formatHierarchy, formatTripTitle } from '@/utils/format'
 import type { Geometry } from 'geojson'
 
 export function PlaceDetailPage() {
   const { id } = useParams<{ id: string }>()
 
-  const [place, setPlace] = useState<Place | null>(null)
+  const [place, setPlace] = useState<PlaceDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -75,6 +75,56 @@ export function PlaceDetailPage() {
 
       <div className="card">
         <MapView variant="detailed" height="250px" markers={markers} polygons={polygons} />
+      </div>
+
+      <div className="card">
+        <h3 className="mb-3 font-display text-lg font-semibold">Projetos</h3>
+        {place.projects.length === 0 ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Este lugar não é objetivo de nenhum projeto.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {place.projects.map((project) => (
+              <li key={project.id}>
+                <Link
+                  to={`/projetos/${project.id}`}
+                  className="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                >
+                  {project.name}
+                </Link>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {' '}· {project.visited_places} de {project.total_places} visitados
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="card">
+        <h3 className="mb-3 font-display text-lg font-semibold">Histórico de viagens</h3>
+        {place.trips.length === 0 ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Ainda não visitaste este lugar em nenhuma viagem.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {place.trips.map((trip) => (
+              <li key={trip.id}>
+                <Link
+                  to={`/viagens/${trip.id}`}
+                  className="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                >
+                  {formatTripTitle(trip)}
+                </Link>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {' '}· {trip.creator_username}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

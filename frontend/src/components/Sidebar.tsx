@@ -64,7 +64,7 @@ export function Sidebar() {
   const { user, logout } = useAuth()
 
   return (
-    <aside className="glass hidden w-64 shrink-0 rounded-none border-r border-neutral-200/50 lg:block dark:border-neutral-800/50" aria-label="Navegação principal">
+    <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 rounded-none border-r border-neutral-200/50 lg:block dark:border-neutral-800/50" aria-label="Navegação principal">
       <div className="flex h-full flex-col p-6">
         <div className="mb-8">
           <h1 className="font-display text-2xl font-bold tracking-tight text-primary-700 dark:text-primary-300">
@@ -73,7 +73,7 @@ export function Sidebar() {
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Os teus lugares e viagens</p>
         </div>
 
-        <nav className="flex-1 space-y-1" aria-label="Menu principal">
+        <nav className="flex-1 space-y-1 overflow-y-auto" aria-label="Menu principal">
           <NavItem to="/" icon={icons.home}>Início</NavItem>
           <NavItem to="/viagens" icon={icons.globe}>Viagens</NavItem>
           <NavItem to="/projetos" icon={icons.checkCircle}>Projetos</NavItem>

@@ -5,7 +5,8 @@ import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import type { BulkImportLine, PlaceSearchResult, PlaceType, Project } from '@/types'
 import { BIG_PLACE_TYPES, PLACE_TYPES } from '@/types'
-import { formatHierarchy } from '@/utils/format'
+import { formatHierarchy, formatTripTitle } from '@/utils/format'
+import { checkAndCelebrate } from '@/utils/milestones'
 import type { Geometry } from 'geojson'
 
 const VISITED_COLOR = '#f59e0b'
@@ -25,10 +26,6 @@ const mapModeLabels: Record<Project['map_mode'], string> = {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-function formatDateRange(start: string, end: string): string {
-  return start === end ? formatDate(start) : `${formatDate(start)} – ${formatDate(end)}`
 }
 
 function formatCandidate(result: PlaceSearchResult): string {
@@ -102,6 +99,7 @@ export function ProjectDetailPage() {
     setIsAddingPlace(true)
     try {
       setProject(await api.projects.addPlace(projectId, places[0].id))
+      checkAndCelebrate()
     } catch (err: any) {
       setError(err.message || 'Erro ao adicionar lugar')
     } finally {
@@ -115,6 +113,7 @@ export function ProjectDetailPage() {
     setBusyPlaceId(placeId)
     try {
       setProject(await api.projects.toggleUnmark(projectId, placeId))
+      checkAndCelebrate()
     } catch (err: any) {
       setError(err.message || 'Erro ao atualizar lugar')
     } finally {
@@ -128,6 +127,7 @@ export function ProjectDetailPage() {
     try {
       setProject(await api.projects.removePlace(projectId, placeId))
       setRemovingPlaceId(null)
+      checkAndCelebrate()
     } catch (err: any) {
       setError(err.message || 'Erro ao remover lugar')
     } finally {
@@ -657,7 +657,7 @@ export function ProjectDetailPage() {
                   to={`/viagens/${trip.id}`}
                   className="font-medium text-primary-700 hover:underline dark:text-primary-300"
                 >
-                  {formatDateRange(trip.start_date, trip.end_date)}
+                  {formatTripTitle(trip)}
                 </Link>
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">
                   {' '}· {trip.creator_username} · {trip.place_count} {trip.place_count === 1 ? 'lugar' : 'lugares'}

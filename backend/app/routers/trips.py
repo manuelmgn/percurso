@@ -20,6 +20,7 @@ def list_trips(
     return [
         TripListResponse(
             id=t.id,
+            title=t.title,
             start_date=t.start_date,
             end_date=t.end_date,
             visibility=t.visibility,
@@ -40,7 +41,7 @@ def create_trip(
     user: User = Depends(get_current_user),
 ):
     trip = trip_service.create_trip(db, user, payload)
-    activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, f"Viagem {trip.start_date}")
+    activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
     return _trip_to_response(trip)
 
 
@@ -68,7 +69,7 @@ def update_trip(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
 
     trip = trip_service.update_trip(db, user, trip, payload)
-    activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, f"Viagem {trip.start_date}")
+    activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
     return _trip_to_response(trip)
 
 
@@ -113,14 +114,19 @@ def delete_trip(
     if not trip or not trip_service.can_user_edit_trip(user, trip):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
 
-    activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.TRIP, trip.id, f"Viagem {trip.start_date}")
+    activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.TRIP, trip.id, _trip_display_name(trip))
     trip_service.delete_trip(db, user, trip)
     return None
+
+
+def _trip_display_name(trip: Trip) -> str:
+    return trip.title or f"Viagem {trip.start_date}"
 
 
 def _trip_to_response(trip: Trip) -> TripResponse:
     return TripResponse(
         id=trip.id,
+        title=trip.title,
         start_date=trip.start_date,
         end_date=trip.end_date,
         notes=trip.notes,

@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
 from app.database import get_db
 from app.auth import get_current_user
@@ -21,7 +20,13 @@ def search(
 
     # Search trips
     all_trips = visibility_service.get_visible_trips(db, user)
-    matching_trips = [t for t in all_trips if q.lower() in (t.notes or "").lower() or any(q.lower() in p.name.lower() for p in [tp.place for tp in t.places])]
+    matching_trips = [
+        t
+        for t in all_trips
+        if q.lower() in (t.title or "").lower()
+        or q.lower() in (t.notes or "").lower()
+        or any(q.lower() in tp.place.name.lower() for tp in t.places)
+    ]
 
     # Search projects
     all_projects = visibility_service.get_visible_projects(db, user)
@@ -30,10 +35,30 @@ def search(
     # Search places
     matching_places = db.query(Place).filter(Place.name.ilike(query)).limit(20).all()
 
+    project_items = []
+    for p in matching_projects[:10]:
+        progress = project_service.get_project_progress(db, user, p)
+        project_items.append(
+            ProjectListResponse(
+                id=p.id,
+                name=p.name,
+                description=p.description,
+                visibility=p.visibility,
+                creator_username=p.creator.username,
+                total_places=len(p.places),
+                visited_places=progress["visited_places"],
+                progress_percent=progress["progress_percent"],
+                is_completed=progress["is_completed"],
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+            )
+        )
+
     return SearchResult(
         trips=[
             TripListResponse(
                 id=t.id,
+                title=t.title,
                 start_date=t.start_date,
                 end_date=t.end_date,
                 visibility=t.visibility,
@@ -45,21 +70,6 @@ def search(
             )
             for t in matching_trips[:10]
         ],
-        projects=[
-            ProjectListResponse(
-                id=p.id,
-                name=p.name,
-                description=p.description,
-                visibility=p.visibility,
-                creator_username=p.creator.username,
-                total_places=len(p.places),
-                visited_places=project_service.get_project_progress(db, user, p)["visited_places"],
-                progress_percent=project_service.get_project_progress(db, user, p)["progress_percent"],
-                is_completed=project_service.get_project_progress(db, user, p)["is_completed"],
-                created_at=p.created_at,
-                updated_at=p.updated_at,
-            )
-            for p in matching_projects[:10]
-        ],
+        projects=project_items,
         places=[PlaceResponse.model_validate(p) for p in matching_places],
     )
