@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
+import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/format'
 import type { SearchResult } from '@/types'
 
 export function SearchPage() {
   const [searchParams] = useSearchParams()
+  const { user } = useAuth()
+  const { t, pluralize } = useTranslation()
   const q = (searchParams.get('q') || '').trim()
 
   const [results, setResults] = useState<SearchResult | null>(null)
@@ -29,7 +33,7 @@ export function SearchPage() {
         if (!cancelled) setResults(data)
       })
       .catch(() => {
-        if (!cancelled) setError('Não foi possível concluir a pesquisa. Tenta novamente.')
+        if (!cancelled) setError(t('errors.generic'))
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -38,7 +42,7 @@ export function SearchPage() {
     return () => {
       cancelled = true
     }
-  }, [q])
+  }, [q, t])
 
   const isEmpty =
     results !== null &&
@@ -48,18 +52,18 @@ export function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">Pesquisa</h2>
+      <h2 className="font-display text-2xl font-bold">{t('search.title')}</h2>
 
       {q.length < 2 ? (
         <div className="card py-8 text-center">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Escreve pelo menos 2 caracteres na barra de pesquisa para encontrares viagens, projetos e lugares.
+            {t('search.queryTooShort')}
           </p>
         </div>
       ) : (
         <>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Resultados para <span className="font-medium text-neutral-900 dark:text-neutral-50">«{q}»</span>
+            {t('search.resultsFor')} <span className="font-medium text-neutral-900 dark:text-neutral-50">«{q}»</span>
           </p>
 
           {error && (
@@ -70,31 +74,31 @@ export function SearchPage() {
 
           {isLoading && (
             <div className="card py-8 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">A pesquisar...</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('search.searching')}</p>
             </div>
           )}
 
           {!isLoading && !error && isEmpty && (
             <div className="card py-8 text-center">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Sem resultados para «{q}». Experimenta outro termo.
+                {t('search.noResults', { q })}
               </p>
             </div>
           )}
 
           {!isLoading && !error && results && results.trips.length > 0 && (
             <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold">Viagens</h3>
+              <h3 className="font-display text-lg font-semibold">{t('nav.trips')}</h3>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.trips.map((trip) => (
                   <Link key={trip.id} to={`/viagens/${trip.id}`} className="card block">
                     <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
-                      {formatTripTitle(trip)}
+                      {formatTripTitle(trip, user)}
                     </p>
                     <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                      {formatTripDateRange(trip.start_date, trip.end_date)}
+                      {formatTripDateRange(trip.start_date, trip.end_date, user)}
                       {' · '}
-                      {trip.place_count} {trip.place_count === 1 ? 'lugar' : 'lugares'}
+                      {trip.place_count} {pluralize(trip.place_count, 'units.place.one', 'units.place.other')}
                     </p>
                   </Link>
                 ))}
@@ -104,7 +108,7 @@ export function SearchPage() {
 
           {!isLoading && !error && results && results.projects.length > 0 && (
             <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold">Projetos</h3>
+              <h3 className="font-display text-lg font-semibold">{t('nav.projects')}</h3>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.projects.map((project) => (
                   <Link key={project.id} to={`/projetos/${project.id}`} className="card block">
@@ -112,7 +116,7 @@ export function SearchPage() {
                       {project.name}
                     </p>
                     <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                      {project.visited_places}/{project.total_places} lugares visitados
+                      {t('search.projectProgress', { visited: project.visited_places, total: project.total_places })}
                       {' · '}
                       {project.progress_percent}%
                     </p>
@@ -124,7 +128,7 @@ export function SearchPage() {
 
           {!isLoading && !error && results && results.places.length > 0 && (
             <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold">Lugares</h3>
+              <h3 className="font-display text-lg font-semibold">{t('nav.places')}</h3>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.places.map((place) => (
                   <Link key={place.id} to={`/lugares/${place.id}`} className="card block">

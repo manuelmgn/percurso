@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import type { PlaceSearchResult, PlaceType } from '@/types'
 import { formatHierarchy } from '@/utils/format'
@@ -16,6 +17,7 @@ interface PlacePickerProps {
 }
 
 export function PlacePicker({ selected, onChange }: PlacePickerProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [isOpen, setIsOpen] = useState(false)
@@ -40,7 +42,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
         setIsOpen(true)
         setError('')
       } catch (err: any) {
-        setError(err.message || 'Erro ao pesquisar lugares')
+        setError(err.message || t('placePicker.searchError'))
         setResults([])
       } finally {
         setIsSearching(false)
@@ -51,7 +53,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
       clearTimeout(timer)
       setIsSearching(false)
     }
-  }, [query])
+  }, [query, t])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -67,7 +69,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
     setError('')
     setIsImporting(true)
     try {
-      // import é get-or-create: devolve sempre o id real da base de dados
+      // import is get-or-create: always returns the real database id
       const place = await api.places.import(result)
       if (!selected.some((p) => p.id === place.id)) {
         onChange([...selected, { id: place.id, name: place.name, place_type: place.place_type, hierarchy: place.hierarchy }])
@@ -76,7 +78,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
       setResults([])
       setIsOpen(false)
     } catch (err: any) {
-      setError(err.message || 'Erro ao adicionar lugar')
+      setError(err.message || t('placePicker.importError'))
     } finally {
       setIsImporting(false)
     }
@@ -111,7 +113,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
                 type="button"
                 onClick={() => remove(place.id)}
                 className="ml-1 rounded-full text-primary-600 hover:text-primary-900 dark:text-primary-300 dark:hover:text-primary-100"
-                aria-label={`Remover ${place.name}`}
+                aria-label={t('placePicker.removeAria', { name: place.name })}
               >
                 ×
               </button>
@@ -127,13 +129,13 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder="Pesquisar lugares (ex.: Lugo, Santiago...)"
+          placeholder={t('placePicker.placeholder')}
           className="input"
-          aria-label="Pesquisar lugares"
+          aria-label={t('placePicker.aria')}
         />
         {(isSearching || isImporting) && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-            {isImporting ? 'A adicionar...' : 'A pesquisar...'}
+            {isImporting ? t('placePicker.adding') : t('placePicker.searching')}
           </span>
         )}
 

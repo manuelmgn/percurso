@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { api } from '@/api'
+import { t } from '@/i18n'
 import { Confetti } from '@/components/Confetti'
 import type { MilestoneInfo } from '@/types'
 
 function milestoneMessage(milestone: MilestoneInfo): string {
-  // Só se celebra um marco: a conclusão de um projeto.
-  return `Projeto "${milestone.project_name}" concluído! Parabéns!`
+  // Only one milestone is celebrated: project completion.
+  return t('milestone.projectCompleted', { name: milestone.project_name ?? '' })
 }
 
 function Celebration({ milestones }: { milestones: MilestoneInfo[] }) {
@@ -45,13 +46,13 @@ function celebrate(milestones: MilestoneInfo[]) {
     root.unmount()
     container.remove()
   }
-  // A celebração desaparece sozinha ao fim de ~5s; o timeout extra garante a limpeza.
+  // The celebration hides itself after ~5s; the extra timeout ensures cleanup.
   setTimeout(cleanup, 6000)
   root.render(<Celebration milestones={milestones} />)
 }
 
-// Fire-and-forget: chama o backend e, se houver marcos novos, mostra confetti
-// e um toast por marco. Erros são ignorados de propósito.
+// Fire-and-forget: call the backend and, if there are new milestones, show confetti
+// and a toast per milestone. Errors are ignored on purpose.
 export async function checkAndCelebrate(): Promise<void> {
   try {
     const response = await api.milestones.check()
@@ -59,6 +60,6 @@ export async function checkAndCelebrate(): Promise<void> {
       celebrate(response.new_milestones)
     }
   } catch {
-    // celebração é opcional — nunca interromper o fluxo do utilizador
+    // Celebration is optional — never interrupt the user flow.
   }
 }

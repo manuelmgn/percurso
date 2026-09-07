@@ -9,19 +9,24 @@ settings.uploads_dir.mkdir(parents=True, exist_ok=True)
 settings.tile_cache_dir.mkdir(parents=True, exist_ok=True)
 settings.backups_dir.mkdir(parents=True, exist_ok=True)
 
+_is_sqlite = settings.database_url.startswith("sqlite")
+
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False},
+    # check_same_thread is a SQLite-only setting; other dialects use their defaults
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
     echo=settings.env == "development",
 )
 
 
-@event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_conn, _):
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+if _is_sqlite:
+    # SQLite pragmas only — other dialects (e.g. PostgreSQL) don't support these
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

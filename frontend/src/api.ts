@@ -30,6 +30,8 @@ import type {
   ImageUploadResponse,
   MilestoneCheckResponse,
   SearchResult,
+  Pin,
+  PinEntityType,
 } from './types'
 
 async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -220,6 +222,21 @@ export const api = {
 
   search: {
     query: (q: string) => fetchJson<SearchResult>(`/api/search/?q=${encodeURIComponent(q)}`),
+  },
+
+  pins: {
+    list: () => fetchJson<Pin[]>('/api/pins/'),
+    pin: (entityType: PinEntityType, entityId: number) =>
+      fetchJson<Pin>('/api/pins/', {
+        method: 'POST',
+        body: JSON.stringify({ entity_type: entityType, entity_id: entityId }),
+      }),
+    unpin: (entityType: PinEntityType, entityId: number) =>
+      fetchJson<void>(`/api/pins/${entityType}/${entityId}`, { method: 'DELETE' }),
+  },
+
+  admin: {
+    backup: () => fetchJson<{ message: string; backup: string }>('/api/admin/backup', { method: 'POST' }),
   },
 
   places: {

@@ -4,8 +4,8 @@ type Translations = typeof ptPT
 
 const translations: Translations = ptPT
 
-export function t(key: keyof Translations, params?: Record<string, string | number>): string {
-  let text = translations[key] || key
+export function t(key: string, params?: Record<string, string | number>): string {
+  let text: string = (translations as Record<string, string>)[key] || key
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       text = text.replace(`{${k}}`, String(v))
@@ -14,6 +14,10 @@ export function t(key: keyof Translations, params?: Record<string, string | numb
   return text
 }
 
+export function pluralize(count: number, singularKey: string, pluralKey: string): string {
+  return count === 1 ? t(singularKey) : t(pluralKey)
+}
+
 export function useTranslation() {
-  return { t }
+  return { t, pluralize }
 }

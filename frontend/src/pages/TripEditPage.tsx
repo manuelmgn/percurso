@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
 import { formatTripDateRange } from '@/utils/format'
@@ -11,13 +12,15 @@ function UserChecklist({
   users,
   selectedIds,
   onToggle,
+  emptyMessage,
 }: {
   users: User[]
   selectedIds: number[]
   onToggle: (id: number) => void
+  emptyMessage: string
 }) {
   if (users.length === 0) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">Não há outros utilizadores.</p>
+    return <p className="text-sm text-neutral-500 dark:text-neutral-400">{emptyMessage}</p>
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -51,6 +54,7 @@ export function TripEditPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const presetProjectId = Number(searchParams.get('projeto')) || null
 
@@ -99,13 +103,13 @@ export function TripEditPage() {
           setProjectIds(trip.projects.map((p) => p.id))
         }
       } catch (err: any) {
-        setError(err.message || 'Erro ao carregar dados')
+        setError(err.message || t('tripEdit.loadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [id, isEdit, user?.id])
+  }, [id, isEdit, user?.id, t])
 
   const toggleId = (list: number[], idToToggle: number) =>
     list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
@@ -137,7 +141,7 @@ export function TripEditPage() {
         navigate(`/viagens/${trip.id}`)
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao guardar viagem')
+      setError(err.message || t('trips.saveError'))
       setIsSubmitting(false)
     }
   }
@@ -148,16 +152,16 @@ export function TripEditPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">{isEdit ? 'Editar viagem' : 'Nova viagem'}</h2>
+      <h2 className="font-display text-2xl font-bold">{isEdit ? t('tripEdit.editTitle') : t('tripEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl">
         {error && (
@@ -168,7 +172,7 @@ export function TripEditPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="title">Título (opcional)</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="title">{t('tripEdit.titleLabel')}</label>
             <input
               id="title"
               type="text"
@@ -177,19 +181,19 @@ export function TripEditPage() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder={
                 startDate
-                  ? `Viagem ${formatTripDateRange(startDate, endDate || startDate)}`
-                  : 'Ex.: Férias no Alentejo'
+                  ? `${t('trips.fallbackTitle')} ${formatTripDateRange(startDate, endDate || startDate, user)}`
+                  : t('tripEdit.titlePlaceholder')
               }
               className="input"
             />
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Se ficar vazio, usa-se "Viagem data de início – data de fim".
+              {t('tripEdit.titleHint')}
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="start_date">Data de início</label>
+              <label className="mb-1 block text-sm font-medium" htmlFor="start_date">{t('tripEdit.startDateLabel')}</label>
               <input
                 id="start_date"
                 type="date"
@@ -200,7 +204,7 @@ export function TripEditPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="end_date">Data de fim</label>
+              <label className="mb-1 block text-sm font-medium" htmlFor="end_date">{t('tripEdit.endDateLabel')}</label>
               <input
                 id="end_date"
                 type="date"
@@ -210,20 +214,20 @@ export function TripEditPage() {
                 className="input"
               />
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                Se ficar vazia, usa a data de início.
+                {t('tripEdit.endDateHint')}
               </p>
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Lugares visitados</label>
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.placesLabel')}</label>
             <PlacePicker selected={places} onChange={setPlaces} />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Projetos</label>
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.projectsLabel')}</label>
             {projects.length === 0 ? (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">Não há projetos disponíveis.</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('tripEdit.noProjectsAvailable')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {projects.map((p) => {
@@ -252,62 +256,64 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Notas</label>
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.notesLabel')}</label>
             <NotesEditor value={notes} onChange={setNotes} />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Companheiros (utilizadores)</label>
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.participantsLabel')}</label>
             <UserChecklist
               users={users}
               selectedIds={participantIds}
               onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
+              emptyMessage={t('tripEdit.noOtherUsers')}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="companions">Outra companhia (texto livre)</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="companions">{t('tripEdit.companionsLabel')}</label>
             <input
               id="companions"
               type="text"
               value={companionsText}
               onChange={(e) => setCompanionsText(e.target.value)}
-              placeholder="Ex.: família, amigos, sozinho..."
+              placeholder={t('tripEdit.companionsPlaceholder')}
               className="input"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="visibility">Visibilidade</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="visibility">{t('tripEdit.visibilityLabel')}</label>
             <select
               id="visibility"
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as Visibility)}
               className="input"
             >
-              <option value="all">Todos</option>
-              <option value="specific">Utilizadores específicos</option>
-              <option value="private">Privado</option>
+              <option value="all">{t('visibility.optionAll')}</option>
+              <option value="specific">{t('visibility.optionSpecific')}</option>
+              <option value="private">{t('visibility.optionPrivate')}</option>
             </select>
           </div>
 
           {visibility === 'specific' && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Visível para</label>
+              <label className="mb-1 block text-sm font-medium">{t('tripEdit.visibleToLabel')}</label>
               <UserChecklist
                 users={users}
                 selectedIds={visibleUserIds}
                 onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
+                emptyMessage={t('tripEdit.noOtherUsers')}
               />
             </div>
           )}
 
           <div className="flex gap-2 pt-2">
             <button type="submit" disabled={isSubmitting} className="btn-primary">
-              {isSubmitting ? 'A guardar...' : 'Guardar'}
+              {isSubmitting ? t('tripEdit.saving') : t('actions.save')}
             </button>
             <button type="button" onClick={handleCancel} className="btn-outline">
-              Cancelar
+              {t('actions.cancel')}
             </button>
           </div>
         </form>

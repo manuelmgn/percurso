@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.models import UserRole, ThemePreference, PlaceType
+from app.models import UserRole, ThemePreference, PlaceType, EntityType
 
 
 class UserBase(BaseModel):
@@ -228,8 +228,8 @@ class BulkImportResponse(BaseModel):
 
 class TripBase(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: date
+    end_date: Optional[date] = None
     notes: Optional[str] = None
     visibility: Visibility = Visibility.ALL
     companions_text: Optional[str] = None
@@ -244,8 +244,8 @@ class TripCreate(TripBase):
 
 class TripUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     notes: Optional[str] = None
     visibility: Optional[Visibility] = None
     companions_text: Optional[str] = None
@@ -286,8 +286,8 @@ class TripListResponse(BaseModel):
 
     id: int
     title: Optional[str] = None
-    start_date: datetime
-    end_date: datetime
+    start_date: date
+    end_date: date
     visibility: Visibility
     creator_username: str
     place_count: int
@@ -391,3 +391,18 @@ class MilestoneInfo(BaseModel):
 
 class MilestoneCheckResponse(BaseModel):
     new_milestones: list[MilestoneInfo] = Field(default_factory=list)
+
+
+# --- Pin schemas ---
+
+class PinCreate(BaseModel):
+    entity_type: EntityType
+    entity_id: int
+
+
+class PinResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    entity_type: EntityType
+    entity_id: int
+    created_at: datetime

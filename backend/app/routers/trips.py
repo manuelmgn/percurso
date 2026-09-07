@@ -42,7 +42,7 @@ def create_trip(
 ):
     trip = trip_service.create_trip(db, user, payload)
     activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
-    return _trip_to_response(trip)
+    return _trip_to_response(db, user, trip)
 
 
 @router.get("/{trip_id}", response_model=TripResponse)
@@ -54,7 +54,7 @@ def get_trip(
     trip = trip_service.get_trip_by_id(db, trip_id)
     if not trip or not visibility_service.can_user_see_trip(db, user, trip):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
-    return _trip_to_response(trip)
+    return _trip_to_response(db, user, trip)
 
 
 @router.patch("/{trip_id}", response_model=TripResponse)
@@ -70,7 +70,7 @@ def update_trip(
 
     trip = trip_service.update_trip(db, user, trip, payload)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
-    return _trip_to_response(trip)
+    return _trip_to_response(db, user, trip)
 
 
 @router.get("/{trip_id}/delete-warning", response_model=TripDeleteWarning)
@@ -123,7 +123,7 @@ def _trip_display_name(trip: Trip) -> str:
     return trip.title or f"Viagem {trip.start_date}"
 
 
-def _trip_to_response(trip: Trip) -> TripResponse:
+def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
     return TripResponse(
         id=trip.id,
         title=trip.title,
@@ -155,10 +155,7 @@ def _trip_to_response(trip: Trip) -> TripResponse:
                 "description": tp.project.description,
                 "visibility": tp.project.visibility,
                 "creator_username": tp.project.creator.username,
-                "total_places": 0,
-                "visited_places": 0,
-                "progress_percent": 0.0,
-                "is_completed": False,
+                **project_service.get_project_progress(db, user, tp.project),
                 "created_at": tp.project.created_at,
                 "updated_at": tp.project.updated_at,
             }

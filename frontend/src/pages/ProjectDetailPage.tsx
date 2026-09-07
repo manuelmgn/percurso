@@ -3,30 +3,17 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
+import { PinButton } from '@/components/PinButton'
 import type { BulkImportLine, PlaceSearchResult, PlaceType, Project } from '@/types'
 import { BIG_PLACE_TYPES, PLACE_TYPES } from '@/types'
-import { formatHierarchy, formatTripTitle } from '@/utils/format'
+import { formatHierarchy, formatTripTitle, formatDate as formatUserDate } from '@/utils/format'
+import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { checkAndCelebrate } from '@/utils/milestones'
 import type { Geometry } from 'geojson'
 
 const VISITED_COLOR = '#f59e0b'
 const PENDING_COLOR = '#7a756d'
-
-const visibilityLabels: Record<Project['visibility'], string> = {
-  all: 'Todos',
-  specific: 'Utilizadores específicos',
-  private: 'Privado',
-}
-
-const mapModeLabels: Record<Project['map_mode'], string> = {
-  points: 'Pontos',
-  polygons: 'Polígonos',
-  auto: 'Automático',
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })
-}
 
 function formatCandidate(result: PlaceSearchResult): string {
   const hierarchy = formatHierarchy(result.hierarchy)
@@ -37,6 +24,8 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const projectId = Number(id)
+  const { user } = useAuth()
+  const { t, pluralize } = useTranslation()
 
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -67,13 +56,13 @@ export function ProjectDetailPage() {
         setIsLoading(true)
         setProject(await api.projects.get(projectId))
       } catch (err: any) {
-        setError(err.message || 'Projeto não encontrado')
+        setError(err.message || t('projects.detailLoadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [projectId])
+  }, [projectId, t])
 
   const handleDelete = async () => {
     setError('')
@@ -82,7 +71,7 @@ export function ProjectDetailPage() {
       await api.projects.delete(projectId)
       navigate('/projetos')
     } catch (err: any) {
-      setError(err.message || 'Erro ao apagar projeto')
+      setError(err.message || t('projects.deleteError'))
       setIsDeleting(false)
       setIsConfirmingDelete(false)
     }
@@ -101,7 +90,7 @@ export function ProjectDetailPage() {
       setProject(await api.projects.addPlace(projectId, places[0].id))
       checkAndCelebrate()
     } catch (err: any) {
-      setError(err.message || 'Erro ao adicionar lugar')
+      setError(err.message || t('projects.addPlaceError'))
     } finally {
       setAddSelection([])
       setIsAddingPlace(false)
@@ -115,7 +104,7 @@ export function ProjectDetailPage() {
       setProject(await api.projects.toggleUnmark(projectId, placeId))
       checkAndCelebrate()
     } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar lugar')
+      setError(err.message || t('projects.togglePlaceError'))
     } finally {
       setBusyPlaceId(null)
     }
@@ -129,7 +118,7 @@ export function ProjectDetailPage() {
       setRemovingPlaceId(null)
       checkAndCelebrate()
     } catch (err: any) {
-      setError(err.message || 'Erro ao remover lugar')
+      setError(err.message || t('projects.removePlaceError'))
     } finally {
       setBusyPlaceId(null)
     }
@@ -145,7 +134,7 @@ export function ProjectDetailPage() {
       setBulkLines(response.lines)
       setBulkConflicts(new Set())
     } catch (err: any) {
-      setError(err.message || 'Erro ao resolver lugares')
+      setError(err.message || t('projects.bulkResolveError'))
     } finally {
       setIsResolving(false)
     }
@@ -217,17 +206,20 @@ export function ProjectDetailPage() {
       setBulkText('')
       setShowBulk(false)
     } catch (err: any) {
-      setError(err.message || 'Erro ao importar lugares')
+      setError(err.message || t('projects.bulkImportError'))
     } finally {
       setIsImportingBulk(false)
     }
   }
 
+  const visibilityKey = (visibility: Project['visibility']) =>
+    `visibility.option${visibility.charAt(0).toUpperCase() + visibility.slice(1)}`
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
@@ -236,10 +228,10 @@ export function ProjectDetailPage() {
     return (
       <div className="space-y-6">
         <Link to="/projetos" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
-          ← Voltar aos projetos
+          ← {t('projects.back')}
         </Link>
         <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || 'Projeto não encontrado.'}</p>
+          <p className="text-red-700 dark:text-red-300">{error || t('projects.notFound')}</p>
         </div>
       </div>
     )
@@ -261,7 +253,7 @@ export function ProjectDetailPage() {
   const mapPolygons: MapPolygon[] = []
   for (const place of project.places) {
     const visited = place.is_visited && !place.is_unmarked
-    const stateLabel = visited ? 'Visitado' : 'Pendente'
+    const stateLabel = visited ? t('projects.visited') : t('projects.pending')
     const href = `/lugares/${place.place_id}`
     if (effectiveMode === 'polygons' && place.place_polygon) {
       mapPolygons.push({
@@ -285,24 +277,31 @@ export function ProjectDetailPage() {
     }
   }
 
+  const mapModeLabelKey: Record<Project['map_mode'], string> = {
+    points: 'projects.mapPoints',
+    polygons: 'projects.mapPolygons',
+    auto: 'projects.mapAuto',
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Link to="/projetos" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
-          ← Voltar aos projetos
+          ← {t('projects.back')}
         </Link>
         <div className="flex flex-wrap gap-2">
+          <PinButton entityType="project" entityId={project.id} label={t('units.project.one')} showLabel />
           <Link to={`/viagens/novo?projeto=${project.id}`} className="btn-secondary">
-            Nova viagem com este projeto
+            {t('projects.newTripWithProject')}
           </Link>
           <Link to={`/projetos/${project.id}/editar`} className="btn-primary">
-            Editar
+            {t('actions.edit')}
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
             className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900"
           >
-            Apagar
+            {t('actions.delete')}
           </button>
         </div>
       </div>
@@ -316,10 +315,10 @@ export function ProjectDetailPage() {
       {isConfirmingDelete && (
         <div className="card border-red-300 dark:border-red-800">
           <h3 className="font-display text-lg font-semibold text-red-700 dark:text-red-300">
-            Apagar este projeto?
+            {t('projects.deleteTitle')}
           </h3>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            O projeto será eliminado, mas os lugares e as viagens associadas mantêm-se. Esta ação não pode ser anulada.
+            {t('projects.deleteWarning')}
           </p>
           <div className="mt-4 flex gap-2">
             <button
@@ -327,10 +326,10 @@ export function ProjectDetailPage() {
               disabled={isDeleting}
               className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >
-              {isDeleting ? 'A apagar...' : 'Confirmar eliminação'}
+              {isDeleting ? t('projects.deleting') : t('projects.deleteConfirm')}
             </button>
             <button onClick={() => setIsConfirmingDelete(false)} disabled={isDeleting} className="btn-outline">
-              Cancelar
+              {t('actions.cancel')}
             </button>
           </div>
         </div>
@@ -341,7 +340,7 @@ export function ProjectDetailPage() {
           <h2 className="font-display text-2xl font-bold">{project.name}</h2>
           {project.is_completed && (
             <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
-              Completado
+              {t('projects.completedBadge')}
             </span>
           )}
         </div>
@@ -349,12 +348,11 @@ export function ProjectDetailPage() {
           <p className="mt-2 whitespace-pre-line text-neutral-700 dark:text-neutral-300">{project.description}</p>
         )}
         <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-          Visibilidade: {visibilityLabels[project.visibility]} · Mapa: {mapModeLabels[project.map_mode]} · Criado por{' '}
-          {project.creator_username} · Atualizado em {formatDate(project.updated_at)}
+          {t('projects.visibility')}: {t(visibilityKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
         </p>
         {project.participants.length > 0 && (
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Participantes: {project.participants.map((u) => u.username).join(', ')}
+            {t('projects.participants')}: {project.participants.map((u) => u.username).join(', ')}
           </p>
         )}
 
@@ -368,12 +366,12 @@ export function ProjectDetailPage() {
                 />
               </div>
               <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                {project.visited_places} de {project.total_places} visitados · {Math.round(project.progress_percent)}%
+                {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}%
               </p>
             </>
           ) : (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Projeto aberto (sem lista de objetivos).
+              {t('projects.openProject')}
             </p>
           )}
         </div>
@@ -381,17 +379,17 @@ export function ProjectDetailPage() {
 
       {project.places.length > 0 && (
         <div className="card">
-          <h3 className="mb-3 font-display text-lg font-semibold">Mapa do projeto</h3>
+          <h3 className="mb-3 font-display text-lg font-semibold">{t('projects.mapTitle')}</h3>
           <MapView variant="detailed" markers={mapMarkers} polygons={mapPolygons} />
         </div>
       )}
 
       <div className="card">
-        <h3 className="mb-4 font-display text-lg font-semibold">Lugares objetivo</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('projects.targetPlaces')}</h3>
 
         {project.places.length === 0 ? (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Ainda não há lugares objetivo neste projeto.
+            {t('projects.noPlaces')}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -410,15 +408,15 @@ export function ProjectDetailPage() {
                   <span className="text-sm text-neutral-500 dark:text-neutral-400">[{place.place_type}]</span>
                   {place.is_unmarked ? (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                      Desmarcado
+                      {t('projects.unmarked')}
                     </span>
                   ) : place.is_visited ? (
                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                      Visitado
+                      {t('projects.visited')}
                     </span>
                   ) : (
                     <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                      Pendente
+                      {t('projects.pending')}
                     </span>
                   )}
                 </div>
@@ -434,7 +432,7 @@ export function ProjectDetailPage() {
                       disabled={busyPlaceId === place.place_id}
                       className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 disabled:opacity-50 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                     >
-                      {place.is_unmarked ? 'Voltar a marcar' : 'Desmarcar visita'}
+                      {place.is_unmarked ? t('projects.markVisitedAgain') : t('projects.unmarkVisit')}
                     </button>
                   )}
                   {removingPlaceId === place.place_id ? (
@@ -444,14 +442,14 @@ export function ProjectDetailPage() {
                         disabled={busyPlaceId === place.place_id}
                         className="rounded-lg bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                       >
-                        {busyPlaceId === place.place_id ? 'A remover...' : 'Confirmar remoção'}
+                        {busyPlaceId === place.place_id ? t('projects.removing') : t('projects.confirmRemove')}
                       </button>
                       <button
                         onClick={() => setRemovingPlaceId(null)}
                         disabled={busyPlaceId === place.place_id}
                         className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                       >
-                        Cancelar
+                        {t('actions.cancel')}
                       </button>
                     </>
                   ) : (
@@ -460,7 +458,7 @@ export function ProjectDetailPage() {
                       disabled={busyPlaceId === place.place_id}
                       className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
                     >
-                      Remover
+                      {t('projects.removePlace')}
                     </button>
                   )}
                 </div>
@@ -470,16 +468,16 @@ export function ProjectDetailPage() {
         )}
 
         <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
-          <h4 className="mb-2 text-sm font-medium">Adicionar lugar</h4>
+          <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
           <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
           {isAddingPlace && (
-            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">A adicionar...</p>
+            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{t('projects.addingPlace')}</p>
           )}
         </div>
 
         <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
           <button onClick={() => setShowBulk((v) => !v)} className="btn-outline">
-            {showBulk ? 'Fechar importação em massa' : 'Importar lista em massa'}
+            {showBulk ? t('bulkImport.close') : t('bulkImport.title')}
           </button>
 
           {showBulk && (
@@ -488,17 +486,17 @@ export function ProjectDetailPage() {
                 rows={6}
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder={'Um lugar por linha, ex.:\nLugo\nSantiago de Compostela\nOviedo'}
+                placeholder={t('bulkImport.placeholder')}
                 className="input font-mono text-sm"
                 disabled={isResolving || isImportingBulk}
-                aria-label="Lista de lugares para importar"
+                aria-label={t('bulkImport.title')}
               />
               <div className="flex flex-wrap items-center gap-2">
                 <label
                   htmlFor="bulk-type"
                   className="text-xs font-medium text-neutral-500 dark:text-neutral-400"
                 >
-                  Tipo dos lugares:
+                  {t('bulkImport.typeLabel')}
                 </label>
                 <select
                   id="bulk-type"
@@ -512,10 +510,10 @@ export function ProjectDetailPage() {
                   disabled={isResolving || isImportingBulk}
                   className="input w-auto py-1 text-sm"
                 >
-                  <option value="">Tipos variados</option>
+                  <option value="">{t('bulkImport.typeMixed')}</option>
                   {PLACE_TYPES.map((type) => (
                     <option key={type} value={type}>
-                      Todos: {type}
+                      {t('bulkImport.typeAll', { type })}
                     </option>
                   ))}
                 </select>
@@ -525,7 +523,7 @@ export function ProjectDetailPage() {
                 disabled={isResolving || isImportingBulk || !bulkText.trim()}
                 className="btn-primary"
               >
-                {isResolving ? 'A resolver lugares...' : 'Resolver'}
+                {isResolving ? t('bulkImport.resolving') : t('bulkImport.resolve')}
               </button>
 
               {bulkLines && (
@@ -533,7 +531,7 @@ export function ProjectDetailPage() {
                   {bulkSelectableTypes.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                        Selecionar em massa:
+                        {t('bulkImport.selectAll')}
                       </span>
                       {bulkSelectableTypes.map(({ type, count }) => (
                         <button
@@ -541,7 +539,7 @@ export function ProjectDetailPage() {
                           onClick={() => handleSelectAllOfType(type)}
                           disabled={isImportingBulk}
                           className="btn-outline px-2 py-1 text-xs"
-                          title="Seleciona o candidato deste tipo nas linhas em que só há um"
+                          title={t('bulkImport.selectAllTitle')}
                         >
                           {type} ({count})
                         </button>
@@ -587,15 +585,15 @@ export function ProjectDetailPage() {
                             {!line.selected && (
                               <p className="text-xs text-amber-600 dark:text-amber-400">
                                 {bulkConflicts.has(index)
-                                  ? 'Há vários candidatos deste tipo — escolhe manualmente.'
-                                  : 'Escolhe uma opção para importar esta linha.'}
+                                  ? t('bulkImport.conflict')
+                                  : t('bulkImport.chooseOption')}
                               </p>
                             )}
                           </div>
                         )}
                         {line.status === 'not_found' && (
                           <p className="mt-1 text-sm text-neutral-400 dark:text-neutral-500">
-                            Não encontrado — não será importado
+                            {t('bulkImport.notFound')}
                           </p>
                         )}
                       </li>
@@ -605,8 +603,8 @@ export function ProjectDetailPage() {
                     <div className="rounded-lg bg-neutral-100 px-3 py-2 dark:bg-neutral-800/60">
                       <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                         {bulkNotFound.length === 1
-                          ? 'Não encontrado — não será importado:'
-                          : `Não encontrados (${bulkNotFound.length}) — não serão importados:`}
+                          ? t('bulkImport.notFoundOne')
+                          : t('bulkImport.notFoundMany', { count: bulkNotFound.length })}
                       </p>
                       <ul className="mt-1 space-y-0.5">
                         {bulkNotFound.map((line, i) => (
@@ -623,14 +621,14 @@ export function ProjectDetailPage() {
                       disabled={isImportingBulk || hasUnresolvedAmbiguous}
                       className="btn-primary"
                     >
-                      {isImportingBulk ? 'A importar...' : 'Confirmar importação'}
+                      {isImportingBulk ? t('bulkImport.importing') : t('bulkImport.confirm')}
                     </button>
                     <button
                       onClick={() => setBulkLines(null)}
                       disabled={isImportingBulk}
                       className="btn-outline"
                     >
-                      Cancelar
+                      {t('actions.cancel')}
                     </button>
                   </div>
                 </div>
@@ -641,12 +639,12 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="card">
-        <h3 className="mb-3 font-display text-lg font-semibold">Viagens associadas</h3>
+        <h3 className="mb-3 font-display text-lg font-semibold">{t('projects.associatedTrips')}</h3>
         {project.trips.length === 0 ? (
           <div className="py-2 text-center">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">Ainda não há viagens associadas.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('projects.noAssociatedTrips')}</p>
             <Link to={`/viagens/novo?projeto=${project.id}`} className="btn-primary mt-4 inline-block">
-              Nova viagem com este projeto
+              {t('projects.newTripWithProject')}
             </Link>
           </div>
         ) : (
@@ -657,10 +655,10 @@ export function ProjectDetailPage() {
                   to={`/viagens/${trip.id}`}
                   className="font-medium text-primary-700 hover:underline dark:text-primary-300"
                 >
-                  {formatTripTitle(trip)}
+                  {formatTripTitle(trip, user)}
                 </Link>
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {' '}· {trip.creator_username} · {trip.place_count} {trip.place_count === 1 ? 'lugar' : 'lugares'}
+                  {' '}· {trip.creator_username} · {trip.place_count} {pluralize(trip.place_count, 'units.place.one', 'units.place.other')}
                 </span>
               </li>
             ))}

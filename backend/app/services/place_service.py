@@ -207,6 +207,19 @@ def list_places(db: Session, limit: int = 100, offset: int = 0) -> list[Place]:
     return db.query(Place).order_by(Place.name).limit(limit).offset(offset).all()
 
 
+def get_visible_place_ids(db: Session, user) -> set[int]:
+    """Return IDs of places the user can see (visited in visible trips
+    and/or targeted by visible projects)."""
+    visible_ids: set[int] = set()
+    for trip in visibility_service.get_visible_trips(db, user):
+        for tp in trip.places:
+            visible_ids.add(tp.place_id)
+    for project in visibility_service.get_visible_projects(db, user):
+        for pp in project.places:
+            visible_ids.add(pp.place_id)
+    return visible_ids
+
+
 # --- Boundary polygons ---
 
 # Simplification tolerance in degrees (~200 m). Aggressive enough to keep

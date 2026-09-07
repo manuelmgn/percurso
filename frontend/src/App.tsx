@@ -1,33 +1,52 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { useAuth } from '@/context/AuthContext'
 import { SetupPage } from '@/pages/SetupPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { TripsPage } from '@/pages/TripsPage'
-import { TripDetailPage } from '@/pages/TripDetailPage'
-import { TripEditPage } from '@/pages/TripEditPage'
-import { ProjectsPage } from '@/pages/ProjectsPage'
-import { ProjectDetailPage } from '@/pages/ProjectDetailPage'
-import { ProjectEditPage } from '@/pages/ProjectEditPage'
-import { PlacesPage } from '@/pages/PlacesPage'
-import { PlaceDetailPage } from '@/pages/PlaceDetailPage'
-import { StatsPage } from '@/pages/StatsPage'
-import { SearchPage } from '@/pages/SearchPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { UserProfilePage } from '@/pages/UserProfilePage'
-import { AdminPage } from '@/pages/AdminPage'
+
+// Pages are lazy-loaded per route to keep the initial bundle small.
+const TripsPage = lazy(() => import('@/pages/TripsPage').then((m) => ({ default: m.TripsPage })))
+const TripDetailPage = lazy(() => import('@/pages/TripDetailPage').then((m) => ({ default: m.TripDetailPage })))
+const TripEditPage = lazy(() => import('@/pages/TripEditPage').then((m) => ({ default: m.TripEditPage })))
+const ProjectsPage = lazy(() => import('@/pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })))
+const ProjectDetailPage = lazy(() => import('@/pages/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })))
+const ProjectEditPage = lazy(() => import('@/pages/ProjectEditPage').then((m) => ({ default: m.ProjectEditPage })))
+const PlacesPage = lazy(() => import('@/pages/PlacesPage').then((m) => ({ default: m.PlacesPage })))
+const PlaceDetailPage = lazy(() => import('@/pages/PlaceDetailPage').then((m) => ({ default: m.PlaceDetailPage })))
+const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })))
+const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })))
+const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+
+function PageFallback() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      <span className="sr-only">{t('loadingGeneric')}</span>
+    </div>
+  )
+}
+
+function FullscreenLoading() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t('loading')}>
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      <span className="sr-only">{t('loadingGeneric')}</span>
+    </div>
+  )
+}
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, isLoading, isSetupRequired } = useAuth()
 
   if (isLoading || isSetupRequired === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="A carregar">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
-      </div>
-    )
+    return <FullscreenLoading />
   }
 
   if (isSetupRequired) {
@@ -49,12 +68,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isSetupRequired } = useAuth()
 
   if (isLoading || isSetupRequired === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="A carregar">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
-      </div>
-    )
+    return <FullscreenLoading />
   }
 
   if (isSetupRequired) {
@@ -69,6 +83,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { t } = useTranslation()
+
   return (
     <Routes>
       <Route path="/setup" element={<SetupPage />} />
@@ -77,7 +93,9 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <Layout />
+            <Suspense fallback={<PageFallback />}>
+              <Layout />
+            </Suspense>
           </ProtectedRoute>
         }
       >
@@ -97,7 +115,7 @@ export default function App() {
         <Route path="perfil" element={<ProfilePage />} />
         <Route path="utilizadores/:username" element={<UserProfilePage />} />
         <Route path="admin" element={<AdminPage />} />
-        <Route path="*" element={<div className="p-8 text-center">Página não encontrada</div>} />
+        <Route path="*" element={<div className="p-8 text-center">{t('pageNotFound')}</div>} />
       </Route>
     </Routes>
   )

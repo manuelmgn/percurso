@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 
 function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
   return (
@@ -44,16 +45,18 @@ function Icon({ children }: { children: React.ReactNode }) {
 }
 
 export function MobileNav() {
+  const { t } = useTranslation()
+
   return (
     <nav
       className="glass fixed bottom-0 left-0 right-0 z-50 flex justify-around rounded-none border-t border-neutral-200/50 px-2 py-2 lg:hidden dark:border-neutral-800/50"
-      aria-label="Navegação móvel"
+      aria-label={t('mobileNav.label')}
     >
-      <NavItem to="/" icon={<Icon>{icons.home}</Icon>} label="Início" />
-      <NavItem to="/viagens" icon={<Icon>{icons.globe}</Icon>} label="Viagens" />
-      <NavItem to="/projetos" icon={<Icon>{icons.checkCircle}</Icon>} label="Projetos" />
-      <NavItem to="/estatisticas" icon={<Icon>{icons.chartBar}</Icon>} label="Estatísticas" />
-      <NavItem to="/perfil" icon={<Icon>{icons.user}</Icon>} label="Perfil" />
+      <NavItem to="/" icon={<Icon>{icons.home}</Icon>} label={t('nav.home')} />
+      <NavItem to="/viagens" icon={<Icon>{icons.globe}</Icon>} label={t('nav.trips')} />
+      <NavItem to="/projetos" icon={<Icon>{icons.checkCircle}</Icon>} label={t('nav.projects')} />
+      <NavItem to="/estatisticas" icon={<Icon>{icons.chartBar}</Icon>} label={t('nav.stats')} />
+      <NavItem to="/perfil" icon={<Icon>{icons.user}</Icon>} label={t('nav.profile')} />
     </nav>
   )
 }

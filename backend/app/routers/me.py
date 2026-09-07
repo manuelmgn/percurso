@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
@@ -8,6 +9,9 @@ from app.services import user_service, image_service, activity_service
 from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/me", tags=["me"])
+
+# Accepted date formats (strftime-style), applied across the whole UI
+ALLOWED_DATE_FORMATS = {"%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d"}
 
 
 @router.get("/", response_model=UserResponse)
@@ -22,8 +26,14 @@ def update_profile(
     user=Depends(get_current_user),
 ):
     if payload.timezone is not None:
+        try:
+            ZoneInfo(payload.timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zona horária inválida")
         user.timezone = payload.timezone
     if payload.date_format is not None:
+        if payload.date_format not in ALLOWED_DATE_FORMATS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de data inválido")
         user.date_format = payload.date_format
     if payload.theme is not None:
         user.theme = payload.theme

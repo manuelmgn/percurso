@@ -327,6 +327,15 @@ export interface SearchResult {
   places: Place[]
 }
 
+// Pin types — pinned trips/projects shown first on the dashboard
+export type PinEntityType = 'trip' | 'project'
+
+export interface Pin {
+  entity_type: PinEntityType
+  entity_id: number
+  created_at: string
+}
+
 // Stats types
 export interface StatsSummary {
   trip_count: number
@@ -362,7 +371,7 @@ export interface StatsResponse {
   most_visited: PlaceRanking[]
 }
 
-// Milestone types — só se celebram projetos concluídos.
+// Milestone types — only completed projects are celebrated.
 export type MilestoneKind = 'project_progress'
 
 export interface MilestoneInfo {

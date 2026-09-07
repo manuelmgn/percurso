@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 
 interface NotesEditorProps {
@@ -30,6 +31,7 @@ function youtubeVideoId(url: string): string | null {
 // Lightweight contentEditable-based rich text editor (no external libs).
 // Controlled via innerHTML: the parent owns the HTML string.
 export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) {
+  const { t } = useTranslation()
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -54,7 +56,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   const handleLink = () => {
-    const url = window.prompt('URL da hiperligação:')
+    const url = window.prompt(t('notesEditor.linkUrl'))
     if (!url) return
     exec('createLink', url)
   }
@@ -67,11 +69,11 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   const handleVideo = () => {
-    const url = window.prompt('URL do vídeo do YouTube:')
+    const url = window.prompt(t('notesEditor.videoUrl'))
     if (!url) return
     const videoId = youtubeVideoId(url.trim())
     if (!videoId) {
-      setUploadError('URL do YouTube inválido')
+      setUploadError(t('notesEditor.invalidYoutubeUrl'))
       return
     }
     setUploadError('')
@@ -79,7 +81,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
     document.execCommand(
       'insertHTML',
       false,
-      `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe><p><br></p>`
+      `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" title="${t('notesEditor.videoTitle')}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe><p><br></p>`
     )
     handleInput()
   }
@@ -96,7 +98,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
       document.execCommand('insertHTML', false, `<img src="${image.url}" loading="lazy" alt="">`)
       handleInput()
     } catch (err: any) {
-      setUploadError(err.message || 'Erro ao carregar imagem')
+      setUploadError(err.message || t('notesEditor.uploadError'))
     } finally {
       setIsUploading(false)
     }
@@ -105,36 +107,36 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   return (
     <div className="rounded-xl border border-neutral-300 bg-white transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900">
       <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-2 py-1 dark:border-neutral-800">
-        <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title="Negrito" aria-label="Negrito">
+        <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title={t('notesEditor.bold')} aria-label={t('notesEditor.bold')}>
           B
         </button>
-        <button type="button" onClick={() => exec('italic')} className={`${toolbarButtonClass} italic`} title="Itálico" aria-label="Itálico">
+        <button type="button" onClick={() => exec('italic')} className={`${toolbarButtonClass} italic`} title={t('notesEditor.italic')} aria-label={t('notesEditor.italic')}>
           I
         </button>
-        <button type="button" onClick={() => exec('underline')} className={`${toolbarButtonClass} underline`} title="Sublinhado" aria-label="Sublinhado">
+        <button type="button" onClick={() => exec('underline')} className={`${toolbarButtonClass} underline`} title={t('notesEditor.underline')} aria-label={t('notesEditor.underline')}>
           U
         </button>
-        <button type="button" onClick={() => exec('strikeThrough')} className={`${toolbarButtonClass} line-through`} title="Riscado" aria-label="Riscado">
+        <button type="button" onClick={() => exec('strikeThrough')} className={`${toolbarButtonClass} line-through`} title={t('notesEditor.strikethrough')} aria-label={t('notesEditor.strikethrough')}>
           S
         </button>
-        <button type="button" onClick={() => exec('formatBlock', 'h2')} className={toolbarButtonClass} title="Título" aria-label="Título">
+        <button type="button" onClick={() => exec('formatBlock', 'h2')} className={toolbarButtonClass} title={t('notesEditor.heading')} aria-label={t('notesEditor.heading')}>
           H2
         </button>
-        <button type="button" onClick={() => exec('formatBlock', 'h3')} className={toolbarButtonClass} title="Subtítulo" aria-label="Subtítulo">
+        <button type="button" onClick={() => exec('formatBlock', 'h3')} className={toolbarButtonClass} title={t('notesEditor.subheading')} aria-label={t('notesEditor.subheading')}>
           H3
         </button>
-        <button type="button" onClick={() => exec('formatBlock', 'p')} className={toolbarButtonClass} title="Texto normal" aria-label="Texto normal">
+        <button type="button" onClick={() => exec('formatBlock', 'p')} className={toolbarButtonClass} title={t('notesEditor.paragraph')} aria-label={t('notesEditor.paragraph')}>
           ¶
         </button>
         <select
           onChange={handleFontChange}
           defaultValue=""
           className="rounded-lg bg-transparent px-1 py-1 text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          title="Tipo de letra"
-          aria-label="Tipo de letra"
+          title={t('notesEditor.font')}
+          aria-label={t('notesEditor.font')}
         >
           <option value="" disabled>
-            Tipo de letra
+            {t('notesEditor.fontPlaceholder')}
           </option>
           {FONT_OPTIONS.map((font) => (
             <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
@@ -146,8 +148,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={() => exec('formatBlock', 'blockquote')}
           className={toolbarButtonClass}
-          title="Citação"
-          aria-label="Citação"
+          title={t('notesEditor.quote')}
+          aria-label={t('notesEditor.quote')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M6 7h4v4c0 3-1.5 5-4 6v-2c1.2-.6 2-1.7 2-3H6V7zm8 0h4v4c0 3-1.5 5-4 6v-2c1.2-.6 2-1.7 2-3h-2V7z" />
@@ -157,8 +159,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={() => exec('insertUnorderedList')}
           className={toolbarButtonClass}
-          title="Lista com marcas"
-          aria-label="Lista com marcas"
+          title={t('notesEditor.bulletedList')}
+          aria-label={t('notesEditor.bulletedList')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
@@ -173,8 +175,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={() => exec('insertOrderedList')}
           className={toolbarButtonClass}
-          title="Lista numerada"
-          aria-label="Lista numerada"
+          title={t('notesEditor.numberedList')}
+          aria-label={t('notesEditor.numberedList')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="10" y1="6" x2="21" y2="6" />
@@ -189,8 +191,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={handleLink}
           className={toolbarButtonClass}
-          title="Inserir hiperligação"
-          aria-label="Inserir hiperligação"
+          title={t('notesEditor.link')}
+          aria-label={t('notesEditor.link')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -202,8 +204,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
           className={toolbarButtonClass}
-          title="Inserir imagem"
-          aria-label="Inserir imagem"
+          title={t('notesEditor.image')}
+          aria-label={t('notesEditor.image')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -215,8 +217,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={handleVideo}
           className={toolbarButtonClass}
-          title="Inserir vídeo do YouTube"
-          aria-label="Inserir vídeo do YouTube"
+          title={t('notesEditor.video')}
+          aria-label={t('notesEditor.video')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="5" width="20" height="14" rx="3" ry="3" />
@@ -227,8 +229,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={() => exec('removeFormat')}
           className={toolbarButtonClass}
-          title="Limpar formatação"
-          aria-label="Limpar formatação"
+          title={t('notesEditor.clearFormatting')}
+          aria-label={t('notesEditor.clearFormatting')}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 20h16" />
@@ -238,7 +240,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           </svg>
         </button>
         {isUploading && (
-          <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">A carregar imagem...</span>
+          <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">{t('notesEditor.uploading')}</span>
         )}
         <input
           ref={fileInputRef}
@@ -253,11 +255,11 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        data-placeholder={placeholder || 'Escreve as tuas notas...'}
+        data-placeholder={placeholder || t('notesEditor.placeholder')}
         className="notes-content min-h-[120px] px-4 py-3 text-sm text-neutral-900 outline-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)] dark:text-neutral-50"
         role="textbox"
         aria-multiline="true"
-        aria-label="Notas"
+        aria-label={t('notesEditor.aria')}
       />
       {uploadError && (
         <p className="border-t border-neutral-200 px-4 py-2 text-xs text-red-700 dark:border-neutral-800 dark:text-red-300">

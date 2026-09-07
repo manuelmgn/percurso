@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 
 export function Header() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
 
@@ -18,10 +20,10 @@ export function Header() {
     <header className="glass sticky top-0 z-30 rounded-none border-b border-neutral-200/50 px-4 py-3 dark:border-neutral-800/50">
       <div className="mx-auto flex max-w-7xl items-center gap-4">
         <h1 className="font-display text-xl font-bold text-primary-700 lg:hidden dark:text-primary-300">
-          <Link to="/">Percursos</Link>
+          <Link to="/">{t('app.name')}</Link>
         </h1>
 
-        <form onSubmit={handleSearch} className="min-w-0 flex-1" role="search" aria-label="Pesquisa global">
+        <form onSubmit={handleSearch} className="min-w-0 flex-1" role="search" aria-label={t('header.searchAria')}>
           <div className="relative">
             <svg
               className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400"
@@ -34,11 +36,11 @@ export function Header() {
             </svg>
             <input
               type="search"
-              placeholder="Pesquisar viagens, lugares, projetos..."
+              placeholder={t('search.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="input pl-10"
-              aria-label="Pesquisar"
+              aria-label={t('header.searchInputAria')}
             />
           </div>
         </form>
@@ -46,8 +48,8 @@ export function Header() {
         <div className="flex items-center gap-2">
           <Link
             to={`/utilizadores/${user?.username}`}
-            aria-label="Ver o meu perfil público"
-            title="Ver o meu perfil público"
+            aria-label={t('header.myProfile')}
+            title={t('header.myProfile')}
           >
             {user?.avatar_url ? (
               <img src={user.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />

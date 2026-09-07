@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import type { StatsResponse } from '@/types'
 
 export function StatsPage() {
+  const { t } = useTranslation()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -14,19 +16,19 @@ export function StatsPage() {
         setIsLoading(true)
         setStats(await api.stats.get())
       } catch (err: any) {
-        setError(err.message || 'Erro ao carregar estatísticas')
+        setError(err.message || t('stats.loadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [])
+  }, [t])
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
@@ -34,9 +36,9 @@ export function StatsPage() {
   if (!stats) {
     return (
       <div className="space-y-6">
-        <h2 className="font-display text-2xl font-bold">Estatísticas</h2>
+        <h2 className="font-display text-2xl font-bold">{t('stats.title')}</h2>
         <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || 'Não foi possível carregar as estatísticas.'}</p>
+          <p className="text-red-700 dark:text-red-300">{error || t('stats.loadError')}</p>
         </div>
       </div>
     )
@@ -45,18 +47,15 @@ export function StatsPage() {
   const maxRegionCount = Math.max(1, ...stats.region_stats.map((r) => r.count))
 
   const counters = [
-    { label: stats.summary.trip_count === 1 ? 'Viagem' : 'Viagens', value: stats.summary.trip_count },
-    { label: stats.summary.place_count === 1 ? 'Lugar visitado' : 'Lugares visitados', value: stats.summary.place_count },
-    { label: stats.summary.active_projects === 1 ? 'Projeto ativo' : 'Projetos ativos', value: stats.summary.active_projects },
-    {
-      label: stats.summary.completed_projects === 1 ? 'Projeto concluído' : 'Projetos concluídos',
-      value: stats.summary.completed_projects,
-    },
+    { label: t(stats.summary.trip_count === 1 ? 'stats.trips' : 'stats.trips'), value: stats.summary.trip_count },
+    { label: t(stats.summary.place_count === 1 ? 'stats.places' : 'stats.places'), value: stats.summary.place_count },
+    { label: t(stats.summary.active_projects === 1 ? 'stats.activeProjects' : 'stats.activeProjects'), value: stats.summary.active_projects },
+    { label: t(stats.summary.completed_projects === 1 ? 'stats.completedProjects' : 'stats.completedProjects'), value: stats.summary.completed_projects },
   ]
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">Estatísticas</h2>
+      <h2 className="font-display text-2xl font-bold">{t('stats.title')}</h2>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {counters.map((counter) => (
@@ -70,9 +69,9 @@ export function StatsPage() {
       </div>
 
       <div className="card">
-        <h3 className="mb-4 font-display text-lg font-semibold">Progresso dos projetos</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('stats.projectProgress')}</h3>
         {stats.project_stats.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Ainda não há projetos.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('stats.noProjects')}</p>
         ) : (
           <ul className="space-y-4">
             {stats.project_stats.map((project) => (
@@ -86,8 +85,8 @@ export function StatsPage() {
                   </Link>
                   <span className="text-sm text-neutral-500 dark:text-neutral-400">
                     {project.total_places > 0
-                      ? `${project.visited_places} de ${project.total_places} · ${Math.round(project.progress_percent)}%`
-                      : 'sem lugares-objetivo'}
+                      ? `${t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · ${Math.round(project.progress_percent)}%`
+                      : t('stats.projectNoPlaces')}
                   </span>
                 </div>
                 {project.total_places > 0 && (
@@ -105,9 +104,9 @@ export function StatsPage() {
       </div>
 
       <div className="card">
-        <h3 className="mb-4 font-display text-lg font-semibold">Lugares por região</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('stats.byRegion')}</h3>
         {stats.region_stats.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Ainda não há lugares visitados.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('stats.noPlacesVisited')}</p>
         ) : (
           <ul className="space-y-3">
             {stats.region_stats.map((region) => (
@@ -131,9 +130,9 @@ export function StatsPage() {
       </div>
 
       <div className="card">
-        <h3 className="mb-4 font-display text-lg font-semibold">Lugares mais visitados</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('stats.mostVisited')}</h3>
         {stats.most_visited.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">Ainda não há lugares visitados.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('stats.noPlacesVisited')}</p>
         ) : (
           <ol className="space-y-2">
             {stats.most_visited.map((place, index) => (
@@ -152,7 +151,7 @@ export function StatsPage() {
                     <span className="text-sm text-neutral-500 dark:text-neutral-400"> [{place.place_type}]</span>
                   </p>
                   <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {place.visit_count} {place.visit_count === 1 ? 'visita' : 'visitas'}
+                    {place.visit_count} {t(place.visit_count === 1 ? 'units.visit.one' : 'units.visit.other')}
                   </span>
                 </div>
               </li>

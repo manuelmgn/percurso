@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 
 function Icon({ children }: { children: React.ReactNode }) {
@@ -62,35 +63,36 @@ function NavItem({ to, icon, children }: { to: string; icon: React.ReactNode; ch
 
 export function Sidebar() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
 
   return (
-    <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 rounded-none border-r border-neutral-200/50 lg:block dark:border-neutral-800/50" aria-label="Navegação principal">
+    <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 rounded-none border-r border-neutral-200/50 lg:block dark:border-neutral-800/50" aria-label={t('sidebar.mainNav')}>
       <div className="flex h-full flex-col p-6">
         <div className="mb-8">
           <h1 className="font-display text-2xl font-bold tracking-tight text-primary-700 dark:text-primary-300">
-            <Link to="/">Percursos</Link>
+            <Link to="/">{t('app.name')}</Link>
           </h1>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Os teus lugares e viagens</p>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('app.tagline')}</p>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto" aria-label="Menu principal">
-          <NavItem to="/" icon={icons.home}>Início</NavItem>
-          <NavItem to="/viagens" icon={icons.globe}>Viagens</NavItem>
-          <NavItem to="/projetos" icon={icons.checkCircle}>Projetos</NavItem>
-          <NavItem to="/lugares" icon={icons.mapPin}>Lugares</NavItem>
-          <NavItem to="/estatisticas" icon={icons.chartBar}>Estatísticas</NavItem>
-          {user?.role === 'admin' && <NavItem to="/admin" icon={icons.cog}>Administração</NavItem>}
+        <nav className="flex-1 space-y-1 overflow-y-auto" aria-label={t('sidebar.mainMenu')}>
+          <NavItem to="/" icon={icons.home}>{t('nav.home')}</NavItem>
+          <NavItem to="/viagens" icon={icons.globe}>{t('nav.trips')}</NavItem>
+          <NavItem to="/projetos" icon={icons.checkCircle}>{t('nav.projects')}</NavItem>
+          <NavItem to="/lugares" icon={icons.mapPin}>{t('nav.places')}</NavItem>
+          <NavItem to="/estatisticas" icon={icons.chartBar}>{t('nav.stats')}</NavItem>
+          {user?.role === 'admin' && <NavItem to="/admin" icon={icons.cog}>{t('nav.admin')}</NavItem>}
         </nav>
 
         <div className="border-t border-neutral-200/50 pt-4 dark:border-neutral-800/50">
-          <NavItem to="/perfil" icon={icons.user}>Perfil</NavItem>
+          <NavItem to="/perfil" icon={icons.user}>{t('nav.profile')}</NavItem>
           <button
             onClick={logout}
             className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            aria-label="Terminar sessão"
+            aria-label={t('sidebar.logoutAria')}
           >
             <Icon>{icons.logout}</Icon>
-            Sair
+            {t('nav.logout')}
           </button>
         </div>
       </div>

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     env: str = "development"
     secret_key: str = "dev-secret-key-change-in-production"
+    # Full database URL override (e.g. a future PostgreSQL URL); defaults to SQLite
+    database_url_override: str | None = None
     data_dir: Path = Path(__file__).resolve().parent.parent / "data"
     uploads_dir: Path = Path(__file__).resolve().parent.parent / "uploads"
     tile_cache_dir: Path = Path(__file__).resolve().parent.parent / "tile-cache"
@@ -20,6 +22,8 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.database_url_override:
+            return self.database_url_override
         return f"sqlite:///{self.data_dir / 'percursos.db'}"
 
     @property

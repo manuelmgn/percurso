@@ -1,18 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
+import { useAuth } from '@/context/AuthContext'
 import { api } from '@/api'
 import type { ProjectListItem } from '@/types'
 
-const visibilityLabels: Record<ProjectListItem['visibility'], string> = {
-  all: 'Todos',
-  specific: 'Utilizadores específicos',
-  private: 'Privado',
+type ProjectSort = 'recent' | 'alpha' | 'progress'
+
+interface ProjectFilters {
+  query: string
+  sort: ProjectSort
+}
+
+const DEFAULT_FILTERS: ProjectFilters = { query: '', sort: 'recent' }
+
+function storageKey(userId: number | undefined): string {
+  return `projetos:filters:${userId ?? 'anon'}`
+}
+
+function loadFilters(userId: number | undefined): ProjectFilters {
+  try {
+    const raw = localStorage.getItem(storageKey(userId))
+    if (!raw) return DEFAULT_FILTERS
+    return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<ProjectFilters>) }
+  } catch {
+    return DEFAULT_FILTERS
+  }
 }
 
 export function ProjectsPage() {
+  const { t } = useTranslation()
+  const { user } = useAuth()
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [filters, setFilters] = useState<ProjectFilters>(() => loadFilters(user?.id))
+
+  useEffect(() => {
+    localStorage.setItem(storageKey(user?.id), JSON.stringify(filters))
+  }, [filters, user?.id])
 
   useEffect(() => {
     const load = async () => {
@@ -20,19 +46,38 @@ export function ProjectsPage() {
         setIsLoading(true)
         setProjects(await api.projects.list())
       } catch (err: any) {
-        setError(err.message || 'Erro ao carregar projetos')
+        setError(err.message || t('projects.loadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [])
+  }, [t])
+
+  const visibleProjects = useMemo(() => {
+    const query = filters.query.trim().toLowerCase()
+    const filtered = projects.filter((project) => {
+      if (!query) return true
+      return project.name.toLowerCase().includes(query) || (project.description ?? '').toLowerCase().includes(query)
+    })
+    return [...filtered].sort((a, b) => {
+      switch (filters.sort) {
+        case 'alpha':
+          return a.name.localeCompare(b.name, 'pt')
+        case 'progress':
+          return b.progress_percent - a.progress_percent || a.name.localeCompare(b.name, 'pt')
+        case 'recent':
+        default:
+          return b.updated_at.localeCompare(a.updated_at)
+      }
+    })
+  }, [projects, filters])
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
@@ -40,9 +85,9 @@ export function ProjectsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl font-bold">Projetos</h2>
+        <h2 className="font-display text-2xl font-bold">{t('projects.title')}</h2>
         <Link to="/projetos/novo" className="btn-primary">
-          Novo projeto
+          {t('projects.create')}
         </Link>
       </div>
 
@@ -57,52 +102,94 @@ export function ProjectsPage() {
           <svg className="h-12 w-12 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="mt-4 font-display text-lg font-semibold">Ainda não tens projetos</h3>
+          <h3 className="mt-4 font-display text-lg font-semibold">{t('projects.empty.title')}</h3>
           <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
-            Cria um projeto para juntares lugares e acompanhares o teu progresso.
+            {t('projects.empty.description')}
           </p>
           <Link to="/projetos/novo" className="btn-primary mt-6">
-            Criar o meu primeiro projeto
+            {t('projects.empty.cta')}
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/projetos/${project.id}`}
-              className="card block"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
-                  {project.name}
-                </p>
-                {project.is_completed && (
-                  <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                    Concluído
-                  </span>
-                )}
-              </div>
-              {project.description && (
-                <p className="mt-1 line-clamp-2 text-sm text-neutral-500 dark:text-neutral-400">
-                  {project.description}
-                </p>
-              )}
-              <div className="mt-4">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-                  <div
-                    className="h-full rounded-full bg-primary-600 transition-all"
-                    style={{ width: `${project.progress_percent}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                  {project.visited_places} de {project.total_places} visitados · {Math.round(project.progress_percent)}% ·{' '}
-                  {visibilityLabels[project.visibility]}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="card grid gap-3 p-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="projects-search">
+                {t('projects.searchLabel')}
+              </label>
+              <input
+                id="projects-search"
+                type="search"
+                value={filters.query}
+                onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))}
+                placeholder={t('projects.searchPlaceholder')}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="projects-sort">
+                {t('projects.sortLabel')}
+              </label>
+              <select
+                id="projects-sort"
+                value={filters.sort}
+                onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value as ProjectSort }))}
+                className="input"
+              >
+                <option value="recent">{t('places.sortRecent')}</option>
+                <option value="alpha">{t('places.sortAlpha')}</option>
+                <option value="progress">{t('projects.progress')}</option>
+              </select>
+            </div>
+          </div>
+
+          {visibleProjects.length === 0 ? (
+            <div className="card py-8 text-center">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('projects.noResults')}</p>
+              <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
+                {t('actions.clearFilters')}
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  to={`/projetos/${project.id}`}
+                  className="card block"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                      {project.name}
+                    </p>
+                    {project.is_completed && (
+                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
+                        {t('projects.completedBadge')}
+                      </span>
+                    )}
+                  </div>
+                  {project.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-neutral-500 dark:text-neutral-400">
+                      {project.description}
+                    </p>
+                  )}
+                  <div className="mt-4">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      <div
+                        className="h-full rounded-full bg-primary-600 transition-all"
+                        style={{ width: `${project.progress_percent}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}% ·{' '}
+                      {t(`visibility.option${project.visibility.charAt(0).toUpperCase() + project.visibility.slice(1)}`)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

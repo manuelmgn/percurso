@@ -189,4 +189,15 @@ def list_places(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return place_service.list_places(db, limit=limit, offset=offset)
+    """All places visible to the current user, paginated."""
+    visible_ids = place_service.get_visible_place_ids(db, user)
+    if not visible_ids:
+        return []
+    return (
+        db.query(Place)
+        .filter(Place.id.in_(visible_ids))
+        .order_by(Place.name)
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )

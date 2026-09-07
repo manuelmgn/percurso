@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
+import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { formatHierarchy } from '@/utils/format'
 import { PLACE_TYPES, type PlaceOverviewItem, type PlaceType } from '@/types'
 
@@ -15,11 +17,16 @@ interface PlacesFilters {
 }
 
 const DEFAULT_FILTERS: PlacesFilters = { query: '', placeType: '', status: 'all', sort: 'alpha' }
-const STORAGE_KEY = 'lugares:filters'
 
-function loadFilters(): PlacesFilters {
+// Filters are remembered per user, so they survive sessions without leaking
+// to other users of the same device.
+function storageKey(userId: number | undefined): string {
+  return `lugares:filters:${userId ?? 'anon'}`
+}
+
+function loadFilters(userId: number | undefined): PlacesFilters {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey(userId))
     if (!raw) return DEFAULT_FILTERS
     return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<PlacesFilters>) }
   } catch {
@@ -38,15 +45,17 @@ function recencyTimestamp(place: PlaceOverviewItem): number {
 }
 
 export function PlacesPage() {
+  const { user } = useAuth()
+  const { t } = useTranslation()
   const [places, setPlaces] = useState<PlaceOverviewItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [filters, setFilters] = useState<PlacesFilters>(loadFilters)
+  const [filters, setFilters] = useState<PlacesFilters>(() => loadFilters(user?.id))
 
   // The app remembers the chosen filters and sort order between sessions.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters))
-  }, [filters])
+    localStorage.setItem(storageKey(user?.id), JSON.stringify(filters))
+  }, [filters, user?.id])
 
   useEffect(() => {
     const load = async () => {
@@ -54,13 +63,13 @@ export function PlacesPage() {
         setIsLoading(true)
         setPlaces(await api.places.overview())
       } catch (err: any) {
-        setError(err.message || 'Erro ao carregar lugares')
+        setError(err.message || t('places.loadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [])
+  }, [t])
 
   const visiblePlaces = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
@@ -85,16 +94,16 @@ export function PlacesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">Lugares</h2>
+      <h2 className="font-display text-2xl font-bold">{t('places.title')}</h2>
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -108,13 +117,12 @@ export function PlacesPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <h3 className="mt-4 font-display text-lg font-semibold">Ainda não tens lugares</h3>
+          <h3 className="mt-4 font-display text-lg font-semibold">{t('places.empty.title')}</h3>
           <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
-            Os lugares nascem do OpenStreetMap quando os adicionas a uma viagem ou a um projeto.
-            Regista a tua primeira viagem para começares a colecionar lugares.
+            {t('places.empty.description')}
           </p>
           <Link to="/viagens/novo" className="btn-primary mt-6">
-            Registar a minha primeira viagem
+            {t('places.empty.cta')}
           </Link>
         </div>
       ) : (
@@ -122,20 +130,20 @@ export function PlacesPage() {
           <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 lg:col-span-1">
               <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-search">
-                Procurar
+                {t('places.searchLabel')}
               </label>
               <input
                 id="places-search"
                 type="search"
                 value={filters.query}
                 onChange={(e) => updateFilters({ query: e.target.value })}
-                placeholder="Nome do lugar..."
+                placeholder={t('places.searchPlaceholder')}
                 className="input"
               />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-type">
-                Tipo
+                {t('places.typeLabel')}
               </label>
               <select
                 id="places-type"
@@ -143,7 +151,7 @@ export function PlacesPage() {
                 onChange={(e) => updateFilters({ placeType: e.target.value as '' | PlaceType })}
                 className="input"
               >
-                <option value="">Todos os tipos</option>
+                <option value="">{t('places.typeAll')}</option>
                 {PLACE_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
@@ -151,7 +159,7 @@ export function PlacesPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-status">
-                Estado
+                {t('places.statusLabel')}
               </label>
               <select
                 id="places-status"
@@ -159,14 +167,14 @@ export function PlacesPage() {
                 onChange={(e) => updateFilters({ status: e.target.value as StatusFilter })}
                 className="input"
               >
-                <option value="all">Todos</option>
-                <option value="visited">Visitados</option>
-                <option value="pending">Pendentes</option>
+                <option value="all">{t('places.statusAll')}</option>
+                <option value="visited">{t('places.statusVisited')}</option>
+                <option value="pending">{t('places.statusPending')}</option>
               </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-sort">
-                Ordenar
+                {t('places.sortLabel')}
               </label>
               <select
                 id="places-sort"
@@ -174,9 +182,9 @@ export function PlacesPage() {
                 onChange={(e) => updateFilters({ sort: e.target.value as SortOrder })}
                 className="input"
               >
-                <option value="alpha">Alfabética</option>
-                <option value="most_visited">Mais visitados</option>
-                <option value="recent">Mais recentes</option>
+                <option value="alpha">{t('places.sortAlpha')}</option>
+                <option value="most_visited">{t('places.sortMostVisited')}</option>
+                <option value="recent">{t('places.sortRecent')}</option>
               </select>
             </div>
           </div>
@@ -184,8 +192,11 @@ export function PlacesPage() {
           {visiblePlaces.length === 0 ? (
             <div className="card py-8 text-center">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Nenhum lugar corresponde aos filtros escolhidos.
+                {t('places.noResults')}
               </p>
+              <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
+                {t('actions.clearFilters')}
+              </button>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -200,12 +211,12 @@ export function PlacesPage() {
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">
                         {place.visit_count > 0 && (
                           <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                            Visitado {place.visit_count} {place.visit_count === 1 ? 'vez' : 'vezes'}
+                            {place.visit_count === 1 ? t('places.visitedOnce') : t('places.visitedTimes', { count: place.visit_count })}
                           </span>
                         )}
                         {(status === 'pending' || status === 'both') && (
                           <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                            Pendente
+                            {t('places.pendingBadge')}
                           </span>
                         )}
                       </div>

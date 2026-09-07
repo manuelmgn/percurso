@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
 import type { PublicUserProfile } from '@/types'
@@ -9,6 +10,7 @@ function formatMemberSince(iso: string): string {
 }
 
 export function UserProfilePage() {
+  const { t } = useTranslation()
   const { username } = useParams<{ username: string }>()
   const { user } = useAuth()
   const [profile, setProfile] = useState<PublicUserProfile | null>(null)
@@ -23,19 +25,19 @@ export function UserProfilePage() {
         setIsLoading(true)
         setProfile(await api.users.publicProfile(username || ''))
       } catch (err: any) {
-        setError(err.message || 'Utilizador não encontrado')
+        setError(err.message || t('userProfile.notFound'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [username])
+  }, [username, t])
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
@@ -44,15 +46,15 @@ export function UserProfilePage() {
     return (
       <div className="space-y-6">
         <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || 'Utilizador não encontrado.'}</p>
+          <p className="text-red-700 dark:text-red-300">{error || t('userProfile.notFound')}</p>
         </div>
       </div>
     )
   }
 
   const counters = [
-    { label: profile.trip_count === 1 ? 'Viagem' : 'Viagens', value: profile.trip_count },
-    { label: profile.place_count === 1 ? 'Lugar visitado' : 'Lugares visitados', value: profile.place_count },
+    { label: profile.trip_count === 1 ? t('userProfile.trips') : t('userProfile.trips'), value: profile.trip_count },
+    { label: profile.place_count === 1 ? t('userProfile.places') : t('userProfile.places'), value: profile.place_count },
   ]
 
   return (
@@ -62,7 +64,8 @@ export function UserProfilePage() {
           {profile.avatar_url ? (
             <img
               src={profile.avatar_url}
-              alt={`Fotografia de ${profile.username}`}
+              alt={t('profile.avatarAlt', { username: profile.username })}
+              loading="lazy"
               className="h-24 w-24 rounded-full object-cover"
             />
           ) : (
@@ -73,12 +76,12 @@ export function UserProfilePage() {
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold">{profile.username}</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              Membro desde {formatMemberSince(profile.created_at)}
+              {t('userProfile.memberSince', { date: formatMemberSince(profile.created_at) })}
             </p>
           </div>
           {isOwnProfile && (
             <Link to="/perfil" className="btn-primary">
-              Editar perfil
+              {t('userProfile.editProfile')}
             </Link>
           )}
         </div>

@@ -5,7 +5,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.models import User, Trip, Project, Place
 from app.schemas import SearchResult, TripListResponse, ProjectListResponse, PlaceResponse
-from app.services import visibility_service, project_service
+from app.services import visibility_service, project_service, place_service
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -32,8 +32,15 @@ def search(
     all_projects = visibility_service.get_visible_projects(db, user)
     matching_projects = [p for p in all_projects if q.lower() in p.name.lower() or (p.description and q.lower() in p.description.lower())]
 
-    # Search places
-    matching_places = db.query(Place).filter(Place.name.ilike(query)).limit(20).all()
+    # Search places — only those the user can actually see (visited in a
+    # visible trip or targeted by a visible project).
+    visible_place_ids = place_service.get_visible_place_ids(db, user)
+    matching_places = (
+        db.query(Place)
+        .filter(Place.id.in_(visible_place_ids), Place.name.ilike(query))
+        .limit(20)
+        .all()
+    ) if visible_place_ids else []
 
     project_items = []
     for p in matching_projects[:10]:

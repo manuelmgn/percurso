@@ -1,10 +1,44 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
+import { formatDate } from '@/utils/format'
 import type { ThemePreference } from '@/types'
 
+// Curated IANA timezones offered in the preferences selector
+const TIMEZONES = [
+  'Europe/Lisbon',
+  'Atlantic/Azores',
+  'Atlantic/Madeira',
+  'Europe/Madrid',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'America/Sao_Paulo',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Mexico_City',
+  'America/Argentina/Buenos_Aires',
+  'Africa/Luanda',
+  'Africa/Maputo',
+  'Asia/Macau',
+  'Asia/Dili',
+  'UTC',
+]
+
+// Must match ALLOWED_DATE_FORMATS in backend/app/routers/me.py
+const DATE_FORMATS = [
+  { value: '%d/%m/%Y', label: 'dd/mm/aaaa' },
+  { value: '%m/%d/%Y', label: 'mm/dd/aaaa' },
+  { value: '%Y-%m-%d', label: 'aaaa-mm-dd' },
+]
+
 export function ProfilePage() {
+  const { t } = useTranslation()
   const { user, refreshUser } = useAuth()
   const { theme, setTheme } = useTheme()
   const [currentPassword, setCurrentPassword] = useState('')
@@ -25,7 +59,7 @@ export function ProfilePage() {
       await api.me.uploadAvatar(file)
       await refreshUser()
     } catch (err: any) {
-      setAvatarError(err.message || 'Erro ao carregar fotografia')
+      setAvatarError(err.message || t('profile.avatarError'))
     } finally {
       setIsUploadingAvatar(false)
     }
@@ -41,44 +75,62 @@ export function ProfilePage() {
     }
   }
 
+  const [prefsError, setPrefsError] = useState('')
+
+  const handlePreferenceChange = async (prefs: { timezone?: string; date_format?: string }) => {
+    setPrefsError('')
+    try {
+      await api.me.update(prefs)
+      await refreshUser()
+    } catch (err: any) {
+      setPrefsError(err.message || t('profile.preferencesError'))
+    }
+  }
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage('')
     setError('')
     try {
       await api.me.changePassword({ current_password: currentPassword, new_password: newPassword })
-      setMessage('Palavra-passe alterada com sucesso')
+      setMessage(t('profile.passwordChanged'))
       setCurrentPassword('')
       setNewPassword('')
     } catch (err: any) {
-      setError(err.message || 'Erro ao alterar palavra-passe')
+      setError(err.message || t('profile.passwordError'))
     }
+  }
+
+  const themeLabels: Record<ThemePreference, string> = {
+    light: t('profile.themeLight'),
+    dark: t('profile.themeDark'),
+    system: t('profile.themeSystem'),
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">Perfil</h2>
+      <h2 className="font-display text-2xl font-bold">{t('profile.title')}</h2>
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Informação da conta</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('profile.account')}</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome de utilizador</label>
+            <label className="mb-1 block text-sm font-medium">{t('profile.usernameLabel')}</label>
             <div className="rounded-lg border border-neutral-200 bg-neutral-100 px-4 py-2 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
               {user?.username}
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Função</label>
+            <label className="mb-1 block text-sm font-medium">{t('profile.roleLabel')}</label>
             <div className="rounded-lg border border-neutral-200 bg-neutral-100 px-4 py-2 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-              {user?.role === 'admin' ? 'Administrador' : 'Utilizador'}
+              {user?.role === 'admin' ? t('profile.roleAdmin') : t('profile.roleUser')}
             </div>
           </div>
         </div>
       </div>
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Fotografia de perfil</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('profile.avatarTitle')}</h3>
         {avatarError && (
           <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
             {avatarError}
@@ -88,7 +140,7 @@ export function ProfilePage() {
           {user?.avatar_url ? (
             <img
               src={user.avatar_url}
-              alt={`Fotografia de ${user.username}`}
+              alt={t('profile.avatarAlt', { username: user.username })}
               loading="lazy"
               className="h-20 w-20 rounded-full object-cover"
             />
@@ -103,10 +155,10 @@ export function ProfilePage() {
               disabled={isUploadingAvatar}
               className="btn-outline"
             >
-              {isUploadingAvatar ? 'A carregar...' : 'Alterar fotografia'}
+              {isUploadingAvatar ? t('profile.avatarUploading') : t('profile.avatarChange')}
             </button>
             <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              JPEG, PNG, WebP ou HEIC. A imagem é convertida para WebP.
+              {t('profile.avatarFormats')}
             </p>
           </div>
           <input
@@ -121,31 +173,65 @@ export function ProfilePage() {
       </div>
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Preferências</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('profile.preferences')}</h3>
+        {prefsError && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {prefsError}
+          </div>
+        )}
         <div>
-          <label className="mb-2 block text-sm font-medium">Tema</label>
+          <label className="mb-2 block text-sm font-medium">{t('profile.theme')}</label>
           <div className="flex gap-2">
-            {(['light', 'dark', 'system'] as ThemePreference[]).map((t) => (
+            {(['light', 'dark', 'system'] as ThemePreference[]).map((themeValue) => (
               <button
-                key={t}
-                onClick={() => handleThemeChange(t)}
+                key={themeValue}
+                onClick={() => handleThemeChange(themeValue)}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  theme === t
+                  theme === themeValue
                     ? 'bg-primary-600 text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
                 }`}
               >
-                {t === 'light' && 'Claro'}
-                {t === 'dark' && 'Escuro'}
-                {t === 'system' && 'Sistema'}
+                {themeLabels[themeValue]}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="timezone">{t('profile.timezone')}</label>
+            <select
+              id="timezone"
+              value={user?.timezone || 'Europe/Lisbon'}
+              onChange={(e) => handlePreferenceChange({ timezone: e.target.value })}
+              className="input"
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>{tz}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="date-format">{t('profile.dateFormat')}</label>
+            <select
+              id="date-format"
+              value={user?.date_format || '%d/%m/%Y'}
+              onChange={(e) => handlePreferenceChange({ date_format: e.target.value })}
+              className="input"
+            >
+              {DATE_FORMATS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label} ({formatDate(new Date(), { date_format: f.value, timezone: user?.timezone })})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Alterar palavra-passe</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('profile.changePassword')}</h3>
         {message && (
           <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">
             {message}
@@ -158,7 +244,7 @@ export function ProfilePage() {
         )}
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Palavra-passe atual</label>
+            <label className="mb-1 block text-sm font-medium">{t('profile.currentPassword')}</label>
             <input
               type="password"
               required
@@ -168,7 +254,7 @@ export function ProfilePage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nova palavra-passe</label>
+            <label className="mb-1 block text-sm font-medium">{t('profile.newPassword')}</label>
             <input
               type="password"
               required
@@ -182,7 +268,7 @@ export function ProfilePage() {
             type="submit"
             className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
           >
-            Alterar palavra-passe
+            {t('profile.passwordButton')}
           </button>
         </form>
       </div>

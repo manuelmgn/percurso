@@ -1,14 +1,31 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api'
+import { useTranslation } from '@/i18n'
 import type { User, UserCreate } from '@/types'
 
 export function AdminPage() {
+  const { t } = useTranslation()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<UserCreate['role']>('user')
+  const [backupState, setBackupState] = useState<{ status: 'idle' | 'running' | 'ok' | 'error'; message: string }>({
+    status: 'idle',
+    message: '',
+  })
+
+  const handleBackup = async () => {
+    if (!confirm(t('admin.backupConfirm'))) return
+    setBackupState({ status: 'running', message: '' })
+    try {
+      const result = await api.admin.backup()
+      setBackupState({ status: 'ok', message: t('admin.backupCreated', { name: result.backup }) })
+    } catch (err: any) {
+      setBackupState({ status: 'error', message: err.message || t('admin.backupError') })
+    }
+  }
 
   const loadUsers = async () => {
     try {
@@ -16,7 +33,7 @@ export function AdminPage() {
       const data = await api.users.list()
       setUsers(data)
     } catch (err: any) {
-      setError(err.message || 'Erro ao carregar utilizadores')
+      setError(err.message || t('admin.loadError'))
     } finally {
       setIsLoading(false)
     }
@@ -24,7 +41,7 @@ export function AdminPage() {
 
   useEffect(() => {
     loadUsers()
-  }, [])
+  }, [t])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +53,7 @@ export function AdminPage() {
       setNewRole('user')
       await loadUsers()
     } catch (err: any) {
-      setError(err.message || 'Erro ao criar utilizador')
+      setError(err.message || t('admin.createError'))
     }
   }
 
@@ -45,42 +62,43 @@ export function AdminPage() {
       await api.users.update(user.id, { is_active: !user.is_active })
       await loadUsers()
     } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar utilizador')
+      setError(err.message || t('admin.updateError'))
     }
   }
 
   const handleResetPassword = async (user: User) => {
-    const password = prompt(`Nova palavra-passe para ${user.username} (mín. 8 caracteres):`)
+    const password = prompt(t('admin.resetPasswordPrompt', { username: user.username }))
     if (!password || password.length < 8) return
     try {
       await api.users.resetPassword(user.id, password)
-      alert('Palavra-passe redefinida')
+      alert(t('admin.resetPasswordSuccess'))
     } catch (err: any) {
-      setError(err.message || 'Erro ao redefinir palavra-passe')
+      setError(err.message || t('admin.resetPasswordError'))
     }
   }
 
   const handleDelete = async (user: User) => {
-    if (!confirm(`Tens a certeza que queres eliminar ${user.username}?`)) return
+    if (!confirm(t('admin.deleteConfirm', { username: user.username }))) return
     try {
       await api.users.delete(user.id)
       await loadUsers()
     } catch (err: any) {
-      setError(err.message || 'Erro ao eliminar utilizador')
+      setError(err.message || t('admin.deleteError'))
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">Administração</h2>
+      <h2 className="font-display text-2xl font-bold">{t('admin.title')}</h2>
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -89,11 +107,11 @@ export function AdminPage() {
       )}
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Criar utilizador</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.createUserTitle')}</h3>
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-4">
           <input
             type="text"
-            placeholder="Nome de utilizador"
+            placeholder={t('admin.usernamePlaceholder')}
             required
             value={newUsername}
             onChange={(e) => setNewUsername(e.target.value)}
@@ -101,7 +119,7 @@ export function AdminPage() {
           />
           <input
             type="password"
-            placeholder="Palavra-passe"
+            placeholder={t('admin.passwordPlaceholder')}
             required
             minLength={8}
             value={newPassword}
@@ -113,35 +131,35 @@ export function AdminPage() {
             onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
             className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
           >
-            <option value="user">Utilizador</option>
-            <option value="admin">Administrador</option>
+            <option value="user">{t('admin.roleUser')}</option>
+            <option value="admin">{t('admin.roleAdmin')}</option>
           </select>
           <button
             type="submit"
             className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
           >
-            Criar
+            {t('admin.createButton')}
           </button>
         </form>
       </div>
 
       <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 font-display text-lg font-semibold">Utilizadores</h3>
+        <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.userListTitle')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left dark:border-neutral-800">
-                <th className="pb-2 font-medium">Utilizador</th>
-                <th className="pb-2 font-medium">Função</th>
-                <th className="pb-2 font-medium">Estado</th>
-                <th className="pb-2 font-medium">Ações</th>
+                <th className="pb-2 font-medium">{t('admin.tableUser')}</th>
+                <th className="pb-2 font-medium">{t('admin.tableRole')}</th>
+                <th className="pb-2 font-medium">{t('admin.tableStatus')}</th>
+                <th className="pb-2 font-medium">{t('admin.tableActions')}</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-b border-neutral-100 dark:border-neutral-900">
                   <td className="py-3">{user.username}</td>
-                  <td className="py-3">{user.role === 'admin' ? 'Administrador' : 'Utilizador'}</td>
+                  <td className="py-3">{user.role === 'admin' ? t('admin.roleAdmin') : t('admin.roleUser')}</td>
                   <td className="py-3">
                     <span
                       className={`rounded-full px-2 py-1 text-xs ${
@@ -150,7 +168,7 @@ export function AdminPage() {
                           : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
                       }`}
                     >
-                      {user.is_active ? 'Ativo' : 'Inativo'}
+                      {user.is_active ? t('admin.statusActive') : t('admin.statusInactive')}
                     </span>
                   </td>
                   <td className="py-3">
@@ -159,19 +177,19 @@ export function AdminPage() {
                         onClick={() => handleToggleActive(user)}
                         className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                       >
-                        {user.is_active ? 'Desativar' : 'Ativar'}
+                        {user.is_active ? t('admin.actionDeactivate') : t('admin.actionActivate')}
                       </button>
                       <button
                         onClick={() => handleResetPassword(user)}
                         className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                       >
-                        Reset pwd
+                        {t('admin.actionResetPassword')}
                       </button>
                       <button
                         onClick={() => handleDelete(user)}
                         className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
                       >
-                        Eliminar
+                        {t('admin.actionDelete')}
                       </button>
                     </div>
                   </td>
@@ -180,6 +198,32 @@ export function AdminPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="glass rounded-2xl p-6">
+        <h3 className="mb-2 font-display text-lg font-semibold">{t('admin.backupTitle')}</h3>
+        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+          {t('admin.backupDescription')}
+        </p>
+        <button
+          onClick={handleBackup}
+          disabled={backupState.status === 'running'}
+          className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+        >
+          {backupState.status === 'running' ? t('admin.backupRunning') : t('admin.backupButton')}
+        </button>
+        {backupState.message && (
+          <p
+            className={`mt-3 text-sm ${
+              backupState.status === 'ok'
+                ? 'text-green-700 dark:text-green-300'
+                : 'text-red-700 dark:text-red-300'
+            }`}
+            role="status"
+          >
+            {backupState.message}
+          </p>
+        )}
       </div>
     </div>
   )

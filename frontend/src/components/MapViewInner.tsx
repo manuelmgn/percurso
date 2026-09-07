@@ -3,6 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Geometry } from 'geojson'
 import { useTheme } from '@/components/ThemeProvider'
+import { useTranslation } from '@/i18n'
 
 const TILE_LAYERS = {
   light: {
@@ -55,10 +56,10 @@ export const POLYGON_STYLE = {
   pending: { borderColor: '#f2a5b8', fillColor: '#f2a5b8', fillOpacity: 0.5 },
 }
 
-function popupHtml(title: string, subtitle?: string, href?: string): string {
+function popupHtml(title: string, subtitle?: string, href?: string, viewPageText = 'Ver ficha'): string {
   let html = `<strong>${title}</strong>`
   if (subtitle) html += `<br><span>${subtitle}</span>`
-  if (href) html += `<br><a href="${href}">Ver ficha</a>`
+  if (href) html += `<br><a href="${href}">${viewPageText}</a>`
   return html
 }
 
@@ -73,6 +74,7 @@ export default function MapViewInner({
   const layerRef = useRef<L.LayerGroup | null>(null)
   const tileLayerRef = useRef<L.TileLayer | null>(null)
   const { resolvedTheme } = useTheme()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -125,7 +127,7 @@ export default function MapViewInner({
         fillColor: color,
         fillOpacity: 0.9,
       })
-        .bindPopup(popupHtml(marker.title, marker.subtitle, marker.href))
+        .bindPopup(popupHtml(marker.title, marker.subtitle, marker.href, t('map.popup.viewPage')))
         .addTo(group)
       bounds.push([marker.lat, marker.lon])
     }
@@ -141,7 +143,7 @@ export default function MapViewInner({
           fillOpacity: style.fillOpacity,
         },
       })
-      layer.bindPopup(popupHtml(polygon.title, polygon.subtitle, polygon.href))
+      layer.bindPopup(popupHtml(polygon.title, polygon.subtitle, polygon.href, t('map.popup.viewPage')))
       group.addLayer(layer)
       const polygonBounds = layer.getBounds()
       if (polygonBounds.isValid()) {
@@ -158,7 +160,7 @@ export default function MapViewInner({
     } else {
       map.fitBounds(latLngBounds, { padding: [24, 24] })
     }
-  }, [markers, polygons])
+  }, [markers, polygons, t])
 
   return (
     <div

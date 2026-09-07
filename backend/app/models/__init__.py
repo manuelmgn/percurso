@@ -13,6 +13,7 @@ from app.models.project import Project, ProjectPlace, project_participants, proj
 from app.models.trip import Trip, TripPlace, TripProject, trip_participants, trip_visible_users, trip_places
 from app.models.activity import Activity
 from app.models.milestone import Milestone
+from app.models.pin import Pin
 
 __all__ = [
     "User",
@@ -25,6 +26,7 @@ __all__ = [
     "TripProject",
     "Activity",
     "Milestone",
+    "Pin",
     "UserRole",
     "ThemePreference",
     "Visibility",

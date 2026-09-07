@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import type { MapMode, PlaceType, User, Visibility } from '@/types'
 import { BIG_PLACE_TYPES } from '@/types'
 
@@ -9,13 +10,15 @@ function UserChecklist({
   users,
   selectedIds,
   onToggle,
+  emptyMessage,
 }: {
   users: User[]
   selectedIds: number[]
   onToggle: (id: number) => void
+  emptyMessage: string
 }) {
   if (users.length === 0) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">Não há outros utilizadores.</p>
+    return <p className="text-sm text-neutral-500 dark:text-neutral-400">{emptyMessage}</p>
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -49,6 +52,7 @@ export function ProjectEditPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { t } = useTranslation()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -91,13 +95,13 @@ export function ProjectEditPage() {
           setVisibleUserIds(project.visible_users.map((u) => u.id))
         }
       } catch (err: any) {
-        setError(err.message || 'Erro ao carregar dados')
+        setError(err.message || t('projectEdit.loadError'))
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [id, isEdit, user?.id])
+  }, [id, isEdit, user?.id, t])
 
   const toggleId = (list: number[], idToToggle: number) =>
     list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
@@ -128,7 +132,7 @@ export function ProjectEditPage() {
         navigate(`/projetos/${project.id}`)
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao guardar projeto')
+      setError(err.message || t('projects.saveError'))
       setIsSubmitting(false)
     }
   }
@@ -139,16 +143,16 @@ export function ProjectEditPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label="A carregar">
+      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold">{isEdit ? 'Editar projeto' : 'Novo projeto'}</h2>
+      <h2 className="font-display text-2xl font-bold">{isEdit ? t('projectEdit.editTitle') : t('projectEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl">
         {error && (
@@ -159,7 +163,7 @@ export function ProjectEditPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="name">Nome</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="name">{t('projectEdit.nameLabel')}</label>
             <input
               id="name"
               type="text"
@@ -171,7 +175,7 @@ export function ProjectEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="description">Descrição</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="description">{t('projectEdit.descriptionLabel')}</label>
             <textarea
               id="description"
               rows={4}
@@ -183,37 +187,37 @@ export function ProjectEditPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="visibility">Visibilidade</label>
+              <label className="mb-1 block text-sm font-medium" htmlFor="visibility">{t('projectEdit.visibilityLabel')}</label>
               <select
                 id="visibility"
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as Visibility)}
                 className="input"
               >
-                <option value="all">Todos</option>
-                <option value="specific">Utilizadores específicos</option>
-                <option value="private">Privado</option>
+                <option value="all">{t('visibility.optionAll')}</option>
+                <option value="specific">{t('visibility.optionSpecific')}</option>
+                <option value="private">{t('visibility.optionPrivate')}</option>
               </select>
             </div>
             {mixedTypes ? (
               <div>
-                <label className="mb-1 block text-sm font-medium">Modo de mapa</label>
+                <label className="mb-1 block text-sm font-medium">{t('projectEdit.mapModeLabel')}</label>
                 <p className="rounded-lg border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-                  Os lugares do projeto são de tipos diferentes: o mapa mostra-se sempre como pontos.
+                  {t('projectEdit.mapModeMixedTypes')}
                 </p>
               </div>
             ) : (
               <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="map_mode">Modo de mapa</label>
+                <label className="mb-1 block text-sm font-medium" htmlFor="map_mode">{t('projectEdit.mapModeLabel')}</label>
                 <select
                   id="map_mode"
                   value={mapMode}
                   onChange={(e) => setMapMode(e.target.value as MapMode)}
                   className="input"
                 >
-                  <option value="points">Ver como pontos</option>
-                  <option value="polygons">Ver como áreas</option>
-                  {!isEdit && <option value="auto">Automático</option>}
+                  <option value="points">{t('projectEdit.mapModePoints')}</option>
+                  <option value="polygons">{t('projectEdit.mapModePolygons')}</option>
+                  {!isEdit && <option value="auto">{t('projectEdit.mapModeAuto')}</option>}
                 </select>
               </div>
             )}
@@ -221,30 +225,32 @@ export function ProjectEditPage() {
 
           {visibility === 'specific' && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Visível para</label>
+              <label className="mb-1 block text-sm font-medium">{t('projectEdit.visibleToLabel')}</label>
               <UserChecklist
                 users={users}
                 selectedIds={visibleUserIds}
                 onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
+                emptyMessage={t('projectEdit.noOtherUsers')}
               />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Participantes</label>
+            <label className="mb-1 block text-sm font-medium">{t('projectEdit.participantsLabel')}</label>
             <UserChecklist
               users={users}
               selectedIds={participantIds}
               onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
+              emptyMessage={t('projectEdit.noOtherUsers')}
             />
           </div>
 
           <div className="flex gap-2 pt-2">
             <button type="submit" disabled={isSubmitting} className="btn-primary">
-              {isSubmitting ? 'A guardar...' : 'Guardar'}
+              {isSubmitting ? t('projectEdit.saving') : t('actions.save')}
             </button>
             <button type="button" onClick={handleCancel} className="btn-outline">
-              Cancelar
+              {t('actions.cancel')}
             </button>
           </div>
         </form>

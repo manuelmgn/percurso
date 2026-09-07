@@ -40,6 +40,7 @@ def run_backup():
                 continue
 
     print(f"Backup completed: {backup_dir}")
+    return backup_dir
 
 
 if __name__ == "__main__":

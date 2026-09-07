@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { Header } from './Header'
@@ -6,19 +7,20 @@ import { useAuth } from '@/context/AuthContext'
 
 export function Layout() {
   const { isLoading } = useAuth()
+  const { t } = useTranslation()
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-label="A carregar">
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t('loading')}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <span className="sr-only">A carregar...</span>
+        <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
   }
 
   return (
     <div className="flex min-h-screen">
-      <a href="#main-content" className="skip-link">Saltar para o conteúdo</a>
+      <a href="#main-content" className="skip-link">{t('skipToContent')}</a>
 
       <Sidebar />
 

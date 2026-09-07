@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/api'
 
 export function SetupPage() {
   const { isSetupRequired, login } = useAuth()
+  const { t } = useTranslation()
   const [adminUsername, setAdminUsername] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [secondUsername, setSecondUsername] = useState('')
@@ -32,7 +34,7 @@ export function SetupPage() {
       })
       await login(adminUsername, adminPassword)
     } catch (err: any) {
-      setError(err.message || 'Erro ao configurar a aplicação')
+      setError(err.message || t('setup.configureError'))
     } finally {
       setIsSubmitting(false)
     }
@@ -42,10 +44,10 @@ export function SetupPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-neutral-900 dark:to-neutral-950">
       <div className="glass w-full max-w-md rounded-2xl p-8">
         <h1 className="mb-2 text-center font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
-          Percursos
+          {t('setup.appName')}
         </h1>
         <p className="mb-8 text-center text-neutral-600 dark:text-neutral-400">
-          Bem-vindo! Cria a tua conta de administrador para começar.
+          {t('setup.welcome')}
         </p>
 
         {error && (
@@ -56,7 +58,7 @@ export function SetupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome de utilizador admin</label>
+            <label className="mb-1 block text-sm font-medium">{t('setup.adminUsername')}</label>
             <input
               type="text"
               required
@@ -67,7 +69,7 @@ export function SetupPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Palavra-passe admin</label>
+            <label className="mb-1 block text-sm font-medium">{t('setup.adminPassword')}</label>
             <input
               type="password"
               required
@@ -86,13 +88,13 @@ export function SetupPage() {
                 onChange={(e) => setAddSecond(e.target.checked)}
                 className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
               />
-              Criar segundo utilizador agora
+              {t('setup.addSecondUser')}
             </label>
 
             {addSecond && (
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm">Nome de utilizador</label>
+                  <label className="mb-1 block text-sm">{t('setup.secondUsername')}</label>
                   <input
                     type="text"
                     value={secondUsername}
@@ -101,7 +103,7 @@ export function SetupPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm">Palavra-passe</label>
+                  <label className="mb-1 block text-sm">{t('setup.secondPassword')}</label>
                   <input
                     type="password"
                     minLength={8}
@@ -119,7 +121,7 @@ export function SetupPage() {
             disabled={isSubmitting}
             className="w-full rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
           >
-            {isSubmitting ? 'A configurar...' : 'Começar'}
+            {isSubmitting ? t('setup.submitting') : t('setup.startButton')}
           </button>
         </form>
       </div>

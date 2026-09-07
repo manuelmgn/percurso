@@ -18,6 +18,7 @@ def list_projects(
     user: User = Depends(get_current_user),
 ):
     projects = visibility_service.get_visible_projects(db, user)
+    projects = sorted(projects, key=lambda p: p.updated_at, reverse=True)
     result = []
     for p in projects:
         progress = project_service.get_project_progress(db, user, p)
