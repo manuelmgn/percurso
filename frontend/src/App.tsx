@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { useAuth } from '@/context/AuthContext'
-import { SetupPage } from '@/pages/SetupPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
@@ -43,14 +42,10 @@ function FullscreenLoading() {
 }
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
-  const { user, isLoading, isSetupRequired } = useAuth()
+  const { user, isLoading } = useAuth()
 
-  if (isLoading || isSetupRequired === null) {
+  if (isLoading) {
     return <FullscreenLoading />
-  }
-
-  if (isSetupRequired) {
-    return <Navigate to="/setup" replace />
   }
 
   if (!user) {
@@ -65,14 +60,10 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isSetupRequired } = useAuth()
+  const { user, isLoading } = useAuth()
 
-  if (isLoading || isSetupRequired === null) {
+  if (isLoading) {
     return <FullscreenLoading />
-  }
-
-  if (isSetupRequired) {
-    return <Navigate to="/setup" replace />
   }
 
   if (user) {
@@ -87,7 +78,6 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/setup" element={<SetupPage />} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route
         path="/"

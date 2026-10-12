@@ -1,11 +1,15 @@
 from datetime import datetime, timezone
+import logging
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.auth import hash_password, verify_password, needs_rehash
+from app.config import settings
 from app.models import User, UserRole
 from app.schemas import UserCreate, UserUpdate, UserPasswordChange
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_by_username(db: Session, username: str) -> Optional[User]:
@@ -64,6 +68,32 @@ def check_and_update_password_hash(db: Session, user: User, password: str) -> Us
 
 def has_users(db: Session) -> bool:
     return db.query(User).first() is not None
+
+
+def seed_default_admin(db: Session) -> Optional[User]:
+    """Create the default admin account on first launch (empty database).
+
+    Idempotent: does nothing if any user already exists. The password comes
+    from settings so it can be overridden via environment variables. The
+    default credentials are intentionally weak — they must be changed after
+    the first login. Built directly instead of via UserCreate because the
+    default password is shorter than the API's minimum length.
+    """
+    if has_users(db):
+        return None
+    user = User(
+        username=settings.default_admin_username,
+        password_hash=hash_password(settings.default_admin_password),
+        role=UserRole.ADMIN,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    logger.warning(
+        "Default admin '%s' created — change the password after the first login",
+        user.username,
+    )
+    return user
 
 
 def list_users(db: Session) -> list[User]:

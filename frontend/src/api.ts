@@ -1,8 +1,6 @@
 import type {
   MeResponse,
   LoginRequest,
-  SetupRequest,
-  PublicStatus,
   PublicUserProfile,
   User,
   UserCreate,
@@ -55,8 +53,7 @@ async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T>
     // where a 401 just means "wrong credentials").
     if (
       response.status === 401 &&
-      !path.startsWith('/api/auth/login') &&
-      !path.startsWith('/api/setup')
+      !path.startsWith('/api/auth/login')
     ) {
       localStorage.removeItem('csrf_token')
       if (window.location.pathname !== '/login') {
@@ -110,14 +107,6 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
 
 export const api = {
   health: () => fetchJson<{ status: string }>('/api/health'),
-
-  setup: {
-    status: () => fetchJson<PublicStatus>('/api/setup/status'),
-    complete: (data: SetupRequest) => fetchJson<{ message: string; admin_id: number }>('/api/setup/', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  },
 
   auth: {
     login: (data: LoginRequest) => fetchJson<MeResponse>('/api/auth/login', {

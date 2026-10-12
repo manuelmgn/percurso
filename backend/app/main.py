@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import settings
-from app.database import engine, Base
-from app.routers import setup, auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones, pins
+from app.database import engine, Base, db_session
+from app.services import user_service
+from app.routers import auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones, pins
 
 # Import all models so they are registered with SQLAlchemy before create_all
 from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin  # noqa: F401
@@ -42,6 +43,8 @@ def _apply_lightweight_migrations():
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _apply_lightweight_migrations()
+    with db_session() as db:
+        user_service.seed_default_admin(db)
     yield
 
 
@@ -61,7 +64,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(users.router)

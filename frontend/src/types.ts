@@ -43,10 +43,6 @@ export interface MeResponse {
   csrf_token: string
 }
 
-export interface PublicStatus {
-  setup_required: boolean
-}
-
 export interface PublicUserProfile {
   username: string
   avatar_url: string | null
@@ -58,13 +54,6 @@ export interface PublicUserProfile {
 export interface LoginRequest {
   username: string
   password: string
-}
-
-export interface SetupRequest {
-  admin_username: string
-  admin_password: string
-  second_username?: string
-  second_password?: string
 }
 
 export interface UserCreate {

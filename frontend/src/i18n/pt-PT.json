@@ -367,17 +367,6 @@
   "admin.updateError": "Erro ao atualizar utilizador",
   "admin.loadError": "Erro ao carregar utilizadores",
 
-  "setup.appName": "Percursos",
-  "setup.welcome": "Bem-vindo! Cria a tua conta de administrador para começar.",
-  "setup.adminUsername": "Nome de utilizador admin",
-  "setup.adminPassword": "Palavra-passe admin",
-  "setup.addSecondUser": "Criar segundo utilizador agora",
-  "setup.secondUsername": "Nome de utilizador",
-  "setup.secondPassword": "Palavra-passe",
-  "setup.submitting": "A configurar...",
-  "setup.startButton": "Começar",
-  "setup.configureError": "Erro ao configurar a aplicação",
-
   "login.appName": "Percursos",
   "login.subtitle": "Inicia sessão para continuar",
   "login.username": "Nome de utilizador",

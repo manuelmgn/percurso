@@ -51,13 +51,6 @@ class UserResponse(UserBase):
     updated_at: datetime
 
 
-class SetupRequest(BaseModel):
-    admin_username: str = Field(..., min_length=2, max_length=64)
-    admin_password: str = Field(..., min_length=8, max_length=128)
-    second_username: Optional[str] = Field(None, min_length=2, max_length=64)
-    second_password: Optional[str] = Field(None, min_length=8, max_length=128)
-
-
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -66,10 +59,6 @@ class LoginRequest(BaseModel):
 class MeResponse(BaseModel):
     user: UserResponse
     csrf_token: str
-
-
-class PublicStatus(BaseModel):
-    setup_required: bool
 
 
 class PublicProfileResponse(BaseModel):

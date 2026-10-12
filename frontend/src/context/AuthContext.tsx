@@ -7,7 +7,6 @@ import type { User, MeResponse } from '@/types'
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  isSetupRequired: boolean | null
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -18,20 +17,14 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSetupRequired, setIsSetupRequired] = useState<boolean | null>(null)
   const navigate = useNavigate()
   const { setTheme } = useTheme()
 
   useEffect(() => {
     async function bootstrap() {
       try {
-        const { setup_required } = await api.setup.status()
-        setIsSetupRequired(setup_required)
-
-        if (!setup_required) {
-          const me = await api.auth.me()
-          setAuth(me)
-        }
+        const me = await api.auth.me()
+        setAuth(me)
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           setUser(null)
@@ -72,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isSetupRequired, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

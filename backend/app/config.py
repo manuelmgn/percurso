@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     session_cookie_name: str = "session"
     session_max_age_days: int = 30
     csrf_token_bytes: int = 32
+    # Seeded automatically on first launch when the database has no users
+    default_admin_username: str = "admin"
+    default_admin_password: str = "pass"
 
     @property
     def database_url(self) -> str:
