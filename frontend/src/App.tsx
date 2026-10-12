@@ -102,9 +102,10 @@ export default function App() {
         <Route path="lugares/:id" element={<PlaceDetailPage />} />
         <Route path="estatisticas" element={<StatsPage />} />
         <Route path="pesquisa" element={<SearchPage />} />
-        <Route path="ajustes" element={<SettingsPage />} />
-        <Route path="perfil" element={<Navigate to="/ajustes" replace />} />
-        <Route path="settings" element={<Navigate to="/ajustes" replace />} />
+        <Route path="definicoes" element={<SettingsPage />} />
+        <Route path="ajustes" element={<Navigate to="/definicoes" replace />} />
+        <Route path="perfil" element={<Navigate to="/definicoes" replace />} />
+        <Route path="settings" element={<Navigate to="/definicoes" replace />} />
         <Route path="utilizadores/:username" element={<UserProfilePage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<div className="p-8 text-center">{t('pageNotFound')}</div>} />

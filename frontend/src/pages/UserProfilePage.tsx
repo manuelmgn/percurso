@@ -80,7 +80,7 @@ export function UserProfilePage() {
             </p>
           </div>
           {isOwnProfile && (
-            <Link to="/ajustes" className="btn-primary">
+            <Link to="/definicoes" className="btn-primary">
               {t('userProfile.editProfile')}
             </Link>
           )}

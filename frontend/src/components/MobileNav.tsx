@@ -68,7 +68,7 @@ export function MobileNav() {
         <NavIconItem to="/estatisticas" icon={<Icon>{icons.chartBar}</Icon>} label={t('nav.stats')} />
 
         <NavLink
-          to="/ajustes"
+          to="/definicoes"
           className={({ isActive }) =>
             `flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-150 ${
               isActive

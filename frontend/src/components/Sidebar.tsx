@@ -88,7 +88,7 @@ export function Sidebar() {
         </nav>
 
         <div className="border-t border-neutral-200/50 pt-4 dark:border-neutral-800/50">
-          <NavItem to="/ajustes" icon={icons.settings}>{t('nav.settings')}</NavItem>
+          <NavItem to="/definicoes" icon={icons.settings}>{t('nav.settings')}</NavItem>
           <button
             onClick={logout}
             className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-300 dark:hover:bg-neutral-800"
