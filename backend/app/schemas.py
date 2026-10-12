@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.models import UserRole, ThemePreference, PlaceType, EntityType
+from app.models import UserRole, ThemePreference, PlaceType, EntityType, Visibility, MapMode
 
 
 class UserBase(BaseModel):
@@ -71,9 +71,6 @@ class PublicProfileResponse(BaseModel):
 
 
 # --- Place schemas ---
-
-from app.models import PlaceType, Visibility, MapMode
-
 
 class PlaceBase(BaseModel):
     name: str

@@ -27,3 +27,7 @@ backups/
 # IDE
 .vscode/settings.json
 .idea/
+
+# macOS
+.DS_Store
+**/.DS_Store
