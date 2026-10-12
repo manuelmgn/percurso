@@ -110,7 +110,7 @@ export function DashboardPage() {
   const topProjects = withPinsFirst(projects, 'project').slice(0, 3)
   const isEmpty = trips.length === 0 && projects.length === 0
 
-  // "Logros recentes": completed projects + most recent trips (up to 5 items total)
+  // "Conquistas recentes": completed projects + most recent trips (up to 5 items total)
   const completedProjects = projects.filter((p) => p.progress_percent === 100)
   const newestTrips = [...trips].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3)
   const recentHighlights: Array<{ type: 'project' | 'trip'; id: number; label: string; sub: string }> = [
@@ -196,7 +196,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Logros recentes */}
+      {/* Conquistas recentes */}
       {recentHighlights.length > 0 && (
         <div className="card">
           <h2 className="mb-4 font-display text-lg font-semibold">{t('dashboard.recentHighlights')}</h2>
