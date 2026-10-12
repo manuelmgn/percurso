@@ -74,6 +74,7 @@ export interface UserPasswordChange {
 }
 
 export interface UserPreferencesUpdate {
+  username?: string
   timezone?: string
   date_format?: string
   theme?: ThemePreference

@@ -31,6 +31,7 @@ class PasswordResetRequest(BaseModel):
 
 
 class UserPreferencesUpdate(BaseModel):
+    username: Optional[str] = Field(None, min_length=2, max_length=64)
     timezone: Optional[str] = None
     date_format: Optional[str] = None
     theme: Optional[ThemePreference] = None

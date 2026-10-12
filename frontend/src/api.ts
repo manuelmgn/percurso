@@ -128,6 +128,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
     uploadAvatar: (file: File) => uploadFile<User>('/api/me/avatar', file),
+    deleteAccount: () => fetchJson<void>('/api/me/', { method: 'DELETE' }),
   },
 
   activities: {

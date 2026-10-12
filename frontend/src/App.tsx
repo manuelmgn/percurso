@@ -17,7 +17,7 @@ const PlacesPage = lazy(() => import('@/pages/PlacesPage').then((m) => ({ defaul
 const PlaceDetailPage = lazy(() => import('@/pages/PlaceDetailPage').then((m) => ({ default: m.PlaceDetailPage })))
 const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })))
 const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })))
 const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 
@@ -102,7 +102,9 @@ export default function App() {
         <Route path="lugares/:id" element={<PlaceDetailPage />} />
         <Route path="estatisticas" element={<StatsPage />} />
         <Route path="pesquisa" element={<SearchPage />} />
-        <Route path="perfil" element={<ProfilePage />} />
+        <Route path="ajustes" element={<SettingsPage />} />
+        <Route path="perfil" element={<Navigate to="/ajustes" replace />} />
+        <Route path="settings" element={<Navigate to="/ajustes" replace />} />
         <Route path="utilizadores/:username" element={<UserProfilePage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<div className="p-8 text-center">{t('pageNotFound')}</div>} />

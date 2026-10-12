@@ -4,35 +4,8 @@ import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { api, ApiError } from '@/api'
 import { MapView, type MapMarker } from '@/components/MapView'
-import { formatDateTime, formatTripTitle } from '@/utils/format'
-import type { ActivityItem, Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
-
-const activityActionKeys: Record<ActivityItem['action'], string> = {
-  created: 'dashboard.activityCreated',
-  updated: 'dashboard.activityUpdated',
-  deleted: 'dashboard.activityDeleted',
-}
-
-const activityEntityKeys: Record<ActivityItem['entity_type'], string> = {
-  trip: 'dashboard.activityTrip',
-  project: 'dashboard.activityProject',
-  place: 'dashboard.activityPlace',
-  user: 'dashboard.activityUser',
-}
-
-function activityEntityPath(activity: ActivityItem): string | null {
-  if (activity.action === 'deleted') return null
-  switch (activity.entity_type) {
-    case 'trip':
-      return `/viagens/${activity.entity_id}`
-    case 'project':
-      return `/projetos/${activity.entity_id}`
-    case 'place':
-      return `/lugares/${activity.entity_id}`
-    default:
-      return null
-  }
-}
+import { formatTripTitle } from '@/utils/format'
+import type { Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
 
 export function DashboardPage() {
   const { t } = useTranslation()
@@ -43,7 +16,6 @@ export function DashboardPage() {
   const [pinError, setPinError] = useState('')
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [visitedPlaces, setVisitedPlaces] = useState<Place[]>([])
-  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -65,11 +37,6 @@ export function DashboardPage() {
           setStats(await api.stats.get())
         } catch {
           // Stats are optional on the dashboard.
-        }
-        try {
-          setActivities(await api.activities.list())
-        } catch {
-          // Recent activity is optional on the dashboard.
         }
       } catch (err: any) {
         setError(err.message || t('dashboard.loadError'))
@@ -143,6 +110,24 @@ export function DashboardPage() {
   const topProjects = withPinsFirst(projects, 'project').slice(0, 3)
   const isEmpty = trips.length === 0 && projects.length === 0
 
+  // "Logros recentes": completed projects + most recent trips (up to 5 items total)
+  const completedProjects = projects.filter((p) => p.progress_percent === 100)
+  const newestTrips = [...trips].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3)
+  const recentHighlights: Array<{ type: 'project' | 'trip'; id: number; label: string; sub: string }> = [
+    ...completedProjects.slice(0, 3).map((p) => ({
+      type: 'project' as const,
+      id: p.id,
+      label: p.name,
+      sub: t('dashboard.highlightCompleted'),
+    })),
+    ...newestTrips.map((tr) => ({
+      type: 'trip' as const,
+      id: tr.id,
+      label: formatTripTitle(tr, user),
+      sub: t('dashboard.highlightNewTrip'),
+    })),
+  ].slice(0, 5)
+
   return (
     <div className="space-y-6">
       <div className="card">
@@ -208,6 +193,45 @@ export function DashboardPage() {
               })
             )}
           />
+        </div>
+      )}
+
+      {/* Logros recentes */}
+      {recentHighlights.length > 0 && (
+        <div className="card">
+          <h2 className="mb-4 font-display text-lg font-semibold">{t('dashboard.recentHighlights')}</h2>
+          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {recentHighlights.map((item) => (
+              <li key={`${item.type}-${item.id}`}>
+                <a
+                  href={item.type === 'project' ? `/projetos/${item.id}` : `/viagens/${item.id}`}
+                  className="flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
+                >
+                  {item.type === 'project' ? (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-neutral-900 dark:text-neutral-50">{item.label}</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{item.sub}</p>
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 text-neutral-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -287,40 +311,6 @@ export function DashboardPage() {
           )}
         </div>
       </div>
-
-      {activities.length > 0 && (
-        <div className="card">
-          <h3 className="mb-3 font-display text-lg font-semibold">{t('dashboard.recentActivity')}</h3>
-          <ul className="space-y-3">
-            {activities.map((activity) => {
-              const path = activityEntityPath(activity)
-              return (
-                <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
-                  <p className="text-neutral-700 dark:text-neutral-300">
-                    <span className="font-medium text-neutral-900 dark:text-neutral-50">
-                      {activity.user_username}
-                    </span>{' '}
-                    {t(activityActionKeys[activity.action])} {t(activityEntityKeys[activity.entity_type])}{' '}
-                    {path ? (
-                      <Link
-                        to={path}
-                        className="font-medium text-primary-700 hover:underline dark:text-primary-300"
-                      >
-                        {activity.entity_name}
-                      </Link>
-                    ) : (
-                      <span className="font-medium">{activity.entity_name}</span>
-                    )}
-                  </p>
-                  <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
-                    {formatDateTime(activity.created_at, user)}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
     </div>
   )
 }

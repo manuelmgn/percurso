@@ -14,6 +14,7 @@
   "nav.stats": "Estatísticas",
   "nav.admin": "Administração",
   "nav.profile": "Perfil",
+  "nav.settings": "Ajustes",
   "nav.logout": "Sair",
 
   "search.title": "Pesquisa",
@@ -82,6 +83,9 @@
   "dashboard.activityUser": "o utilizador",
   "dashboard.pinError": "Não foi possível atualizar o pin. Tenta novamente.",
   "dashboard.loadError": "Erro ao carregar o dashboard",
+  "dashboard.recentHighlights": "Logros recentes",
+  "dashboard.highlightCompleted": "Projeto concluído ✓",
+  "dashboard.highlightNewTrip": "Nova viagem registada",
 
   "pinButton.pinAria": "Fixar {label}",
   "pinButton.unpinAria": "Desfixar {label}",

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from sqlalchemy.orm import Session
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
+from app.models import User, UserRole
 from app.schemas import UserResponse, UserPasswordChange, UserPreferencesUpdate
 from app.services import user_service, image_service, activity_service
 from app.models.enums import EntityAction, EntityType
@@ -25,6 +27,16 @@ def update_profile(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if payload.username is not None:
+        new_username = payload.username.strip().lower()
+        if new_username != user.username:
+            existing = user_service.get_user_by_username(db, new_username)
+            if existing and existing.id != user.id:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O nome de utilizador já está em uso")
+            try:
+                user.username = new_username
+            except ValueError as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if payload.timezone is not None:
         try:
             ZoneInfo(payload.timezone)
@@ -40,6 +52,25 @@ def update_profile(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    response: Response,
+    db: Session = Depends(get_db),
+    user=Depends(validate_csrf),
+):
+    if user.role == UserRole.ADMIN:
+        admin_count = db.query(User).filter(User.role == UserRole.ADMIN, User.is_active == True).count()
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é possível eliminar a conta do único administrador do sistema",
+            )
+    db.delete(user)
+    db.commit()
+    response.delete_cookie(key=settings.session_cookie_name)
+    return None
 
 
 @router.post("/password")
