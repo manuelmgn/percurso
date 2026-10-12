@@ -1,3 +1,4 @@
+# Python
 __pycache__
 *.pyc
 *.pyo
@@ -6,9 +7,31 @@ __pycache__
 env/
 venv/
 .venv/
+
+# Git and IDEs
 .git/
 .gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Environment and sensitive local files
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases, uploads, caches, backups
+backend/data/
+backend/uploads/
+backend/tile-cache/
+backend/backups/
+
+# Frontend dependencies and builds
 frontend/node_modules
 frontend/dist
 frontend/.env
+frontend/.env.*
+
+# Documentation and temporary files
 *.md
+*.log

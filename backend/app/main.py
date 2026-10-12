@@ -108,6 +108,16 @@ if settings.frontend_dist.exists():
     def serve_spa(full_path: str, request: Request):
         if full_path.startswith("api/") or full_path.startswith("uploads/") or full_path.startswith("tile-cache/"):
             raise HTTPException(status_code=404, detail="Not found")
+
+        # Serve static files from frontend/dist if they exist (e.g. fonts, icons, favicon.ico)
+        if full_path:
+            target_file = (settings.frontend_dist / full_path).resolve()
+            try:
+                if target_file.is_file() and target_file.is_relative_to(settings.frontend_dist.resolve()):
+                    return FileResponse(target_file)
+            except (ValueError, OSError):
+                pass
+
         index_file = settings.frontend_dist / "index.html"
         if index_file.exists():
             return FileResponse(index_file)

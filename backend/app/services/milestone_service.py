@@ -27,15 +27,24 @@ def _achieved_milestones(db: Session, user: User) -> dict[str, dict]:
     return achieved
 
 
+SEED_MARKER_KEY = "seeded"
+
+
 def check_milestones(db: Session, user: User) -> list[dict]:
     """Persist newly-achieved milestones and return info dicts for the new
-    ones only. On the very first call for a user (no milestone rows yet), all
-    currently-achieved keys are seeded silently and an empty list is returned,
-    so existing users are not flooded with confetti."""
+    ones only. On the very first call for a user, all currently-achieved keys
+    are seeded silently and an empty list is returned, so existing users are
+    not flooded with confetti.
+
+    The seeding is marked with a sentinel row: detecting "first call" by the
+    absence of rows is not enough, because a fresh user typically has no
+    achieved milestones yet and would otherwise be re-seeded (silently) on
+    every call until the first milestone, swallowing its celebration."""
     achieved = _achieved_milestones(db, user)
 
     existing = db.query(Milestone).filter(Milestone.user_id == user.id).all()
     if not existing:
+        db.add(Milestone(user_id=user.id, key=SEED_MARKER_KEY))
         for key in achieved:
             db.add(Milestone(user_id=user.id, key=key))
         db.commit()

@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
     container_name: percursos-app
     restart: unless-stopped
     ports:
@@ -17,6 +17,8 @@ services:
       - PERCURSOS_TILE_CACHE_DIR=/app/tile-cache
       - PERCURSOS_SECRET_KEY=${PERCURSOS_SECRET_KEY:-change-me-in-production}
       - PERCURSOS_ENV=${PERCURSOS_ENV:-production}
+      - PERCURSOS_DEFAULT_ADMIN_USERNAME=${PERCURSOS_DEFAULT_ADMIN_USERNAME:-admin}
+      - PERCURSOS_DEFAULT_ADMIN_PASSWORD=${PERCURSOS_DEFAULT_ADMIN_PASSWORD:-pass}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
@@ -27,23 +29,27 @@ services:
   backup:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
     container_name: percursos-backup
     restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "0 3 * * 0 /usr/local/bin/python /app/app/backup.py >> /var/log/percursos-backup.log 2>&1" | crontab -
+        printenv | grep PERCURSOS_ >> /etc/environment
+        echo "0 3 * * 0 cd /app && PYTHONPATH=/app /usr/local/bin/python -m app.backup >> /var/log/percursos-backup.log 2>&1" | crontab -
         cron -f
     volumes:
-      - percursos-data:/data:ro
+      - percursos-data:/data
       - percursos-uploads:/app/uploads:ro
       - percursos-backups:/backups
     environment:
       - PERCURSOS_DATA_DIR=/data
       - PERCURSOS_UPLOADS_DIR=/app/uploads
       - PERCURSOS_BACKUPS_DIR=/backups
-      - PERCURSOS_BACKUP_RETENTION_DAYS=30
+      - PERCURSOS_BACKUP_RETENTION_DAYS=${PERCURSOS_BACKUP_RETENTION_DAYS:-30}
 
 volumes:
   percursos-data:

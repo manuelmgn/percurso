@@ -18,11 +18,20 @@ def run_backup():
     db_backup = backup_dir / "percursos.db"
 
     if db_source.exists():
-        # Use SQLite backup command for a consistent snapshot
-        subprocess.run(
-            ["sqlite3", str(db_source), f".backup '{db_backup}'"],
-            check=True,
-        )
+        # Use SQLite backup API for a consistent online snapshot
+        try:
+            import sqlite3
+            src = sqlite3.connect(str(db_source))
+            dest = sqlite3.connect(str(db_backup))
+            with dest:
+                src.backup(dest)
+            dest.close()
+            src.close()
+        except Exception:
+            subprocess.run(
+                ["sqlite3", str(db_source), f".backup '{db_backup}'"],
+                check=True,
+            )
 
     uploads_backup = backup_dir / "uploads"
     if settings.uploads_dir.exists():

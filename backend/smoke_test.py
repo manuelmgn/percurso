@@ -178,8 +178,10 @@ def main():
     check('stats ok', r.status_code == 200)
     stats = r.json()
     # Stats may include pre-existing public data from other users; verify the
-    # smoke user's contributions are present.
-    check('stats counts', stats['summary']['trip_count'] >= 3 and stats['summary']['completed_projects'] >= 1)
+    # smoke user's contributions are present. At this point the smoke user has
+    # created two trips ('Viaje por Galicia', 'Viaje solo a Coruña') and one
+    # completed project; the private trip is created further below.
+    check('stats counts', stats['summary']['trip_count'] >= 2 and stats['summary']['completed_projects'] >= 1)
 
     # Feed
     r = client1.get('/api/activities/')
