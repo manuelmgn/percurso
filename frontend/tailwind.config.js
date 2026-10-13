@@ -12,7 +12,17 @@ export default {
         display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
+        bg: '#FAF7F2',
+        surface: '#FFFFFF',
+        ink: '#241F19',
+        muted: '#8A8177',
+        line: '#EDE4D8',
+        coral: { DEFAULT: '#E06F56', tint: '#FBE7E0' },
+        amber: { DEFAULT: '#FFD64E', tint: '#FFF3D0', deep: '#8A6A00' },
+        plum: { DEFAULT: '#6B21A8', tint: '#EDE4F7' },
         primary: {
+          DEFAULT: '#C1075D',
+          tint: '#FBE9F0',
           50: '#fdf2f6',
           100: '#fce7f0',
           200: '#fbd0e1',
@@ -80,10 +90,30 @@ export default {
       },
       borderRadius: {
         'glass': '1.5rem',
+        card: '24px',
+        pill: '999px',
       },
       boxShadow: {
         'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
         'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+        card: '0 8px 24px rgba(58, 46, 31, 0.07)',
+        'card-hover': '0 12px 32px rgba(58, 46, 31, 0.11)',
+        brand: '0 6px 16px rgba(193, 7, 93, 0.25)',
+        pop: '0 10px 24px rgba(58, 46, 31, 0.15)',
+      },
+      backgroundImage: {
+        brand: 'linear-gradient(45deg, #C1075D, #E06F56)',
+      },
+      keyframes: {
+        'route-dash': { to: { strokeDashoffset: '-14' } },
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'route-dash': 'route-dash 1.2s linear infinite',
+        'fade-up': 'fade-up 300ms ease-out both',
       },
     },
   },

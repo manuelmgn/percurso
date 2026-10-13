@@ -4,26 +4,24 @@
 
 @layer base {
   :root {
+    /* New design tokens (rediseño §3.1) */
+    --color-primary: #C1075D;
+    --color-coral: #E06F56;
+    --color-amber: #FFD64E;
+    --color-plum: #6B21A8;
     --color-bg: #FAF7F2;
     --color-surface: #FFFFFF;
     --color-line: #EDE4D8;
     --color-text: #241F19;
     --color-text-muted: #8A8177;
-    --color-primary: #C1075D;
-    --color-coral: #E06F56;
-    --color-amber: #FFD64E;
-    --color-plum: #6B21A8;
-/* fondo ambiental: mantén tu body::before actual, funciona igual */
-    --color-primary: #c1075d;
+
+    /* Legacy glass tokens — kept while unmigrated screens still use .glass (§10) */
     --color-secondary: #e06f56;
     --color-accent: #ffd64e;
     --color-tertiary: #6b21a8;
-    --color-bg: #faf9f8;
-    --color-surface: rgba(255, 255, 255, 0.62);
+    --glass-surface: rgba(255, 255, 255, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.55);
     --color-surface-solid: rgba(255, 255, 255, 0.9);
-    --color-border: rgba(255, 255, 255, 0.55);
-    --color-text: #2a2620;
-    --color-text-muted: #7a756d;
     --glass-highlight: rgba(255, 255, 255, 0.6);
     --glass-shadow:
       0 1px 2px rgba(42, 38, 32, 0.04),
@@ -36,12 +34,17 @@
   }
 
   .dark {
-    --color-bg: #17140f;
-    --color-surface: rgba(42, 38, 32, 0.55);
+    /* New design tokens (rediseño §3.1) */
+    --color-bg: #191512;
+    --color-surface: #221D18;
+    --color-line: #322A23;
+    --color-text: #FAF7F2;
+    --color-text-muted: #A09A92;
+
+    /* Legacy glass tokens */
+    --glass-surface: rgba(42, 38, 32, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.12);
     --color-surface-solid: rgba(42, 38, 32, 0.92);
-    --color-border: rgba(255, 255, 255, 0.12);
-    --color-text: #faf9f8;
-    --color-text-muted: #a09a92;
     --glass-highlight: rgba(255, 255, 255, 0.08);
     --glass-shadow:
       0 1px 2px rgba(0, 0, 0, 0.3),
@@ -59,12 +62,12 @@
   }
 
   body {
-    @apply bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50;
+    @apply bg-bg text-ink dark:bg-[#191512] dark:text-[#FAF7F2];
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Ambient gradient layer: gives the glass surfaces something to refract.
-     Fixed and static — zero animation or repaint cost while scrolling. */
+  /* Ambient blobs (rediseño §3.1): fixed and static — zero repaint cost
+     while scrolling. */
   body::before {
     content: '';
     position: fixed;
@@ -72,16 +75,14 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(60rem 42rem at 110% -10%, rgba(236, 61, 128, 0.09), transparent 60%),
-      radial-gradient(52rem 38rem at -12% 110%, rgba(107, 33, 168, 0.08), transparent 60%),
-      radial-gradient(44rem 32rem at 50% 115%, rgba(255, 214, 78, 0.06), transparent 60%);
+      radial-gradient(38rem 24rem at 78% -8%, rgba(236, 61, 128, 0.10), transparent 60%),
+      radial-gradient(30rem 20rem at 8% 92%, rgba(107, 33, 168, 0.09), transparent 60%);
   }
 
   .dark body::before {
     background:
-      radial-gradient(60rem 42rem at 110% -10%, rgba(236, 61, 128, 0.12), transparent 60%),
-      radial-gradient(52rem 38rem at -12% 110%, rgba(107, 33, 168, 0.14), transparent 60%),
-      radial-gradient(44rem 32rem at 50% 115%, rgba(224, 111, 86, 0.06), transparent 60%);
+      radial-gradient(38rem 24rem at 78% -8%, rgba(236, 61, 128, 0.16), transparent 60%),
+      radial-gradient(30rem 20rem at 8% 92%, rgba(107, 33, 168, 0.14), transparent 60%);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -103,10 +104,11 @@
 }
 
 @layer components {
+  /* Legacy glass surface — kept for unmigrated screens until §10 cleanup. */
   .glass {
     @apply rounded-glass border;
-    background-color: var(--color-surface);
-    border-color: var(--color-border);
+    background-color: var(--glass-surface);
+    border-color: var(--glass-border);
     box-shadow: var(--glass-shadow);
     -webkit-backdrop-filter: blur(18px) saturate(1.5);
     backdrop-filter: blur(18px) saturate(1.5);
@@ -129,42 +131,75 @@
     }
   }
 
-  /* Interactive glass cards: subtle lift on hover, quick press feedback. */
-  a.card,
-  button.card {
-    transition: transform 180ms ease, box-shadow 180ms ease;
+  /* Base card — white solid, 24px radius, warm soft shadow (rediseño §3.2) */
+  .card {
+    @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:border-[#322A23] dark:bg-[#221D18] dark:shadow-none;
   }
 
-  a.card:hover,
-  button.card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-hover);
-  }
-
-  a.card:active,
-  button.card:active {
-    transform: translateY(0) scale(0.99);
-    transition-duration: 100ms;
+  /* Interactive cards: soft lift on hover, quick press feedback. */
+  a.card, button.card {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover active:translate-y-0 active:scale-[0.99] active:duration-100;
   }
 
   .btn-primary {
-    @apply rounded-xl bg-primary-700 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-primary-800 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
+    @apply inline-flex items-center gap-2 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all duration-200 hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
   }
 
+  /* Legacy variant still used by unmigrated screens. */
   .btn-secondary {
     @apply rounded-xl bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
 
   .btn-outline {
-    @apply rounded-xl border border-neutral-300 bg-transparent px-4 py-2 font-medium text-neutral-700 transition-all duration-200 hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:scale-[0.97] dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800;
+    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-line/40 focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.97] dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]/40;
   }
 
   .input {
-    @apply w-full rounded-xl border border-neutral-300 bg-white px-4 py-2 text-neutral-900 placeholder-neutral-400 transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50;
+    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2];
   }
 
-  .card {
-    @apply glass p-6;
+  /* Filter chip (listing pages) */
+  .chip {
+    @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink dark:border-[#322A23] dark:bg-[#221D18];
+  }
+  .chip[data-active='true'] {
+    @apply border-ink bg-ink text-white dark:border-[#FAF7F2] dark:bg-[#FAF7F2] dark:text-ink;
+  }
+
+  /* Status chip over trip photos */
+  .status-chip {
+    @apply inline-flex items-center rounded-pill px-3 py-1 text-[11px] font-bold;
+  }
+
+  /* Pill search box (header) */
+  .search-pill {
+    @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:border-[#322A23] dark:bg-[#221D18] dark:shadow-none;
+  }
+
+  /* Sidebar navigation item */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-pill px-4 py-3 text-[15px] text-muted transition-colors hover:text-ink dark:hover:text-[#FAF7F2];
+  }
+  .nav-item[data-active='true'] {
+    @apply bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20;
+  }
+
+  /* Vertical timeline (trip detail) */
+  .timeline {
+    @apply relative ml-2 border-l-2 border-line pl-7 dark:border-[#322A23];
+  }
+  .timeline-node {
+    @apply absolute -left-[9px] top-0.5 h-4 w-4 rounded-full border-[3px] border-surface shadow-pop dark:border-[#221D18];
+  }
+
+  /* Dashed animated route for map overlays (<path> SVG) */
+  .route-line {
+    stroke-dasharray: 6 8;
+    animation: route-dash 1.2s linear infinite;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
 
   .notes-content {
