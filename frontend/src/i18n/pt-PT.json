@@ -17,6 +17,8 @@
   "nav.profile": "Perfil",
   "nav.settings": "Ajustes",
   "nav.logout": "Sair",
+  "nav.search": "Pesquisa",
+  "nav.main": "Navegação principal",
 
   "search.title": "Pesquisa",
   "search.placeholder": "Pesquisar viagens, lugares, projetos...",
@@ -49,6 +51,8 @@
   "mobileNav.label": "Navegação móvel",
 
   "dashboard.welcome": "Olá, {name}!",
+  "dashboard.greeting": "Olá, {name}",
+  "dashboard.subtitle": "Aqui está o resumo dos teus percursos.",
   "dashboard.welcomeEmpty": "Bem-vindo ao Percursos. Começa por criar o teu primeiro projeto ou regista a tua primeira viagem.",
   "dashboard.createFirstProject": "Criar o meu primeiro projeto",
   "dashboard.registerFirstTrip": "Registar a minha primeira viagem",
@@ -97,6 +101,17 @@
 
   "trips.title": "Viagens",
   "trips.create": "Nova viagem",
+  "trips.new": "Nova viagem",
+  "trips.viewAll": "Ver todas",
+  "trips.viewRoute": "Ver percurso",
+  "trips.recent": "Viagens recentes",
+  "trips.filters": "Filtros de viagens",
+  "trips.filter.todas": "Todas",
+  "trips.filter.planeadas": "Planeadas",
+  "trips.filter.em_curso": "Em curso",
+  "trips.filter.concluidas": "Concluídas",
+  "trip.itinerary": "Itinerário",
+  "trip.notes": "Notas",
   "trips.searchLabel": "Procurar",
   "trips.searchPlaceholder": "Título da viagem...",
   "trips.sortLabel": "Ordenar",
@@ -269,6 +284,7 @@
   "places.detailLoadError": "Lugar não encontrado",
 
   "stats.title": "Estatísticas",
+  "stats.yearInNumbers": "O teu ano em números",
   "stats.trips": "Viagens",
   "stats.places": "Lugares visitados",
   "stats.activeProjects": "Projetos ativos",
