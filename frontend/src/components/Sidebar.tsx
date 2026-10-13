@@ -1,103 +1,102 @@
 import { Link, NavLink } from 'react-router-dom'
+import {
+  Briefcase,
+  FolderOpen,
+  Home,
+  LogOut,
+  MapPin,
+  PieChart,
+  Search,
+  ShieldCheck,
+} from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 
-function Icon({ children }: { children: React.ReactNode }) {
-  return (
-    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      {children}
-    </svg>
-  )
-}
-
-const icons = {
-  home: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-  ),
-  globe: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  ),
-  checkCircle: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-  ),
-  mapPin: (
-    <>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-    </>
-  ),
-  chartBar: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  ),
-  cog: (
-    <>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </>
-  ),
-  settings: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-  ),
-  user: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  ),
-  logout: (
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-  ),
-}
-
-function NavItem({ to, icon, children }: { to: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-          isActive
-            ? 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-            : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800'
-        }`
-      }
-    >
-      <Icon>{icon}</Icon>
-      {children}
-    </NavLink>
-  )
-}
+const items = [
+  { to: '/', icon: Home, key: 'nav.home', end: true },
+  { to: '/viagens', icon: Briefcase, key: 'nav.trips' },
+  { to: '/projetos', icon: FolderOpen, key: 'nav.projects' },
+  { to: '/lugares', icon: MapPin, key: 'nav.places' },
+  { to: '/estatisticas', icon: PieChart, key: 'nav.stats' },
+  { to: '/pesquisa', icon: Search, key: 'nav.search' },
+]
 
 export function Sidebar() {
-  const { user, logout } = useAuth()
   const { t } = useTranslation()
+  const { user, logout } = useAuth()
 
   return (
-    <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 rounded-none border-r border-neutral-200/50 lg:block dark:border-neutral-800/50" aria-label={t('sidebar.mainNav')}>
-      <div className="flex h-full flex-col p-6">
-        <div className="mb-8">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-primary-700 dark:text-primary-300">
-            <Link to="/">{t('app.name')}</Link>
-          </h1>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('app.tagline')}</p>
+    <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border dark:border-[#322A23] dark:bg-[#221D18]">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-2 pt-2">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-tint dark:bg-primary/20">
+          <img src="/images/percurso-icono.svg" alt="" className="h-7 w-7" />
         </div>
+        <span className="font-brand text-xl font-bold tracking-tight text-primary">{t('app.name')}</span>
+      </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto" aria-label={t('sidebar.mainMenu')}>
-          <NavItem to="/" icon={icons.home}>{t('nav.home')}</NavItem>
-          <NavItem to="/viagens" icon={icons.globe}>{t('nav.trips')}</NavItem>
-          <NavItem to="/projetos" icon={icons.checkCircle}>{t('nav.projects')}</NavItem>
-          <NavItem to="/lugares" icon={icons.mapPin}>{t('nav.places')}</NavItem>
-          <NavItem to="/estatisticas" icon={icons.chartBar}>{t('nav.stats')}</NavItem>
-          {user?.role === 'admin' && <NavItem to="/admin" icon={icons.cog}>{t('nav.admin')}</NavItem>}
-        </nav>
-
-        <div className="border-t border-neutral-200/50 pt-4 dark:border-neutral-800/50">
-          <NavItem to="/definicoes" icon={icons.settings}>{t('nav.settings')}</NavItem>
-          <button
-            onClick={logout}
-            className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            aria-label={t('sidebar.logoutAria')}
+      {/* Navigation */}
+      <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto" aria-label={t('nav.main')}>
+        {items.map(({ to, icon: Icon, key, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20' : ''}`
+            }
           >
-            <Icon>{icons.logout}</Icon>
-            {t('nav.logout')}
-          </button>
-        </div>
+            {({ isActive }) => (
+              <>
+                <Icon size={18} strokeWidth={isActive ? 2.4 : 2} />
+                {t(key)}
+              </>
+            )}
+          </NavLink>
+        ))}
+        {user?.role === 'admin' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20' : ''}`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <ShieldCheck size={18} strokeWidth={isActive ? 2.4 : 2} />
+                {t('nav.admin')}
+              </>
+            )}
+          </NavLink>
+        )}
+      </nav>
+
+      {/* User */}
+      <div className="mt-auto flex items-center gap-1 rounded-2xl bg-bg p-2 dark:bg-[#191512]">
+        <Link to="/definicoes" className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-opacity hover:opacity-80">
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <div
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand font-display text-[13px] font-bold text-white"
+              aria-hidden="true"
+            >
+              {user?.username.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{user?.username}</p>
+            <p className="text-xs text-muted">{t('nav.profile')}</p>
+          </div>
+        </Link>
+        <button
+          onClick={logout}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-line/50 hover:text-ink dark:hover:bg-[#322A23] dark:hover:text-[#FAF7F2]"
+          aria-label={t('sidebar.logoutAria')}
+          title={t('nav.logout')}
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </aside>
   )

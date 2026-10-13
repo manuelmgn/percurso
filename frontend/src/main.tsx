@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { MotionConfig } from 'framer-motion'
 import App from './App'
 import { ThemeProvider } from './components/ThemeProvider'
 import { AuthProvider } from './context/AuthContext'
@@ -10,6 +11,8 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/sora/600.css'
 import '@fontsource/sora/700.css'
+import '@fontsource/montserrat/600.css'
+import '@fontsource/montserrat/700.css'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -17,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <App />
+          <MotionConfig reducedMotion="user">
+            <App />
+          </MotionConfig>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

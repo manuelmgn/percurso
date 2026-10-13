@@ -10,6 +10,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
+        brand: ['Montserrat', 'Sora', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         bg: '#FAF7F2',
