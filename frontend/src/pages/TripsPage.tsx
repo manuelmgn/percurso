@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Route } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
+import { TripCard } from '@/components/ui/TripCard'
 import { formatTripTitle } from '@/utils/format'
+import { getTripStatus, type TripStatus } from '@/utils/tripStatus'
 import type { TripListItem } from '@/types'
 
 type TripSort = 'recent' | 'alpha' | 'startDate'
+type TripStatusFilter = 'todas' | TripStatus
 
 interface TripFilters {
   query: string
   sort: TripSort
+  status: TripStatusFilter
 }
 
-const DEFAULT_FILTERS: TripFilters = { query: '', sort: 'recent' }
+const DEFAULT_FILTERS: TripFilters = { query: '', sort: 'recent', status: 'todas' }
+
+const STATUS_FILTERS: TripStatusFilter[] = ['todas', 'planeada', 'em_curso', 'concluida']
 
 function storageKey(userId: number | undefined): string {
   return `viagens:filters:${userId ?? 'anon'}`
@@ -58,6 +65,9 @@ export function TripsPage() {
   const visibleTrips = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
     const filtered = trips.filter((trip) => {
+      if (filters.status !== 'todas' && getTripStatus(trip.start_date, trip.end_date) !== filters.status) {
+        return false
+      }
       if (!query) return true
       const title = formatTripTitle(trip, user).toLowerCase()
       return title.includes(query)
@@ -78,7 +88,7 @@ export function TripsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
@@ -101,11 +111,9 @@ export function TripsPage() {
 
       {trips.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">
-          <svg className="h-12 w-12 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <Route size={48} className="text-muted" aria-hidden="true" />
           <h3 className="mt-4 font-display text-lg font-semibold">{t('trips.empty.title')}</h3>
-          <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1 max-w-sm text-sm text-muted">
             {t('trips.empty.description')}
           </p>
           <Link to="/viagens/novo" className="btn-primary mt-6">
@@ -114,9 +122,9 @@ export function TripsPage() {
         </div>
       ) : (
         <>
-          <div className="card grid gap-3 p-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="trips-search">
+          <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="trips-search">
                 {t('trips.searchLabel')}
               </label>
               <input
@@ -128,8 +136,8 @@ export function TripsPage() {
                 className="input"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="trips-sort">
+            <div className="sm:w-56">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="trips-sort">
                 {t('trips.sortLabel')}
               </label>
               <select
@@ -145,32 +153,37 @@ export function TripsPage() {
             </div>
           </div>
 
+          <nav className="flex flex-wrap gap-2" aria-label={t('trips.filters')}>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className="chip"
+                data-active={filters.status === f}
+                onClick={() => setFilters((prev) => ({ ...prev, status: f }))}
+              >
+                {t(`trips.filter.${f}`)}
+              </button>
+            ))}
+          </nav>
+
           {visibleTrips.length === 0 ? (
             <div className="card py-8 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('trips.noResults')}</p>
+              <p className="text-sm text-muted">{t('trips.noResults')}</p>
               <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
                 {t('actions.clearFilters')}
               </button>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleTrips.map((trip) => (
-                <Link
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleTrips.map((trip, i) => (
+                <div
                   key={trip.id}
-                  to={`/viagens/${trip.id}`}
-                  className="card block"
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${i * 40}ms` }}
                 >
-                  <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
-                    {formatTripTitle(trip, user)}
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                    {trip.place_count} {t(trip.place_count === 1 ? 'units.place.one' : 'units.place.other')} ·{' '}
-                    {trip.project_count} {t(trip.project_count === 1 ? 'units.project.one' : 'units.project.other')}
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {t('trips.createdBy', { username: trip.creator_username })}
-                  </p>
-                </Link>
+                  <TripCard trip={trip} prefs={user} />
+                </div>
               ))}
             </div>
           )}

@@ -79,6 +79,7 @@
   "dashboard.recentHighlights": "Conquistas recentes",
   "dashboard.highlightCompleted": "Projeto concluído ✓",
   "dashboard.highlightNewTrip": "Nova viagem registada",
+  "dashboard.nextTrip": "Próxima viagem",
 
   "pinButton.pinAria": "Fixar {label}",
   "pinButton.unpinAria": "Desfixar {label}",
@@ -116,6 +117,8 @@
   "trip.status.em_curso": "Em curso",
   "trip.status.concluida": "Concluída",
   "trip.placeCount": "{count} lugares",
+  "trip.dayLabel": "Dia {day}",
+  "trip.days": "dias",
   "goal.label": "Meta {year}",
   "goal.remaining": "Faltam {count} viagens para a meta",
   "trips.searchLabel": "Procurar",
@@ -302,6 +305,11 @@
   "stats.noPlacesVisited": "Ainda não há lugares visitados.",
   "stats.projectProgress": "Progresso dos projetos",
   "stats.projectNoPlaces": "sem lugares-objetivo",
+  "stats.regions": "Regiões",
+  "stats.tripsByYear": "Viagens por ano",
+  "stats.placesByType": "Lugares por tipo",
+  "stats.activityByMonth": "Atividade por mês",
+  "stats.chartNoData": "Ainda não há dados para mostrar.",
 
   "profile.title": "Perfil",
   "profile.account": "Informação da conta",
