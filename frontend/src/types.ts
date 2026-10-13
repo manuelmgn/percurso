@@ -278,17 +278,6 @@ export interface TripDeleteWarning {
 }
 
 // Activity types
-export interface Activity {
-  id: number
-  user_id: number
-  user_username: string
-  action: string
-  entity_type: string
-  entity_id: number
-  entity_name: string
-  created_at: string
-}
-
 export type ActivityAction = 'created' | 'updated' | 'deleted'
 export type ActivityEntityType = 'trip' | 'project' | 'place' | 'user'
 

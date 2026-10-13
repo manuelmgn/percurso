@@ -42,7 +42,7 @@ def list_projects(
 def create_project(
     payload: ProjectCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(validate_csrf),
 ):
     project = project_service.create_project(db, user, payload)
     activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.PROJECT, project.id, project.name)
@@ -231,7 +231,7 @@ async def confirm_bulk_import(
     # status (the user resolves ambiguous lines in the review screen).
     for line in lines:
         if line.selected:
-            place = place_service.get_or_create_place(
+            place, _ = place_service.get_or_create_place(
                 db,
                 osm_type=line.selected.osm_type,
                 osm_id=line.selected.osm_id,
@@ -287,6 +287,7 @@ def _project_to_response(db: Session, user: User, project: Project) -> ProjectRe
     trips = [
         TripListResponse(
             id=tp.trip.id,
+            title=tp.trip.title,
             start_date=tp.trip.start_date,
             end_date=tp.trip.end_date,
             visibility=tp.trip.visibility,

@@ -167,7 +167,7 @@ export function TripsPage() {
                     {trip.place_count} {t(trip.place_count === 1 ? 'units.place.one' : 'units.place.other')} ·{' '}
                     {trip.project_count} {t(trip.project_count === 1 ? 'units.project.one' : 'units.project.other')}
                   </p>
-                  <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('trips.createdBy', { username: trip.creator_username })}
                   </p>
                 </Link>

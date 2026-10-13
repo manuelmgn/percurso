@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import User, Trip, Project, Place
+from app.models import User, Place
 from app.schemas import SearchResult, TripListResponse, ProjectListResponse, PlaceResponse
 from app.services import visibility_service, project_service, place_service
 

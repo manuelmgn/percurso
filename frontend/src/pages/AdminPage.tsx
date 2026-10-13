@@ -68,7 +68,11 @@ export function AdminPage() {
 
   const handleResetPassword = async (user: User) => {
     const password = prompt(t('admin.resetPasswordPrompt', { username: user.username }))
-    if (!password || password.length < 8) return
+    if (!password) return
+    if (password.length < 8) {
+      setError(t('errors.minLength', { min: 8 }))
+      return
+    }
     try {
       await api.users.resetPassword(user.id, password)
       alert(t('admin.resetPasswordSuccess'))
@@ -109,37 +113,59 @@ export function AdminPage() {
       <div className="glass rounded-2xl p-6">
         <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.createUserTitle')}</h3>
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-4">
-          <input
-            type="text"
-            placeholder={t('admin.usernamePlaceholder')}
-            required
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
-          />
-          <input
-            type="password"
-            placeholder={t('admin.passwordPlaceholder')}
-            required
-            minLength={8}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
-          />
-          <select
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
-            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
-          >
-            <option value="user">{t('admin.roleUser')}</option>
-            <option value="admin">{t('admin.roleAdmin')}</option>
-          </select>
-          <button
-            type="submit"
-            className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
-          >
-            {t('admin.createButton')}
-          </button>
+          <div>
+            <label htmlFor="admin-new-username" className="mb-1 block text-sm font-medium">
+              {t('admin.usernamePlaceholder')}
+            </label>
+            <input
+              id="admin-new-username"
+              type="text"
+              placeholder={t('admin.usernamePlaceholder')}
+              required
+              autoComplete="username"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+            />
+          </div>
+          <div>
+            <label htmlFor="admin-new-password" className="mb-1 block text-sm font-medium">
+              {t('admin.passwordPlaceholder')}
+            </label>
+            <input
+              id="admin-new-password"
+              type="password"
+              placeholder={t('admin.passwordPlaceholder')}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+            />
+          </div>
+          <div>
+            <label htmlFor="admin-new-role" className="mb-1 block text-sm font-medium">
+              {t('admin.roleLabel')}
+            </label>
+            <select
+              id="admin-new-role"
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              <option value="user">{t('admin.roleUser')}</option>
+              <option value="admin">{t('admin.roleAdmin')}</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+            >
+              {t('admin.createButton')}
+            </button>
+          </div>
         </form>
       </div>
 

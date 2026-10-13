@@ -28,10 +28,13 @@ def run_backup():
             dest.close()
             src.close()
         except Exception:
-            subprocess.run(
-                ["sqlite3", str(db_source), f".backup '{db_backup}'"],
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    ["sqlite3", str(db_source), f".backup '{db_backup}'"],
+                    check=True,
+                )
+            except subprocess.CalledProcessError:
+                raise RuntimeError("Falha ao criar cópia de segurança da base de dados")
 
     uploads_backup = backup_dir / "uploads"
     if settings.uploads_dir.exists():

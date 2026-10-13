@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
-from app.models import User, Trip, Place, Project
+from app.models import User, Trip
 from app.schemas import TripCreate, TripUpdate, TripResponse, TripListResponse, TripDeleteWarning, ProjectListResponse
 from app.services import trip_service, project_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
@@ -38,7 +38,7 @@ def list_trips(
 def create_trip(
     payload: TripCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(validate_csrf),
 ):
     trip = trip_service.create_trip(db, user, payload)
     activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, _trip_display_name(trip))

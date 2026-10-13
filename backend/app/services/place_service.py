@@ -141,14 +141,16 @@ def get_or_create_place(
     lat: float,
     lon: float,
     polygon: Optional[dict] = None,
-) -> Place:
+) -> tuple[Place, bool]:
+    """Return the place and whether it was created (False when it already
+    existed in the local cache)."""
     place = (
         db.query(Place)
         .filter(Place.osm_type == osm_type, Place.osm_id == osm_id)
         .first()
     )
     if place:
-        return place
+        return place, False
 
     place = Place(
         osm_type=osm_type,
@@ -163,7 +165,7 @@ def get_or_create_place(
     db.add(place)
     db.commit()
     db.refresh(place)
-    return place
+    return place, True
 
 
 def get_place_by_id(db: Session, place_id: int) -> Optional[Place]:

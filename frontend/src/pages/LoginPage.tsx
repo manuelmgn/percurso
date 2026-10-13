@@ -40,10 +40,12 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">{t('login.username')}</label>
+            <label htmlFor="login-username" className="mb-1 block text-sm font-medium">{t('login.username')}</label>
             <input
+              id="login-username"
               type="text"
               required
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
@@ -51,10 +53,12 @@ export function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t('login.password')}</label>
+            <label htmlFor="login-password" className="mb-1 block text-sm font-medium">{t('login.password')}</label>
             <input
+              id="login-password"
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"

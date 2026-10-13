@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
@@ -46,6 +46,21 @@ export function DashboardPage() {
     }
     load()
   }, [])
+
+  const visitedMarkers = useMemo(
+    () =>
+      visitedPlaces.map(
+        (place): MapMarker => ({
+          id: place.id,
+          lat: place.lat,
+          lon: place.lon,
+          title: place.name,
+          subtitle: place.place_type,
+          href: `/lugares/${place.id}`,
+        })
+      ),
+    [visitedPlaces]
+  )
 
   if (isLoading) {
     return (
@@ -182,16 +197,7 @@ export function DashboardPage() {
           <MapView
             variant="minimal"
             height="300px"
-            markers={visitedPlaces.map(
-              (place): MapMarker => ({
-                id: place.id,
-                lat: place.lat,
-                lon: place.lon,
-                title: place.name,
-                subtitle: place.place_type,
-                href: `/lugares/${place.id}`,
-              })
-            )}
+            markers={visitedMarkers}
           />
         </div>
       )}

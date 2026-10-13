@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from sqlalchemy.orm import Session
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.database import get_db
@@ -25,7 +26,7 @@ def get_profile(user=Depends(get_current_user)):
 def update_profile(
     payload: UserPreferencesUpdate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(validate_csrf),
 ):
     if payload.username is not None:
         new_username = payload.username.strip().lower()
@@ -49,6 +50,7 @@ def update_profile(
         user.date_format = payload.date_format
     if payload.theme is not None:
         user.theme = payload.theme
+    user.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
     return user
@@ -92,6 +94,8 @@ async def upload_avatar(
     user=Depends(validate_csrf),
 ):
     content = await file.read()
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(status_code=413, detail="Ficheiro demasiado grande (máx. 15 MB)")
     url, _, _ = image_service.process_and_save(content, file.content_type or "")
     user.avatar_url = url
     db.commit()

@@ -47,10 +47,10 @@ export function StatsPage() {
   const maxRegionCount = Math.max(1, ...stats.region_stats.map((r) => r.count))
 
   const counters = [
-    { label: t(stats.summary.trip_count === 1 ? 'stats.trips' : 'stats.trips'), value: stats.summary.trip_count },
-    { label: t(stats.summary.place_count === 1 ? 'stats.places' : 'stats.places'), value: stats.summary.place_count },
-    { label: t(stats.summary.active_projects === 1 ? 'stats.activeProjects' : 'stats.activeProjects'), value: stats.summary.active_projects },
-    { label: t(stats.summary.completed_projects === 1 ? 'stats.completedProjects' : 'stats.completedProjects'), value: stats.summary.completed_projects },
+    { label: t('stats.trips'), value: stats.summary.trip_count },
+    { label: t('stats.places'), value: stats.summary.place_count },
+    { label: t('stats.activeProjects'), value: stats.summary.active_projects },
+    { label: t('stats.completedProjects'), value: stats.summary.completed_projects },
   ]
 
   return (

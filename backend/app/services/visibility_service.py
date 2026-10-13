@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
 from app.models import User, Trip, Project, Visibility
 

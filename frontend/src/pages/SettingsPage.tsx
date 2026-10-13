@@ -552,25 +552,29 @@ export function SettingsPage() {
             <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                     Palavra-passe atual
                   </label>
                   <input
+                    id="settings-current-password"
                     type="password"
                     required
+                    autoComplete="current-password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     className="input"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                     Nova palavra-passe
                   </label>
                   <input
+                    id="settings-new-password"
                     type="password"
                     required
                     minLength={8}
+                    autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="input"

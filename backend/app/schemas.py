@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from app.models import UserRole, ThemePreference, PlaceType, EntityType, Visibility, MapMode
 
@@ -201,7 +201,7 @@ class BulkImportLine(BaseModel):
 
 
 class BulkImportRequest(BaseModel):
-    lines: list[str]
+    lines: list[str] = Field(..., min_length=1, max_length=100)
     # Optional type hint: when set, the user asserts every line is a place of
     # this type and resolution only considers candidates of that type.
     place_type: Optional[PlaceType] = None
@@ -228,6 +228,12 @@ class TripCreate(TripBase):
     participant_ids: list[int] = Field(default_factory=list)
     visible_user_ids: list[int] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def check_date_range(self):
+        if self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("A data de fim não pode ser anterior à data de início")
+        return self
+
 
 class TripUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
@@ -240,6 +246,12 @@ class TripUpdate(BaseModel):
     project_ids: Optional[list[int]] = None
     participant_ids: Optional[list[int]] = None
     visible_user_ids: Optional[list[int]] = None
+
+    @model_validator(mode="after")
+    def check_date_range(self):
+        if self.start_date is not None and self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("A data de fim não pode ser anterior à data de início")
+        return self
 
 
 class TripPlaceResponse(BaseModel):

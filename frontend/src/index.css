@@ -4,6 +4,16 @@
 
 @layer base {
   :root {
+    --color-bg: #FAF7F2;
+    --color-surface: #FFFFFF;
+    --color-line: #EDE4D8;
+    --color-text: #241F19;
+    --color-text-muted: #8A8177;
+    --color-primary: #C1075D;
+    --color-coral: #E06F56;
+    --color-amber: #FFD64E;
+    --color-plum: #6B21A8;
+/* fondo ambiental: mantén tu body::before actual, funciona igual */
     --color-primary: #c1075d;
     --color-secondary: #e06f56;
     --color-accent: #ffd64e;

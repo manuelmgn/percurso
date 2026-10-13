@@ -1,4 +1,3 @@
-import secrets
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Enum
@@ -52,10 +51,6 @@ class Session(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="sessions")
-
-    @classmethod
-    def generate_token(cls) -> str:
-        return secrets.token_urlsafe(settings.csrf_token_bytes)
 
     @classmethod
     def default_expiry(cls) -> datetime:

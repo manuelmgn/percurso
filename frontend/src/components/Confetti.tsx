@@ -51,7 +51,7 @@ export function Confetti({ onDone }: { onDone?: () => void }) {
       const fade = Math.max(0, 1 - elapsed / DURATION_MS)
 
       for (const p of particles) {
-        p.vy += 0.25 // gravidade
+        p.vy += 0.25 // gravity
         p.x += p.vx
         p.y += p.vy
         p.rotation += p.rotationSpeed

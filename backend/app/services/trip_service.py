@@ -36,7 +36,7 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
     if data.start_date is not None:
         trip.start_date = data.start_date
     if data.end_date is not None:
-        trip.end_date = data.end_date or data.start_date
+        trip.end_date = data.end_date or trip.start_date
     if data.notes is not None:
         trip.notes = sanitize_notes(data.notes)
     if data.visibility is not None:

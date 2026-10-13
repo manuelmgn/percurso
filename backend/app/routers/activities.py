@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,11 +12,11 @@ router = APIRouter(prefix="/api/activities", tags=["activities"])
 
 @router.get("/", response_model=list[ActivityResponse])
 def list_activities(
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    activities = activity_service.list_activities(db, limit=50)
+    activities = activity_service.list_activities(db, limit=limit)
 
     visible = []
     for a in activities:

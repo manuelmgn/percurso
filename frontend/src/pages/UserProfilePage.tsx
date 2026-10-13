@@ -53,8 +53,8 @@ export function UserProfilePage() {
   }
 
   const counters = [
-    { label: profile.trip_count === 1 ? t('userProfile.trips') : t('userProfile.trips'), value: profile.trip_count },
-    { label: profile.place_count === 1 ? t('userProfile.places') : t('userProfile.places'), value: profile.place_count },
+    { label: t('userProfile.trips'), value: profile.trip_count },
+    { label: t('userProfile.places'), value: profile.place_count },
   ]
 
   return (

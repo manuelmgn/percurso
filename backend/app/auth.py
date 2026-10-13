@@ -5,7 +5,6 @@ from typing import Optional
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Request, HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,7 +12,6 @@ from app.database import get_db
 from app.models import User, Session as UserSession
 
 ph = PasswordHasher()
-security = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -57,7 +55,12 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")
 
     session = db.query(UserSession).filter(UserSession.token == token).first()
-    if not session or session.is_expired():
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão expirada")
+    if session.is_expired():
+        # Drop expired sessions so they do not accumulate in the table.
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão expirada")
 
     user = db.query(User).filter(User.id == session.user_id).first()

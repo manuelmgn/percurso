@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     backup_retention_days: int = 30
     session_cookie_name: str = "session"
     session_max_age_days: int = 30
-    csrf_token_bytes: int = 32
+    # Set to True when serving over HTTPS so the session cookie is only sent
+    # over encrypted connections.
+    session_cookie_secure: bool = False
+    # Maximum accepted size for an uploaded image (avatar, notes, etc.).
+    max_upload_bytes: int = 15 * 1024 * 1024
     # Seeded automatically on first launch when the database has no users
     default_admin_username: str = "admin"
     default_admin_password: str = "pass"

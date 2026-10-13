@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import User, Trip, Project, Place, TripPlace
+from app.models import User, Place
 from app.schemas import StatsResponse, StatsSummary, ProjectStat, PlaceRanking, RegionStat
 from app.services import visibility_service, project_service
 
@@ -61,15 +61,21 @@ def get_stats(
             place_counter[tp.place_id] += 1
 
     most_visited = []
-    for place_id, count in place_counter.most_common(10):
-        place = db.query(Place).filter(Place.id == place_id).first()
-        if place:
-            most_visited.append(PlaceRanking(
-                place_id=place.id,
-                place_name=place.name,
-                place_type=place.place_type,
-                visit_count=count,
-            ))
+    top_places = place_counter.most_common(10)
+    if top_places:
+        places_by_id = {
+            p.id: p
+            for p in db.query(Place).filter(Place.id.in_(place_counter.keys()))
+        }
+        for place_id, count in top_places:
+            place = places_by_id.get(place_id)
+            if place:
+                most_visited.append(PlaceRanking(
+                    place_id=place.id,
+                    place_name=place.name,
+                    place_type=place.place_type,
+                    visit_count=count,
+                ))
 
     return StatsResponse(
         summary=StatsSummary(

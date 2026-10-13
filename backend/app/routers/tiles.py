@@ -28,7 +28,13 @@ async def get_tile(
 ):
     tile_url_template = TILE_SOURCES.get(style)
     if tile_url_template is None:
-        raise HTTPException(status_code=400, detail="Invalid tile style")
+        raise HTTPException(status_code=400, detail="Estilo de tiles inválido")
+
+    if not (0 <= z <= 19):
+        raise HTTPException(status_code=400, detail="Coordenadas de tile inválidas")
+    max_coord = 2 ** z
+    if not (0 <= x < max_coord) or not (0 <= y < max_coord):
+        raise HTTPException(status_code=400, detail="Coordenadas de tile inválidas")
 
     tile_path = settings.tile_cache_dir / style / str(z) / str(x) / f"{y}.png"
 
@@ -45,7 +51,7 @@ async def get_tile(
             timeout=10.0,
         )
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Tile not available")
+            raise HTTPException(status_code=response.status_code, detail="Tile não disponível")
 
         tile_path.write_bytes(response.content)
         return Response(content=response.content, media_type="image/png", headers={"Cache-Control": "public, max-age=2592000"})

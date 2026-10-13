@@ -15,7 +15,7 @@ def _set_session_cookie(response: Response, token: str):
         key=settings.session_cookie_name,
         value=token,
         httponly=True,
-        secure=False,
+        secure=settings.session_cookie_secure,
         samesite="lax",
         max_age=settings.session_max_age_days * 24 * 60 * 60,
     )
@@ -45,7 +45,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db), 
         db.query(UserSession).filter(UserSession.token == token).delete()
         db.commit()
     _clear_session_cookie(response)
-    return {"message": "Logged out"}
+    return {"message": "Sessão terminada"}
 
 
 @router.get("/me", response_model=MeResponse)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
@@ -34,6 +34,21 @@ export function TripDetailPage() {
     }
     load()
   }, [id, t])
+
+  const tripMarkers = useMemo(
+    () =>
+      trip?.places.map(
+        (place): MapMarker => ({
+          id: place.place_id,
+          lat: place.place_lat,
+          lon: place.place_lon,
+          title: place.place_name,
+          subtitle: place.place_type,
+          href: `/lugares/${place.place_id}`,
+        })
+      ) ?? [],
+    [trip]
+  )
 
   const handleDeleteClick = async () => {
     setError('')
@@ -153,16 +168,7 @@ export function TripDetailPage() {
           <h3 className="mb-3 font-display text-lg font-semibold">{t('trips.mapTitle')}</h3>
           <MapView
             variant="detailed"
-            markers={trip.places.map(
-              (place): MapMarker => ({
-                id: place.place_id,
-                lat: place.place_lat,
-                lon: place.place_lon,
-                title: place.place_name,
-                subtitle: place.place_type,
-                href: `/lugares/${place.place_id}`,
-              })
-            )}
+            markers={tripMarkers}
           />
         </div>
       )}

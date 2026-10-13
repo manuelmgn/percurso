@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { useAuth } from '@/context/AuthContext'
@@ -107,8 +107,21 @@ export default function App() {
         <Route path="perfil" element={<Navigate to="/definicoes" replace />} />
         <Route path="settings" element={<Navigate to="/definicoes" replace />} />
         <Route path="utilizadores/:username" element={<UserProfilePage />} />
-        <Route path="admin" element={<AdminPage />} />
-        <Route path="*" element={<div className="p-8 text-center">{t('pageNotFound')}</div>} />
+        <Route path="admin" element={<ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>} />
+        <Route
+          path="*"
+          element={
+            <div className="card mx-auto max-w-md p-8 text-center">
+              <p className="text-neutral-600 dark:text-neutral-400">{t('pageNotFound')}</p>
+              <Link
+                to="/"
+                className="mt-4 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+              >
+                {t('common.backHome')}
+              </Link>
+            </div>
+          }
+        />
       </Route>
     </Routes>
   )

@@ -168,7 +168,7 @@ export default function MapViewInner({
       style={{ height }}
       className="relative z-0 w-full overflow-hidden rounded-glass border border-neutral-200 dark:border-neutral-800"
       role="application"
-      aria-label="Mapa"
+      aria-label={t('map.ariaLabel')}
     />
   )
 }

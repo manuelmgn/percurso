@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user
+from app.auth import get_current_user, validate_csrf
 from app.models import User, Place, PlaceType
 from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse, TripListResponse, ProjectListResponse
 from app.services import place_service, project_service, activity_service, visibility_service
@@ -164,9 +164,9 @@ def get_place(
 async def import_place(
     payload: PlaceSearchResult,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(validate_csrf),
 ):
-    place = place_service.get_or_create_place(
+    place, created = place_service.get_or_create_place(
         db,
         osm_type=payload.osm_type,
         osm_id=payload.osm_id,
@@ -178,7 +178,8 @@ async def import_place(
         polygon=None,
     )
     place = await place_service.ensure_place_polygon(db, place)
-    activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.PLACE, place.id, place.name)
+    if created:
+        activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.PLACE, place.id, place.name)
     return place
 
 
