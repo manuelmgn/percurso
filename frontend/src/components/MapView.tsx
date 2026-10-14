@@ -11,6 +11,7 @@ interface MapViewProps {
   polygons?: MapPolygon[]
   variant: 'minimal' | 'detailed'
   height?: string
+  connectMarkers?: boolean
 }
 
 function MapLoading({ height }: { height: string }) {

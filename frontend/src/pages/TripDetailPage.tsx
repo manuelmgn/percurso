@@ -246,7 +246,7 @@ export function TripDetailPage() {
         <div className="flex flex-col gap-6 lg:col-span-5">
           {trip.places.length > 0 && (
             <div className="relative overflow-hidden rounded-card shadow-card">
-              <MapView variant="detailed" markers={tripMarkers} height="232px" />
+              <MapView variant="detailed" markers={tripMarkers} height="232px" connectMarkers />
             </div>
           )}
 

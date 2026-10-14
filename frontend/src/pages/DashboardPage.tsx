@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { api, ApiError } from '@/api'
 import { MapView, type MapMarker } from '@/components/MapView'
+import { RouteOverlay } from '@/components/map/RouteOverlay'
 import { TripCard } from '@/components/ui/TripCard'
 import { ProgressGoal } from '@/components/ui/ProgressGoal'
 import { formatTripDateRange, formatTripTitle } from '@/utils/format'
@@ -226,6 +227,7 @@ export function DashboardPage() {
               height="100%"
               markers={visitedMarkers}
             />
+            <RouteOverlay className="pointer-events-none absolute inset-x-[8%] top-[18%] z-[500] w-[65%]" />
             <Link
               to="/lugares"
               className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-pill bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-pop dark:bg-[#221D18]"

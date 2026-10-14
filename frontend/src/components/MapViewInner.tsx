@@ -42,6 +42,8 @@ interface MapViewInnerProps {
   polygons?: MapPolygon[]
   variant: 'minimal' | 'detailed'
   height?: string
+  /** Draw a dashed animated route connecting the markers in order (trip maps). */
+  connectMarkers?: boolean
 }
 
 // Brand pin colours, rotating by marker order (spec §6.5): magenta, coral,
@@ -70,6 +72,7 @@ export default function MapViewInner({
   polygons = [],
   variant,
   height = '350px',
+  connectMarkers = false,
 }: MapViewInnerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -119,6 +122,13 @@ export default function MapViewInner({
 
     group.clearLayers()
     const bounds: L.LatLngExpression[] = []
+
+    if (connectMarkers && markers.length >= 2) {
+      L.polyline(
+        markers.map((marker) => [marker.lat, marker.lon] as L.LatLngExpression),
+        { color: '#C1075D', weight: 3, dashArray: '6 8', className: 'route-dash' },
+      ).addTo(group)
+    }
 
     for (const [index, marker] of markers.entries()) {
       const color = marker.color || MARKER_COLORS[index % MARKER_COLORS.length]

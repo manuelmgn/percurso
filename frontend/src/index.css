@@ -140,6 +140,12 @@
     animation: route-dash 1.2s linear infinite;
   }
 
+  /* Same marching-ants animation for Leaflet polylines (dash pattern set
+     via pathOptions in MapViewInner). */
+  .leaflet-overlay-pane path.route-dash {
+    animation: route-dash 1.2s linear infinite;
+  }
+
   .btn-secondary {
     @apply rounded-xl bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
