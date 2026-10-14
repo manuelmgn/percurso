@@ -832,12 +832,12 @@ El `.dark` de §3.1 redefine superficie/fondo/línea. Reglas adicionales:
 
 ## 10. Checklist de aceptación
 
-- [ ] No queda ninguna clase `.glass` ni `rounded-glass` en `src/`
-- [ ] Sidebar flotante con item activo en píldora rosa; móvil con nav inferior píldora
-- [ ] CTA "Nova viagem" con degradado magenta→coral y sombra marca
-- [ ] Tarjetas: blanco sólido, radio 24px, `shadow-card`, hover con lift
-- [ ] Ruta discontinua animada visible en dashboard y detalle
-- [ ] Transición fade/slide de 250 ms entre rutas (desactivada con reduced-motion)
-- [ ] Dark mode coherente en las 4 páginas migradas
-- [ ] Todos los textos pasan por `t()` (sin strings hardcodeados)
-- [ ] Las páginas no migradas siguen funcionando con los tokens antiguos hasta su turno
+- [x] No queda ninguna clase `.glass` ni `rounded-glass` en `src/`
+- [x] Sidebar flotante con item activo en píldora rosa; móvil con nav inferior píldora
+- [x] CTA "Nova viagem" con degradado magenta→coral y sombra marca
+- [x] Tarjetas: blanco sólido, radio 24px, `shadow-card`, hover con lift
+- [x] Ruta discontinua animada visible en dashboard y detalle
+- [x] Transición fade/slide de 250 ms entre rutas (desactivada con reduced-motion)
+- [x] Dark mode coherente en las 4 páginas migradas
+- [ ] Todos los textos pasan por `t()` (sin strings hardcodeados) — pendiente: `SettingsPage` (y modales sueltos de Admin/Settings) conservan textos pt-PT hardcodeados heredados; migrarlos a claves i18n queda como deuda
+- [x] Las páginas no migradas siguen funcionando con los tokens antiguos hasta su turno
