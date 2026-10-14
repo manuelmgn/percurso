@@ -44,7 +44,9 @@ interface MapViewInnerProps {
   height?: string
 }
 
-const PRIMARY_COLOR = '#c1075d'
+// Brand pin colours, rotating by marker order (spec §6.5): magenta, coral,
+// plum. Markers with an explicit color always win.
+const MARKER_COLORS = ['#C1075D', '#E06F56', '#6B21A8']
 
 // Polygon styling — edit these values freely to retune the project maps.
 // borderWeight: border thickness (same for visited and pending).
@@ -118,8 +120,8 @@ export default function MapViewInner({
     group.clearLayers()
     const bounds: L.LatLngExpression[] = []
 
-    for (const marker of markers) {
-      const color = marker.color || PRIMARY_COLOR
+    for (const [index, marker] of markers.entries()) {
+      const color = marker.color || MARKER_COLORS[index % MARKER_COLORS.length]
       L.circleMarker([marker.lat, marker.lon], {
         radius: 7,
         color: '#ffffff',
