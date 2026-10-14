@@ -26,7 +26,7 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-neutral-900 dark:to-neutral-950">
-      <div className="glass w-full max-w-sm rounded-2xl p-8">
+      <div className="card w-full max-w-sm p-8">
         <h1 className="mb-2 text-center font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
           {t('login.appName')}
         </h1>

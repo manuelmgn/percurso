@@ -90,13 +90,10 @@ export default {
         },
       },
       borderRadius: {
-        'glass': '1.5rem',
         card: '24px',
         pill: '999px',
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
-        'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
         card: '0 8px 24px rgba(58, 46, 31, 0.07)',
         'card-hover': '0 12px 32px rgba(58, 46, 31, 0.11)',
         brand: '0 6px 16px rgba(193, 7, 93, 0.25)',

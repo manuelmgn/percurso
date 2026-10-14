@@ -18,7 +18,7 @@ function MapLoading({ height }: { height: string }) {
   return (
     <div
       style={{ height }}
-      className="flex w-full items-center justify-center rounded-glass border border-neutral-200 bg-neutral-100 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
+      className="flex w-full items-center justify-center rounded-card border border-line bg-surface text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18]"
       role="status"
     >
       {t('map.loading')}

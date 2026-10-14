@@ -110,7 +110,7 @@ export function AdminPage() {
         </div>
       )}
 
-      <div className="glass rounded-2xl p-6">
+      <div className="card">
         <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.createUserTitle')}</h3>
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-4">
           <div>
@@ -169,7 +169,7 @@ export function AdminPage() {
         </form>
       </div>
 
-      <div className="glass rounded-2xl p-6">
+      <div className="card">
         <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.userListTitle')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -226,7 +226,7 @@ export function AdminPage() {
         </div>
       </div>
 
-      <div className="glass rounded-2xl p-6">
+      <div className="card">
         <h3 className="mb-2 font-display text-lg font-semibold">{t('admin.backupTitle')}</h3>
         <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
           {t('admin.backupDescription')}

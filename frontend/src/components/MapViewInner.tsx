@@ -168,7 +168,7 @@ export default function MapViewInner({
     <div
       ref={containerRef}
       style={{ height }}
-      className="relative z-0 w-full overflow-hidden rounded-glass border border-neutral-200 dark:border-neutral-800"
+      className="relative z-0 w-full overflow-hidden rounded-card border border-line dark:border-[#322A23]"
       role="application"
       aria-label={t('map.ariaLabel')}
     />

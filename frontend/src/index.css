@@ -14,23 +14,6 @@
     --color-line: #EDE4D8;
     --color-text: #241F19;
     --color-text-muted: #8A8177;
-
-    /* Legacy glass tokens — kept while unmigrated screens still use .glass (§10) */
-    --color-secondary: #e06f56;
-    --color-accent: #ffd64e;
-    --color-tertiary: #6b21a8;
-    --glass-surface: rgba(255, 255, 255, 0.62);
-    --glass-border: rgba(255, 255, 255, 0.55);
-    --color-surface-solid: rgba(255, 255, 255, 0.9);
-    --glass-highlight: rgba(255, 255, 255, 0.6);
-    --glass-shadow:
-      0 1px 2px rgba(42, 38, 32, 0.04),
-      0 8px 24px rgba(42, 38, 32, 0.07),
-      inset 0 1px 0 var(--glass-highlight);
-    --glass-shadow-hover:
-      0 2px 4px rgba(42, 38, 32, 0.05),
-      0 16px 40px rgba(42, 38, 32, 0.11),
-      inset 0 1px 0 var(--glass-highlight);
   }
 
   .dark {
@@ -40,20 +23,6 @@
     --color-line: #322A23;
     --color-text: #FAF7F2;
     --color-text-muted: #A09A92;
-
-    /* Legacy glass tokens */
-    --glass-surface: rgba(42, 38, 32, 0.55);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --color-surface-solid: rgba(42, 38, 32, 0.92);
-    --glass-highlight: rgba(255, 255, 255, 0.08);
-    --glass-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.3),
-      0 8px 24px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 var(--glass-highlight);
-    --glass-shadow-hover:
-      0 2px 4px rgba(0, 0, 0, 0.35),
-      0 16px 40px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 var(--glass-highlight);
   }
 
   html {
@@ -104,33 +73,6 @@
 }
 
 @layer components {
-  /* Legacy glass surface — kept for unmigrated screens until §10 cleanup. */
-  .glass {
-    @apply rounded-glass border;
-    background-color: var(--glass-surface);
-    border-color: var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    -webkit-backdrop-filter: blur(18px) saturate(1.5);
-    backdrop-filter: blur(18px) saturate(1.5);
-    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
-  }
-
-  /* Performance: no blur on small screens (low-end mobile) or when the
-     browser lacks backdrop-filter — degrade to a more opaque surface. */
-  @media (max-width: 767px) {
-    .glass {
-      background-color: var(--color-surface-solid);
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-    }
-  }
-
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass {
-      background-color: var(--color-surface-solid);
-    }
-  }
-
   /* Base card — white solid, 24px radius, warm soft shadow (rediseño §3.2) */
   .card {
     @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:border-[#322A23] dark:bg-[#221D18] dark:shadow-none;

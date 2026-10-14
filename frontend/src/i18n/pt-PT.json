@@ -1,13 +1,10 @@
 {
   "app.name": "Percursos",
-  "app.tagline": "Os teus lugares e viagens",
-
   "loading": "A carregar",
   "loadingGeneric": "A carregar...",
   "pageNotFound": "Página não encontrada",
   "common.backHome": "Voltar ao início",
   "skipToContent": "Saltar para o conteúdo",
-
   "nav.home": "Início",
   "nav.trips": "Viagens",
   "nav.projects": "Projetos",
@@ -19,7 +16,6 @@
   "nav.logout": "Sair",
   "nav.search": "Pesquisa",
   "nav.main": "Navegação principal",
-
   "search.title": "Pesquisa",
   "search.placeholder": "Pesquisar viagens, lugares, projetos...",
   "search.queryTooShort": "Escreve pelo menos 2 caracteres na barra de pesquisa para encontrares viagens, projetos e lugares.",
@@ -27,7 +23,6 @@
   "search.searching": "A pesquisar...",
   "search.noResults": "Sem resultados para «{q}». Experimenta outro termo.",
   "search.projectProgress": "{visited}/{total} lugares visitados",
-
   "actions.save": "Guardar",
   "actions.cancel": "Cancelar",
   "actions.delete": "Eliminar",
@@ -36,20 +31,9 @@
   "actions.unpin": "Desfixar",
   "actions.clearFilters": "Limpar filtros",
   "actions.change": "Alterar",
-
   "errors.generic": "Ocorreu um erro. Tenta novamente.",
   "errors.minLength": "Mínimo de {min} caracteres",
-
-  "header.searchAria": "Pesquisa global",
-  "header.searchInputAria": "Pesquisar",
-  "header.myProfile": "Ver o meu perfil público",
-
-  "sidebar.mainNav": "Navegação principal",
-  "sidebar.mainMenu": "Menu principal",
   "sidebar.logoutAria": "Terminar sessão",
-
-  "mobileNav.label": "Navegação móvel",
-
   "dashboard.welcome": "Olá, {name}!",
   "dashboard.greeting": "Olá, {name}",
   "dashboard.subtitle": "Aqui está o resumo dos teus percursos.",
@@ -80,15 +64,12 @@
   "dashboard.highlightCompleted": "Projeto concluído ✓",
   "dashboard.highlightNewTrip": "Nova viagem registada",
   "dashboard.nextTrip": "Próxima viagem",
-
   "pinButton.pinAria": "Fixar {label}",
   "pinButton.unpinAria": "Desfixar {label}",
   "pinButton.error": "Não foi possível atualizar o pin.",
-
   "visibility.optionAll": "Todos",
   "visibility.optionSpecific": "Utilizadores específicos",
   "visibility.optionPrivate": "Privado",
-
   "units.trip.one": "viagem",
   "units.trip.other": "viagens",
   "units.place.one": "lugar",
@@ -99,7 +80,6 @@
   "units.activeProject.other": "projetos ativos",
   "units.visit.one": "visita",
   "units.visit.other": "visitas",
-
   "trips.title": "Viagens",
   "trips.create": "Nova viagem",
   "trips.new": "Nova viagem",
@@ -153,7 +133,6 @@
   "trips.deletePrepError": "Erro ao preparar a eliminação",
   "trips.deleteError": "Erro ao apagar viagem",
   "trips.saveError": "Erro ao guardar viagem",
-
   "tripEdit.newTitle": "Nova viagem",
   "tripEdit.editTitle": "Editar viagem",
   "tripEdit.titleLabel": "Título (opcional)",
@@ -174,7 +153,6 @@
   "tripEdit.saving": "A guardar...",
   "tripEdit.noOtherUsers": "Não há outros utilizadores.",
   "tripEdit.loadError": "Erro ao carregar dados",
-
   "projects.title": "Projetos",
   "projects.create": "Novo projeto",
   "projects.searchLabel": "Procurar",
@@ -228,7 +206,6 @@
   "projects.bulkImportError": "Erro ao importar lugares",
   "projects.saveError": "Erro ao guardar projeto",
   "projects.deleteError": "Não foi possível eliminar o projeto.",
-
   "projectEdit.newTitle": "Novo projeto",
   "projectEdit.editTitle": "Editar projeto",
   "projectEdit.nameLabel": "Nome",
@@ -244,7 +221,6 @@
   "projectEdit.saving": "A guardar...",
   "projectEdit.noOtherUsers": "Não há outros utilizadores.",
   "projectEdit.loadError": "Erro ao carregar dados",
-
   "bulkImport.title": "Importar lista em massa",
   "bulkImport.close": "Fechar importação em massa",
   "bulkImport.placeholder": "Um lugar por linha, ex.:\nLugo\nSantiago de Compostela\nOviedo",
@@ -262,7 +238,6 @@
   "bulkImport.notFoundMany": "Não encontrados ({count}) — não serão importados:",
   "bulkImport.confirm": "Confirmar importação",
   "bulkImport.importing": "A importar...",
-
   "places.title": "Lugares",
   "places.empty.title": "Ainda não tens lugares",
   "places.empty.description": "Os lugares nascem do OpenStreetMap quando os adicionas a uma viagem ou a um projeto. Regista a tua primeira viagem para começares a colecionar lugares.",
@@ -291,7 +266,6 @@
   "places.noTripHistory": "Ainda não visitaste este lugar em nenhuma viagem.",
   "places.loadError": "Erro ao carregar lugares",
   "places.detailLoadError": "Lugar não encontrado",
-
   "stats.title": "Estatísticas",
   "stats.yearInNumbers": "O teu ano em números",
   "stats.trips": "Viagens",
@@ -310,7 +284,6 @@
   "stats.placesByType": "Lugares por tipo",
   "stats.activityByMonth": "Atividade por mês",
   "stats.chartNoData": "Ainda não há dados para mostrar.",
-
   "profile.title": "Perfil",
   "profile.account": "Informação da conta",
   "profile.preferences": "Preferências",
@@ -337,13 +310,11 @@
   "profile.passwordChanged": "Palavra-passe alterada com sucesso",
   "profile.passwordError": "Erro ao alterar palavra-passe",
   "profile.passwordButton": "Alterar palavra-passe",
-
   "userProfile.memberSince": "Membro desde {date}",
   "userProfile.editProfile": "Editar perfil",
   "userProfile.trips": "Viagens",
   "userProfile.places": "Lugares visitados",
   "userProfile.notFound": "Utilizador não encontrado.",
-
   "admin.title": "Administração",
   "admin.createUserTitle": "Criar utilizador",
   "admin.usernamePlaceholder": "Nome de utilizador",
@@ -378,7 +349,6 @@
   "admin.createError": "Erro ao criar utilizador",
   "admin.updateError": "Erro ao atualizar utilizador",
   "admin.loadError": "Erro ao carregar utilizadores",
-
   "login.appName": "Percursos",
   "login.subtitle": "Inicia sessão para continuar",
   "login.username": "Nome de utilizador",
@@ -386,11 +356,9 @@
   "login.submitting": "A entrar...",
   "login.loginButton": "Entrar",
   "login.error": "Erro ao iniciar sessão",
-
   "map.loading": "A carregar o mapa...",
   "map.ariaLabel": "Mapa",
   "map.popup.viewPage": "Ver ficha",
-
   "notesEditor.bold": "Negrito",
   "notesEditor.italic": "Itálico",
   "notesEditor.underline": "Sublinhado",
@@ -415,7 +383,6 @@
   "notesEditor.invalidYoutubeUrl": "URL do YouTube inválido",
   "notesEditor.placeholder": "Escreve as tuas notas...",
   "notesEditor.aria": "Notas",
-
   "placePicker.placeholder": "Pesquisar lugares (ex.: Lugo, Santiago...)",
   "placePicker.aria": "Pesquisar lugares",
   "placePicker.adding": "A adicionar...",
@@ -423,6 +390,5 @@
   "placePicker.removeAria": "Remover {name}",
   "placePicker.searchError": "Erro ao pesquisar lugares",
   "placePicker.importError": "Erro ao adicionar lugar",
-
   "milestone.projectCompleted": "Projeto \"{name}\" concluído! Parabéns!"
 }

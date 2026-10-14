@@ -639,7 +639,7 @@ export function SettingsPage() {
           aria-modal="true"
           aria-labelledby="delete-modal-title"
         >
-          <div className="glass w-full max-w-md rounded-2xl p-6 shadow-2xl">
+          <div className="card w-full max-w-md p-6 shadow-pop">
             <h3 id="delete-modal-title" className="font-display text-lg font-bold text-red-600 dark:text-red-400">
               Eliminar conta definitivamente?
             </h3>
