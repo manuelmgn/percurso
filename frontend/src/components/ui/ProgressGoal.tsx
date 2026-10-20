@@ -21,6 +21,7 @@ export function ProgressGoal({ current, total, year }: ProgressGoalProps) {
       <div
         className="mt-2 h-2.5 overflow-hidden rounded-pill bg-[#F0E8DC] dark:bg-[#322A23]"
         role="progressbar"
+        aria-label={t('goal.label', { year: goalYear })}
         aria-valuenow={current}
         aria-valuemin={0}
         aria-valuemax={total}

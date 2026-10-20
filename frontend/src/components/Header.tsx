@@ -28,9 +28,9 @@ export function Header({ title, subtitle }: HeaderProps) {
         </div>
       )}
 
-      <Link to="/pesquisa" className="search-pill w-full sm:w-[212px]" aria-label={t('nav.search')}>
-        <Search size={16} className="text-muted" />
-        <span className="text-sm text-muted">{t('search.placeholder')}</span>
+      <Link to="/pesquisa" className="search-pill w-full sm:w-[212px]">
+        <Search size={16} className="text-muted dark:text-[#A09A92]" />
+        <span className="text-sm text-muted dark:text-[#A09A92]">{t('search.placeholder')}</span>
       </Link>
 
       <Link to="/viagens/novo" className="btn-primary">

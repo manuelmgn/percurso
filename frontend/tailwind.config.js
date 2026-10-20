@@ -16,7 +16,7 @@ export default {
         bg: '#FAF7F2',
         surface: '#FFFFFF',
         ink: '#241F19',
-        muted: '#8A8177',
+        muted: '#6E655B',
         line: '#EDE4D8',
         coral: { DEFAULT: '#E06F56', tint: '#FBE7E0', 600: '#b85542' },
         amber: { DEFAULT: '#FFD64E', tint: '#FFF3D0', deep: '#8A6A00' },

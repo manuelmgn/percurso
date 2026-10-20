@@ -266,6 +266,7 @@ export function StatsPage() {
                   <div
                     className="mt-2 h-2.5 w-full overflow-hidden rounded-pill bg-[#F0E8DC] dark:bg-[#322A23]"
                     role="progressbar"
+                    aria-label={t('stats.projectProgress')}
                     aria-valuenow={Math.round(project.progress_percent)}
                     aria-valuemin={0}
                     aria-valuemax={100}

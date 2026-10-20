@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/context/AuthContext'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -77,7 +78,22 @@ export default function App() {
   const { t } = useTranslation()
 
   return (
-    <Routes>
+    <ErrorBoundary
+      fallback={(reload) => (
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="card mx-auto max-w-md p-8 text-center">
+            <h1 className="font-display text-xl font-bold">{t('errors.loadFailedTitle')}</h1>
+            <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+              {t('errors.loadFailedMessage')}
+            </p>
+            <button type="button" onClick={reload} className="btn-primary mt-6">
+              {t('errors.reload')}
+            </button>
+          </div>
+        </div>
+      )}
+    >
+      <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route
         path="/"
@@ -123,6 +139,7 @@ export default function App() {
           }
         />
       </Route>
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   )
 }

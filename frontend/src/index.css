@@ -13,7 +13,7 @@
     --color-surface: #FFFFFF;
     --color-line: #EDE4D8;
     --color-text: #241F19;
-    --color-text-muted: #8A8177;
+    --color-text-muted: #6E655B;
   }
 
   .dark {
@@ -97,7 +97,7 @@
   }
 
   .input {
-    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2];
+    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92];
   }
 
   /* Filter chip (listing pages) */
@@ -213,4 +213,16 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* In dark mode, muted body text must switch to the lighter warm grey for
+   contrast on the dark surfaces (same value the dark: text variants use). */
+.dark .text-muted {
+  color: #A09A92;
+}
+
+/* The brand magenta is too dark on the dark surfaces; use the lighter
+   primary-400 so links and accents keep a 4.5:1 contrast. */
+.dark .text-primary {
+  color: #f470a3;
 }
