@@ -151,10 +151,10 @@ export function SettingsPage() {
     try {
       await api.me.update({ username: trimmed })
       await refreshUser()
-      setUsernameMessage('Nome atualizado com sucesso.')
+      setUsernameMessage(t('settings.usernameUpdated'))
       setTimeout(() => setUsernameMessage(''), 3000)
     } catch (err: any) {
-      setUsernameError(err.message || 'Erro ao atualizar o nome público.')
+      setUsernameError(err.message || t('settings.usernameError'))
     } finally {
       setIsSavingUsername(false)
     }
@@ -176,7 +176,7 @@ export function SettingsPage() {
     try {
       await api.me.update(prefs)
       await refreshUser()
-      setPrefsSuccess('Preferências guardadas.')
+      setPrefsSuccess(t('settings.preferencesSaved'))
       setTimeout(() => setPrefsSuccess(''), 2500)
     } catch (err: any) {
       setPrefsError(err.message || t('profile.preferencesError'))
@@ -210,7 +210,7 @@ export function SettingsPage() {
       await logout()
       navigate('/login')
     } catch (err: any) {
-      setDeleteError(err.message || 'Erro ao eliminar a conta.')
+      setDeleteError(err.message || t('settings.deleteError'))
       setIsDeletingAccount(false)
     }
   }
@@ -218,7 +218,7 @@ export function SettingsPage() {
   const themeOptions: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
     {
       value: 'light',
-      label: 'Claro',
+      label: t('profile.themeLight'),
       icon: (
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -227,7 +227,7 @@ export function SettingsPage() {
     },
     {
       value: 'dark',
-      label: 'Escuro',
+      label: t('profile.themeDark'),
       icon: (
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -236,7 +236,7 @@ export function SettingsPage() {
     },
     {
       value: 'system',
-      label: 'Sistema',
+      label: t('profile.themeSystem'),
       icon: (
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -248,12 +248,12 @@ export function SettingsPage() {
   return (
     <div className="space-y-8 pb-12">
       <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Ajustes</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t('settings.title')}</h1>
       </div>
 
-      {/* SECÇÃO 1: PERFIL */}
+      {/* SECTION 1: PROFILE */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">Perfil</h2>
+        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">{t('profile.title')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
           {/* Div 1 (Esquerda): Link para ver o perfil */}
           <div className="card flex flex-col justify-between">
@@ -264,10 +264,10 @@ export function SettingsPage() {
                 </svg>
               </div>
               <h3 className="font-display text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                O teu perfil público
+                {t('settings.profilePublicTitle')}
               </h3>
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                Visualiza o teu perfil público exatamente como é visto por outros utilizadores na plataforma, com o resumo das tuas viagens e lugares visitados.
+                {t('settings.profilePublicDescription')}
               </p>
             </div>
 
@@ -276,7 +276,7 @@ export function SettingsPage() {
                 to={`/utilizadores/${user?.username}`}
                 className="btn-primary inline-flex w-full items-center justify-center gap-2 sm:w-auto"
               >
-                <span>Ver perfil</span>
+                <span>{t('settings.viewProfile')}</span>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
@@ -298,7 +298,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isUploadingAvatar}
-                aria-label="Mudar fotografia de perfil"
+                aria-label={t('settings.avatarAria')}
                 className="relative block h-28 w-28 overflow-hidden rounded-full shadow-md ring-2 ring-primary-500/20 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 group-hover:scale-102"
               >
                 {user?.avatar_url ? (
@@ -320,14 +320,14 @@ export function SettingsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   <span className="mt-1 text-xs font-semibold">
-                    {isUploadingAvatar ? 'A carregar...' : 'Mudar foto'}
+                    {isUploadingAvatar ? t('profile.avatarUploading') : t('settings.changePhoto')}
                   </span>
                 </div>
               </button>
             </div>
 
             <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              Passa o rato para mudar a foto (JPEG, PNG, WebP ou HEIC)
+              {t('settings.avatarHint')}
             </p>
 
             <input
@@ -342,7 +342,7 @@ export function SettingsPage() {
             {/* Campo editável para o nome público */}
             <form onSubmit={handleSaveUsername} className="mt-5 w-full text-left">
               <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Nome público
+                {t('settings.publicNameLabel')}
               </label>
 
               {usernameMessage && (
@@ -365,36 +365,36 @@ export function SettingsPage() {
                   minLength={2}
                   maxLength={64}
                   className="input flex-1"
-                  placeholder="Nome público"
+                  placeholder={t('settings.publicNameLabel')}
                 />
                 <button
                   type="submit"
                   disabled={isSavingUsername || usernameInput.trim().toLowerCase() === user?.username}
                   className="btn-primary shrink-0"
                 >
-                  {isSavingUsername ? 'A guardar...' : 'Guardar'}
+                  {isSavingUsername ? t('settings.saving') : t('actions.save')}
                 </button>
               </div>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                Identificador visível na URL pública e no sistema.
+                {t('settings.publicNameHint')}
               </p>
             </form>
           </div>
         </div>
       </section>
 
-      {/* SECÇÃO 2: PREFERÊNCIAS */}
+      {/* SECTION 2: PREFERENCES */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">Preferências</h2>
+        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">{t('profile.preferences')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
           {/* Div 1: Escolha do tema */}
           <div className="card space-y-4">
             <div>
               <h3 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                Tema da interface
+                {t('settings.themeSection')}
               </h3>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                Escolhe o estilo visual da aplicação ou sincroniza com o sistema operativo.
+                {t('settings.themeDescription')}
               </p>
             </div>
 
@@ -421,10 +421,10 @@ export function SettingsPage() {
           <div className="card space-y-4">
             <div>
               <h3 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                Fuso horário e datas
+                {t('settings.timezoneDatesSection')}
               </h3>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                Ajusta como os horários e as datas de viagens são calculados e exibidos.
+                {t('settings.timezoneDatesDescription')}
               </p>
             </div>
 
@@ -442,7 +442,7 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300" htmlFor="settings-tz">
-                  Fuso horário
+                  {t('settings.timezoneLabel')}
                 </label>
                 <select
                   id="settings-tz"
@@ -458,7 +458,7 @@ export function SettingsPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300" htmlFor="settings-df">
-                  Formato de data
+                  {t('profile.dateFormat')}
                 </label>
                 <select
                   id="settings-df"
@@ -478,10 +478,10 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* SECÇÃO: ATIVIDADE RECENTE */}
+      {/* SECTION: RECENT ACTIVITY */}
       <section className="space-y-4">
         <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">
-          Atividade recente
+          {t('dashboard.recentActivity')}
         </h2>
         <div className="card">
           {isLoadingActivities ? (
@@ -490,7 +490,7 @@ export function SettingsPage() {
             </div>
           ) : activities.length === 0 ? (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Sem atividade recente registada.
+              {t('settings.noActivity')}
             </p>
           ) : (
             <ul className="space-y-3">
@@ -525,17 +525,17 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* SECÇÃO 3: CONTA */}
+      {/* SECTION 3: ACCOUNT */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">Conta</h2>
+        <h2 className="font-display text-xl font-bold text-neutral-900 dark:text-neutral-100">{t('settings.accountSection')}</h2>
         <div className="card space-y-6">
-          {/* Subseção: Alterar palavra-passe */}
+          {/* Subsection: change password */}
           <div>
             <h3 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Palavra-passe
+              {t('settings.passwordSection')}
             </h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Atualiza a palavra-passe utilizada para aceder à tua conta.
+              {t('settings.passwordDescription')}
             </p>
 
             {passwordMessage && (
@@ -553,7 +553,7 @@ export function SettingsPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Palavra-passe atual
+                    {t('profile.currentPassword')}
                   </label>
                   <input
                     id="settings-current-password"
@@ -567,7 +567,7 @@ export function SettingsPage() {
                 </div>
                 <div>
                   <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    Nova palavra-passe
+                    {t('profile.newPassword')}
                   </label>
                   <input
                     id="settings-new-password"
@@ -587,7 +587,7 @@ export function SettingsPage() {
                 disabled={isChangingPassword}
                 className="btn-primary"
               >
-                {isChangingPassword ? 'A alterar...' : 'Alterar palavra-passe'}
+                {isChangingPassword ? t('settings.changingPassword') : t('profile.passwordButton')}
               </button>
             </form>
           </div>
@@ -595,10 +595,10 @@ export function SettingsPage() {
           {/* Subseção: Terminar sessão & Eliminar conta */}
           <div className="border-t border-neutral-200/50 pt-6 dark:border-neutral-800/50">
             <h3 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Ações de sessão e conta
+              {t('settings.accountActionsSection')}
             </h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Gere a sessão ativa neste dispositivo ou remove a tua conta permanentemente.
+              {t('settings.accountActionsDescription')}
             </p>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -610,7 +610,7 @@ export function SettingsPage() {
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>Terminar sessão</span>
+                <span>{t('settings.logoutButton')}</span>
               </button>
 
               <button
@@ -624,14 +624,14 @@ export function SettingsPage() {
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                <span>Eliminar conta</span>
+                <span>{t('settings.deleteAccount')}</span>
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO */}
+      {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
@@ -641,10 +641,10 @@ export function SettingsPage() {
         >
           <div className="card w-full max-w-md p-6 shadow-pop">
             <h3 id="delete-modal-title" className="font-display text-lg font-bold text-red-600 dark:text-red-400">
-              Eliminar conta definitivamente?
+              {t('settings.deleteModalTitle')}
             </h3>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Esta ação é permanente e irreversível. Todos os teus dados, preferências e histórico serão apagados.
+              {t('settings.deleteModalWarning')}
             </p>
 
             {deleteError && (
@@ -660,7 +660,7 @@ export function SettingsPage() {
                 disabled={isDeletingAccount}
                 className="btn-outline"
               >
-                Cancelar
+                {t('actions.cancel')}
               </button>
               <button
                 type="button"
@@ -668,7 +668,7 @@ export function SettingsPage() {
                 disabled={isDeletingAccount}
                 className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               >
-                {isDeletingAccount ? 'A eliminar...' : 'Sim, eliminar conta'}
+                {isDeletingAccount ? t('settings.deleting') : t('settings.deleteConfirm')}
               </button>
             </div>
           </div>

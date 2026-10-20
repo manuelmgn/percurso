@@ -60,7 +60,7 @@ export const POLYGON_STYLE = {
   pending: { borderColor: '#f2a5b8', fillColor: '#f2a5b8', fillOpacity: 0.5 },
 }
 
-function popupHtml(title: string, subtitle?: string, href?: string, viewPageText = 'Ver ficha'): string {
+function popupHtml(title: string, subtitle: string | undefined, href: string | undefined, viewPageText: string): string {
   let html = `<strong>${title}</strong>`
   if (subtitle) html += `<br><span>${subtitle}</span>`
   if (href) html += `<br><a href="${href}">${viewPageText}</a>`
