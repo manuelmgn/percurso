@@ -125,7 +125,7 @@ export function AdminPage() {
               autoComplete="username"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
+              className="input"
             />
           </div>
           <div>
@@ -141,7 +141,7 @@ export function AdminPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
+              className="input"
             />
           </div>
           <div>
@@ -152,7 +152,7 @@ export function AdminPage() {
               id="admin-new-role"
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
-              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
+              className="input"
             >
               <option value="user">{t('admin.roleUser')}</option>
               <option value="admin">{t('admin.roleAdmin')}</option>
@@ -161,7 +161,7 @@ export function AdminPage() {
           <div className="flex items-end">
             <button
               type="submit"
-              className="w-full rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+              className="btn-primary w-full justify-center"
             >
               {t('admin.createButton')}
             </button>
@@ -234,7 +234,7 @@ export function AdminPage() {
         <button
           onClick={handleBackup}
           disabled={backupState.status === 'running'}
-          className="rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+          className="btn-primary"
         >
           {backupState.status === 'running' ? t('admin.backupRunning') : t('admin.backupButton')}
         </button>

@@ -48,7 +48,7 @@ export function LoginPage() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
+              className="input"
             />
           </div>
 
@@ -61,14 +61,14 @@ export function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
+              className="input"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-primary-600 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+            className="btn-primary w-full justify-center"
           >
             {isSubmitting ? t('login.submitting') : t('login.loginButton')}
           </button>
