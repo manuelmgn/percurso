@@ -62,7 +62,7 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
         disabled={isLoading}
         aria-label={isPinned ? t('pinButton.unpinAria', { label }) : t('pinButton.pinAria', { label })}
         title={isPinned ? t('actions.unpin') : t('actions.pin')}
-        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+        className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-2 text-sm font-medium transition-colors ${
           isPinned
             ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
             : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'

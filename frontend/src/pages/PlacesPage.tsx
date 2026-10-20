@@ -95,7 +95,7 @@ export function PlacesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )

@@ -299,7 +299,7 @@ export function SettingsPage() {
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isUploadingAvatar}
                 aria-label={t('settings.avatarAria')}
-                className="relative block h-28 w-28 overflow-hidden rounded-full shadow-md ring-2 ring-primary-500/20 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 group-hover:scale-102"
+                className="relative block h-28 w-28 overflow-hidden rounded-full shadow-md ring-2 ring-primary/20 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-primary group-hover:scale-102"
               >
                 {user?.avatar_url ? (
                   <img
@@ -406,7 +406,7 @@ export function SettingsPage() {
                   onClick={() => handleThemeChange(opt.value)}
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-medium transition-all ${
                     theme === opt.value
-                      ? 'bg-primary-600 text-white shadow-md ring-2 ring-primary-500/30'
+                      ? 'bg-primary-600 text-white shadow-md ring-2 ring-primary/30'
                       : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
                   }`}
                 >
@@ -486,7 +486,7 @@ export function SettingsPage() {
         <div className="card">
           {isLoadingActivities ? (
             <div className="flex items-center justify-center py-6" role="status">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : activities.length === 0 ? (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -619,7 +619,7 @@ export function SettingsPage() {
                   setDeleteError('')
                   setShowDeleteModal(true)
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20 active:scale-[0.97] dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
+                className="inline-flex items-center justify-center gap-2 rounded-pill border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20 active:scale-[0.97] dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -666,7 +666,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={isDeletingAccount}
-                className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               >
                 {isDeletingAccount ? t('settings.deleting') : t('settings.deleteConfirm')}
               </button>

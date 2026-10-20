@@ -60,7 +60,7 @@
   }
 
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-neutral-900;
+    @apply outline-none ring-2 ring-primary ring-offset-2 dark:ring-offset-neutral-900;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -89,7 +89,7 @@
 
   /* Secondary variant used by ProjectDetailPage. */
   .btn-secondary {
-    @apply rounded-xl bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
+    @apply rounded-pill bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
   }
 
   .btn-outline {

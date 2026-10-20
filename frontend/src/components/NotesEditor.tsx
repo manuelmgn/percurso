@@ -105,7 +105,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   return (
-    <div className="rounded-xl border border-neutral-300 bg-white transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="rounded-xl border border-neutral-300 bg-white transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900">
       <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-2 py-1 dark:border-neutral-800">
         <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title={t('notesEditor.bold')} aria-label={t('notesEditor.bold')}>
           B

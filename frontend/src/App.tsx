@@ -25,7 +25,7 @@ function PageFallback() {
   const { t } = useTranslation()
   return (
     <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       <span className="sr-only">{t('loadingGeneric')}</span>
     </div>
   )
@@ -35,7 +35,7 @@ function FullscreenLoading() {
   const { t } = useTranslation()
   return (
     <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t('loading')}>
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       <span className="sr-only">{t('loadingGeneric')}</span>
     </div>
   )

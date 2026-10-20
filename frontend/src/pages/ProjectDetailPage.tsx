@@ -218,7 +218,7 @@ export function ProjectDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
@@ -299,7 +299,7 @@ export function ProjectDetailPage() {
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
-            className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900"
+            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900"
           >
             {t('actions.delete')}
           </button>
@@ -324,7 +324,7 @@ export function ProjectDetailPage() {
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="rounded-xl bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >
               {isDeleting ? t('projects.deleting') : t('projects.deleteConfirm')}
             </button>
@@ -577,7 +577,7 @@ export function ProjectDetailPage() {
                                     line.selected?.osm_id === candidate.osm_id
                                   }
                                   onChange={() => handleSelectCandidate(index, candidate)}
-                                  className="h-4 w-4 border-neutral-300 text-primary-600 focus:ring-primary-500"
+                                  className="h-4 w-4 border-neutral-300 text-primary-600 focus:ring-primary"
                                 />
                                 {formatCandidate(candidate)}
                               </label>

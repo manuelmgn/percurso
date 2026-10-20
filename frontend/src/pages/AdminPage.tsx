@@ -94,7 +94,7 @@ export function AdminPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
@@ -125,7 +125,7 @@ export function AdminPage() {
               autoComplete="username"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
             />
           </div>
           <div>
@@ -141,7 +141,7 @@ export function AdminPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
             />
           </div>
           <div>
@@ -152,7 +152,7 @@ export function AdminPage() {
               id="admin-new-role"
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
             >
               <option value="user">{t('admin.roleUser')}</option>
               <option value="admin">{t('admin.roleAdmin')}</option>

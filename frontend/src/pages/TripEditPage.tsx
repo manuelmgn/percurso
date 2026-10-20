@@ -31,7 +31,7 @@ function UserChecklist({
             key={u.id}
             className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
               checked
-                ? 'border-primary-500 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
                 : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
             }`}
           >
@@ -39,7 +39,7 @@ function UserChecklist({
               type="checkbox"
               checked={checked}
               onChange={() => onToggle(u.id)}
-              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary"
             />
             {u.username}
           </label>
@@ -153,7 +153,7 @@ export function TripEditPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="sr-only">{t('loadingGeneric')}</span>
       </div>
     )
@@ -237,7 +237,7 @@ export function TripEditPage() {
                       key={p.id}
                       className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
                         checked
-                          ? 'border-primary-500 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                          ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
                           : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
                       }`}
                     >
@@ -245,7 +245,7 @@ export function TripEditPage() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => setProjectIds((prev) => toggleId(prev, p.id))}
-                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary"
                       />
                       {p.name}
                     </label>
