@@ -839,5 +839,5 @@ El `.dark` de §3.1 redefine superficie/fondo/línea. Reglas adicionales:
 - [x] Ruta discontinua animada visible en dashboard y detalle
 - [x] Transición fade/slide de 250 ms entre rutas (desactivada con reduced-motion)
 - [x] Dark mode coherente en las 4 páginas migradas
-- [ ] Todos los textos pasan por `t()` (sin strings hardcodeados) — pendiente: `SettingsPage` (y modales sueltos de Admin/Settings) conservan textos pt-PT hardcodeados heredados; migrarlos a claves i18n queda como deuda
+- [x] Todos los textos pasan por `t()` (sin strings hardcodeados) — completado 2026-10-20: `SettingsPage` migrada por completo (26 claves nuevas `settings.*`); sweep de todo `src/` sin strings sueltos restantes
 - [x] Las páginas no migradas siguen funcionando con los tokens antiguos hasta su turno
