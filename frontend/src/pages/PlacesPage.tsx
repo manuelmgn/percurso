@@ -113,12 +113,12 @@ export function PlacesPage() {
 
       {places.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">
-          <svg className="h-12 w-12 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="h-12 w-12 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <h3 className="mt-4 font-display text-lg font-semibold">{t('places.empty.title')}</h3>
-          <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1 max-w-sm text-sm text-muted dark:text-[#A09A92]">
             {t('places.empty.description')}
           </p>
           <Link to="/viagens/novo" className="btn-primary mt-6">
@@ -129,7 +129,7 @@ export function PlacesPage() {
         <>
           <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 lg:col-span-1">
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-search">
+              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-search">
                 {t('places.searchLabel')}
               </label>
               <input
@@ -142,7 +142,7 @@ export function PlacesPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-type">
+              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-type">
                 {t('places.typeLabel')}
               </label>
               <select
@@ -158,7 +158,7 @@ export function PlacesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-status">
+              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-status">
                 {t('places.statusLabel')}
               </label>
               <select
@@ -173,7 +173,7 @@ export function PlacesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400" htmlFor="places-sort">
+              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-sort">
                 {t('places.sortLabel')}
               </label>
               <select
@@ -191,7 +191,7 @@ export function PlacesPage() {
 
           {visiblePlaces.length === 0 ? (
             <div className="card py-8 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-muted dark:text-[#A09A92]">
                 {t('places.noResults')}
               </p>
               <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
@@ -205,7 +205,7 @@ export function PlacesPage() {
                 return (
                   <Link key={place.id} to={`/lugares/${place.id}`} className="card block">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                      <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
                         {place.name}
                       </p>
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">
@@ -221,7 +221,7 @@ export function PlacesPage() {
                         )}
                       </div>
                     </div>
-                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
                       {place.place_type}
                       {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
                     </p>

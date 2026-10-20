@@ -56,11 +56,11 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Sora', 'Inter', system-ui, sans-serif;
-    @apply text-neutral-900 dark:text-neutral-50;
+    @apply text-ink dark:text-[#FAF7F2];
   }
 
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2 dark:ring-offset-neutral-900;
+    @apply outline-none ring-2 ring-primary ring-offset-2 dark:ring-offset-[#191512];
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -89,7 +89,7 @@
 
   /* Secondary variant used by ProjectDetailPage. */
   .btn-secondary {
-    @apply rounded-pill bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900;
+    @apply rounded-pill bg-secondary-500 px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-secondary-600 focus-visible:ring-2 focus-visible:ring-secondary-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
   }
 
   .btn-outline {
@@ -181,7 +181,7 @@
   }
 
   .notes-content blockquote {
-    @apply border-l-4 border-neutral-300 pl-4 italic text-neutral-600 dark:border-neutral-600 dark:text-neutral-400;
+    @apply border-l-4 border-line pl-4 italic text-muted dark:border-[#322A23] dark:text-[#A09A92];
   }
 
   .notes-content ul {

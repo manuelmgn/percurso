@@ -65,7 +65,7 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
         className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-2 text-sm font-medium transition-colors ${
           isPinned
             ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+            : 'bg-line/40 text-ink hover:bg-line dark:bg-[#322A23]/50 dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
         }`}
       >
         <svg

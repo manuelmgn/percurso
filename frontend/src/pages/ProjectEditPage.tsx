@@ -18,7 +18,7 @@ function UserChecklist({
   emptyMessage: string
 }) {
   if (users.length === 0) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">{emptyMessage}</p>
+    return <p className="text-sm text-muted dark:text-[#A09A92]">{emptyMessage}</p>
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -30,14 +30,14 @@ function UserChecklist({
             className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
               checked
                 ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                : 'border-line text-ink hover:bg-line/40 dark:border-[#322A23] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
             }`}
           >
             <input
               type="checkbox"
               checked={checked}
               onChange={() => onToggle(u.id)}
-              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary"
+              className="h-4 w-4 rounded border-line text-primary-600 focus:ring-primary"
             />
             {u.username}
           </label>
@@ -202,7 +202,7 @@ export function ProjectEditPage() {
             {mixedTypes ? (
               <div>
                 <label className="mb-1 block text-sm font-medium">{t('projectEdit.mapModeLabel')}</label>
-                <p className="rounded-lg border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                <p className="rounded-lg border border-line bg-line/40 px-4 py-2 text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#A09A92]">
                   {t('projectEdit.mapModeMixedTypes')}
                 </p>
               </div>

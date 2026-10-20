@@ -134,27 +134,27 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
           aria-label={t('placePicker.aria')}
         />
         {(isSearching || isImporting) && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
             {isImporting ? t('placePicker.adding') : t('placePicker.searching')}
           </span>
         )}
 
         {isOpen && results.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900" role="listbox">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-white shadow-lg dark:border-[#322A23] dark:bg-[#221D18]" role="listbox">
             {results.map((result) => (
               <li key={`${result.osm_type}-${result.osm_id}`}>
                 <button
                   type="button"
                   onClick={() => pick(result)}
                   disabled={isImporting}
-                  className="w-full px-4 py-2 text-left text-sm transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-800"
+                  className="w-full px-4 py-2 text-left text-sm transition-colors hover:bg-line/40 disabled:opacity-50 dark:hover:bg-[#322A23]"
                   role="option"
                 >
-                  <span className="font-medium text-neutral-900 dark:text-neutral-50">{result.name}</span>
+                  <span className="font-medium text-ink dark:text-[#FAF7F2]">{result.name}</span>
                   {formatHierarchy(result.hierarchy) && (
-                    <span className="text-neutral-500 dark:text-neutral-400"> — {formatHierarchy(result.hierarchy)}</span>
+                    <span className="text-muted dark:text-[#A09A92]"> — {formatHierarchy(result.hierarchy)}</span>
                   )}
-                  <span className="text-neutral-400 dark:text-neutral-500"> [{result.place_type}]</span>
+                  <span className="text-muted dark:text-[#A09A92]"> [{result.place_type}]</span>
                 </button>
               </li>
             ))}

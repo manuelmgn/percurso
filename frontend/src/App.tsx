@@ -112,7 +112,7 @@ export default function App() {
           path="*"
           element={
             <div className="card mx-auto max-w-md p-8 text-center">
-              <p className="text-neutral-600 dark:text-neutral-400">{t('pageNotFound')}</p>
+              <p className="text-muted dark:text-[#A09A92]">{t('pageNotFound')}</p>
               <Link
                 to="/"
                 className="mt-4 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"

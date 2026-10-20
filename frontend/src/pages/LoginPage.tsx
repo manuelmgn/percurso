@@ -25,12 +25,12 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-neutral-900 dark:to-neutral-950">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-[#191512] dark:to-[#221D18]">
       <div className="card w-full max-w-sm p-8">
         <h1 className="mb-2 text-center font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
           {t('login.appName')}
         </h1>
-        <p className="mb-8 text-center text-neutral-600 dark:text-neutral-400">{t('login.subtitle')}</p>
+        <p className="mb-8 text-center text-muted dark:text-[#A09A92]">{t('login.subtitle')}</p>
 
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -48,7 +48,7 @@ export function LoginPage() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
             />
           </div>
 
@@ -61,7 +61,7 @@ export function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
             />
           </div>
 

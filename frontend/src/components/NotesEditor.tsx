@@ -9,7 +9,7 @@ interface NotesEditorProps {
 }
 
 const toolbarButtonClass =
-  'rounded-lg px-2 py-1 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+  'rounded-lg px-2 py-1 text-sm font-medium text-muted transition-colors hover:bg-line/40 disabled:opacity-50 dark:text-[#A09A92] dark:hover:bg-[#322A23]'
 
 // Keep in sync with ALLOWED_FONT_FACES in backend/app/sanitize.py.
 const FONT_OPTIONS = [
@@ -105,8 +105,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   return (
-    <div className="rounded-xl border border-neutral-300 bg-white transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900">
-      <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-2 py-1 dark:border-neutral-800">
+    <div className="rounded-xl border border-line bg-white transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]">
+      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1 dark:border-[#322A23]">
         <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title={t('notesEditor.bold')} aria-label={t('notesEditor.bold')}>
           B
         </button>
@@ -131,7 +131,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <select
           onChange={handleFontChange}
           defaultValue=""
-          className="rounded-lg bg-transparent px-1 py-1 text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className="rounded-lg bg-transparent px-1 py-1 text-sm text-muted hover:bg-line/40 dark:text-[#A09A92] dark:hover:bg-[#322A23]"
           title={t('notesEditor.font')}
           aria-label={t('notesEditor.font')}
         >
@@ -240,7 +240,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           </svg>
         </button>
         {isUploading && (
-          <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">{t('notesEditor.uploading')}</span>
+          <span className="ml-2 text-xs text-muted dark:text-[#A09A92]">{t('notesEditor.uploading')}</span>
         )}
         <input
           ref={fileInputRef}
@@ -256,13 +256,13 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         contentEditable
         onInput={handleInput}
         data-placeholder={placeholder || t('notesEditor.placeholder')}
-        className="notes-content min-h-[120px] px-4 py-3 text-sm text-neutral-900 outline-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)] dark:text-neutral-50"
+        className="notes-content min-h-[120px] px-4 py-3 text-sm text-ink outline-none empty:before:text-muted empty:before:content-[attr(data-placeholder)] dark:text-[#FAF7F2]"
         role="textbox"
         aria-multiline="true"
         aria-label={t('notesEditor.aria')}
       />
       {uploadError && (
-        <p className="border-t border-neutral-200 px-4 py-2 text-xs text-red-700 dark:border-neutral-800 dark:text-red-300">
+        <p className="border-t border-line px-4 py-2 text-xs text-red-700 dark:border-[#322A23] dark:text-red-300">
           {uploadError}
         </p>
       )}

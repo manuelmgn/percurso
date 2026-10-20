@@ -68,11 +68,11 @@ export function PlaceDetailPage() {
 
       <div className="card">
         <h2 className="font-display text-2xl font-bold">{place.name}</h2>
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
           {place.place_type}
           {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
         </p>
-        <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+        <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
           {t('places.coordinates', { lat: place.lat.toFixed(5), lon: place.lon.toFixed(5) })}
         </p>
       </div>
@@ -84,7 +84,7 @@ export function PlaceDetailPage() {
       <div className="card">
         <h3 className="mb-3 font-display text-lg font-semibold">{t('places.projects')}</h3>
         {place.projects.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-muted dark:text-[#A09A92]">
             {t('places.noProjects')}
           </p>
         ) : (
@@ -97,7 +97,7 @@ export function PlaceDetailPage() {
                 >
                   {project.name}
                 </Link>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                <span className="text-sm text-muted dark:text-[#A09A92]">
                   {' '}· {t('projects.progressText', { visited: project.visited_places, total: project.total_places })}
                 </span>
               </li>
@@ -109,7 +109,7 @@ export function PlaceDetailPage() {
       <div className="card">
         <h3 className="mb-3 font-display text-lg font-semibold">{t('places.tripHistory')}</h3>
         {place.trips.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-muted dark:text-[#A09A92]">
             {t('places.noTripHistory')}
           </p>
         ) : (
@@ -122,7 +122,7 @@ export function PlaceDetailPage() {
                 >
                   {formatTripTitle(trip, user)}
                 </Link>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                <span className="text-sm text-muted dark:text-[#A09A92]">
                   {' '}· {trip.creator_username}
                 </span>
               </li>

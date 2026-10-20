@@ -56,14 +56,14 @@ export function SearchPage() {
 
       {q.length < 2 ? (
         <div className="card py-8 text-center">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-muted dark:text-[#A09A92]">
             {t('search.queryTooShort')}
           </p>
         </div>
       ) : (
         <>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {t('search.resultsFor')} <span className="font-medium text-neutral-900 dark:text-neutral-50">«{q}»</span>
+          <p className="text-sm text-muted dark:text-[#A09A92]">
+            {t('search.resultsFor')} <span className="font-medium text-ink dark:text-[#FAF7F2]">«{q}»</span>
           </p>
 
           {error && (
@@ -74,13 +74,13 @@ export function SearchPage() {
 
           {isLoading && (
             <div className="card py-8 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('search.searching')}</p>
+              <p className="text-sm text-muted dark:text-[#A09A92]">{t('search.searching')}</p>
             </div>
           )}
 
           {!isLoading && !error && isEmpty && (
             <div className="card py-8 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-muted dark:text-[#A09A92]">
                 {t('search.noResults', { q })}
               </p>
             </div>
@@ -92,10 +92,10 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.trips.map((trip) => (
                   <Link key={trip.id} to={`/viagens/${trip.id}`} className="card block">
-                    <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
                       {formatTripTitle(trip, user)}
                     </p>
-                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
                       {formatTripDateRange(trip.start_date, trip.end_date, user)}
                       {' · '}
                       {trip.place_count} {pluralize(trip.place_count, 'units.place.one', 'units.place.other')}
@@ -112,10 +112,10 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.projects.map((project) => (
                   <Link key={project.id} to={`/projetos/${project.id}`} className="card block">
-                    <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
                       {project.name}
                     </p>
-                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
                       {t('search.projectProgress', { visited: project.visited_places, total: project.total_places })}
                       {' · '}
                       {project.progress_percent}%
@@ -132,10 +132,10 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.places.map((place) => (
                   <Link key={place.id} to={`/lugares/${place.id}`} className="card block">
-                    <p className="font-display font-semibold text-neutral-900 dark:text-neutral-50">
+                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
                       {place.name}
                     </p>
-                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
                       {place.place_type}
                       {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
                     </p>

@@ -27,7 +27,7 @@ function Celebration({ milestones }: { milestones: MilestoneInfo[] }) {
           {milestones.map((milestone) => (
             <div
               key={milestone.key}
-              className="card border-primary-300 px-4 py-3 text-sm font-medium text-neutral-900 dark:border-primary-700 dark:text-neutral-50"
+              className="card border-primary-300 px-4 py-3 text-sm font-medium text-ink dark:border-primary-700 dark:text-[#FAF7F2]"
             >
               {milestoneMessage(milestone)}
             </div>

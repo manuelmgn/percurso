@@ -125,7 +125,7 @@ export function AdminPage() {
               autoComplete="username"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
             />
           </div>
           <div>
@@ -141,7 +141,7 @@ export function AdminPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
             />
           </div>
           <div>
@@ -152,7 +152,7 @@ export function AdminPage() {
               id="admin-new-role"
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as UserCreate['role'])}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-lg border border-line bg-white px-4 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]"
             >
               <option value="user">{t('admin.roleUser')}</option>
               <option value="admin">{t('admin.roleAdmin')}</option>
@@ -174,7 +174,7 @@ export function AdminPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left dark:border-neutral-800">
+              <tr className="border-b border-line text-left dark:border-[#322A23]">
                 <th className="pb-2 font-medium">{t('admin.tableUser')}</th>
                 <th className="pb-2 font-medium">{t('admin.tableRole')}</th>
                 <th className="pb-2 font-medium">{t('admin.tableStatus')}</th>
@@ -183,7 +183,7 @@ export function AdminPage() {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-neutral-100 dark:border-neutral-900">
+                <tr key={user.id} className="border-b border-line/50 dark:border-[#322A23]/50">
                   <td className="py-3">{user.username}</td>
                   <td className="py-3">{user.role === 'admin' ? t('admin.roleAdmin') : t('admin.roleUser')}</td>
                   <td className="py-3">
@@ -191,7 +191,7 @@ export function AdminPage() {
                       className={`rounded-full px-2 py-1 text-xs ${
                         user.is_active
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                          : 'bg-line/40 text-muted dark:bg-[#322A23] dark:text-[#A09A92]'
                       }`}
                     >
                       {user.is_active ? t('admin.statusActive') : t('admin.statusInactive')}
@@ -201,13 +201,13 @@ export function AdminPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleToggleActive(user)}
-                        className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23]/70 dark:hover:bg-[#322A23]"
                       >
                         {user.is_active ? t('admin.actionDeactivate') : t('admin.actionActivate')}
                       </button>
                       <button
                         onClick={() => handleResetPassword(user)}
-                        className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23]/70 dark:hover:bg-[#322A23]"
                       >
                         {t('admin.actionResetPassword')}
                       </button>
@@ -228,7 +228,7 @@ export function AdminPage() {
 
       <div className="card">
         <h3 className="mb-2 font-display text-lg font-semibold">{t('admin.backupTitle')}</h3>
-        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mb-4 text-sm text-muted dark:text-[#A09A92]">
           {t('admin.backupDescription')}
         </p>
         <button

@@ -299,7 +299,7 @@ export function ProjectDetailPage() {
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
-            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-neutral-900"
+            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-[#191512]"
           >
             {t('actions.delete')}
           </button>
@@ -317,7 +317,7 @@ export function ProjectDetailPage() {
           <h3 className="font-display text-lg font-semibold text-red-700 dark:text-red-300">
             {t('projects.deleteTitle')}
           </h3>
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
             {t('projects.deleteWarning')}
           </p>
           <div className="mt-4 flex gap-2">
@@ -345,13 +345,13 @@ export function ProjectDetailPage() {
           )}
         </div>
         {project.description && (
-          <p className="mt-2 whitespace-pre-line text-neutral-700 dark:text-neutral-300">{project.description}</p>
+          <p className="mt-2 whitespace-pre-line text-ink dark:text-[#FAF7F2]">{project.description}</p>
         )}
-        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mt-3 text-sm text-muted dark:text-[#A09A92]">
           {t('projects.visibility')}: {t(visibilityKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
         </p>
         {project.participants.length > 0 && (
-          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
             {t('projects.participants')}: {project.participants.map((u) => u.username).join(', ')}
           </p>
         )}
@@ -359,18 +359,18 @@ export function ProjectDetailPage() {
         <div className="mt-4">
           {project.total_places > 0 ? (
             <>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-line dark:bg-[#322A23]">
                 <div
                   className="h-full rounded-full bg-primary-600 transition-all"
                   style={{ width: `${project.progress_percent}%` }}
                 />
               </div>
-              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
                 {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}%
               </p>
             </>
           ) : (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            <p className="text-sm text-muted dark:text-[#A09A92]">
               {t('projects.openProject')}
             </p>
           )}
@@ -388,7 +388,7 @@ export function ProjectDetailPage() {
         <h3 className="mb-4 font-display text-lg font-semibold">{t('projects.targetPlaces')}</h3>
 
         {project.places.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-muted dark:text-[#A09A92]">
             {t('projects.noPlaces')}
           </p>
         ) : (
@@ -396,7 +396,7 @@ export function ProjectDetailPage() {
             {project.places.map((place) => (
               <li
                 key={place.id}
-                className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"
+                className="rounded-xl border border-line p-3 dark:border-[#322A23]"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
@@ -405,7 +405,7 @@ export function ProjectDetailPage() {
                   >
                     {place.place_name}
                   </Link>
-                  <span className="text-sm text-neutral-500 dark:text-neutral-400">[{place.place_type}]</span>
+                  <span className="text-sm text-muted dark:text-[#A09A92]">[{place.place_type}]</span>
                   {place.is_unmarked ? (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                       {t('projects.unmarked')}
@@ -415,13 +415,13 @@ export function ProjectDetailPage() {
                       {t('projects.visited')}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+                    <span className="rounded-full bg-line/40 px-2 py-0.5 text-xs font-medium text-muted dark:bg-[#322A23] dark:text-muted">
                       {t('projects.pending')}
                     </span>
                   )}
                 </div>
                 {formatHierarchy(place.place_hierarchy) && (
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
                     {formatHierarchy(place.place_hierarchy)}
                   </p>
                 )}
@@ -430,7 +430,7 @@ export function ProjectDetailPage() {
                     <button
                       onClick={() => handleToggleUnmark(place.place_id)}
                       disabled={busyPlaceId === place.place_id}
-                      className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 disabled:opacity-50 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                      className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line disabled:opacity-50 dark:bg-[#322A23] dark:hover:bg-[#322A23]"
                     >
                       {place.is_unmarked ? t('projects.markVisitedAgain') : t('projects.unmarkVisit')}
                     </button>
@@ -447,7 +447,7 @@ export function ProjectDetailPage() {
                       <button
                         onClick={() => setRemovingPlaceId(null)}
                         disabled={busyPlaceId === place.place_id}
-                        className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23] dark:hover:bg-[#322A23]"
                       >
                         {t('actions.cancel')}
                       </button>
@@ -467,15 +467,15 @@ export function ProjectDetailPage() {
           </ul>
         )}
 
-        <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <div className="mt-6 border-t border-line pt-4 dark:border-[#322A23]">
           <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
           <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
           {isAddingPlace && (
-            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{t('projects.addingPlace')}</p>
+            <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">{t('projects.addingPlace')}</p>
           )}
         </div>
 
-        <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <div className="mt-6 border-t border-line pt-4 dark:border-[#322A23]">
           <button onClick={() => setShowBulk((v) => !v)} className="btn-outline">
             {showBulk ? t('bulkImport.close') : t('bulkImport.title')}
           </button>
@@ -494,7 +494,7 @@ export function ProjectDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <label
                   htmlFor="bulk-type"
-                  className="text-xs font-medium text-neutral-500 dark:text-neutral-400"
+                  className="text-xs font-medium text-muted dark:text-[#A09A92]"
                 >
                   {t('bulkImport.typeLabel')}
                 </label>
@@ -527,10 +527,10 @@ export function ProjectDetailPage() {
               </button>
 
               {bulkLines && (
-                <div className="space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="space-y-3 rounded-xl border border-line p-4 dark:border-[#322A23]">
                   {bulkSelectableTypes.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      <span className="text-xs font-medium text-muted dark:text-[#A09A92]">
                         {t('bulkImport.selectAll')}
                       </span>
                       {bulkSelectableTypes.map(({ type, count }) => (
@@ -556,7 +556,7 @@ export function ProjectDetailPage() {
                             : undefined
                         }
                       >
-                        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{line.line}</p>
+                        <p className="text-sm font-medium text-ink dark:text-[#FAF7F2]">{line.line}</p>
                         {line.status === 'resolved' && line.selected && (
                           <p className="mt-1 text-sm text-green-700 dark:text-green-300">
                             ✓ {formatCandidate(line.selected)}
@@ -567,7 +567,7 @@ export function ProjectDetailPage() {
                             {line.candidates.map((candidate) => (
                               <label
                                 key={`${candidate.osm_type}-${candidate.osm_id}`}
-                                className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
+                                className="flex items-center gap-2 text-sm text-ink dark:text-[#FAF7F2]"
                               >
                                 <input
                                   type="radio"
@@ -577,7 +577,7 @@ export function ProjectDetailPage() {
                                     line.selected?.osm_id === candidate.osm_id
                                   }
                                   onChange={() => handleSelectCandidate(index, candidate)}
-                                  className="h-4 w-4 border-neutral-300 text-primary-600 focus:ring-primary"
+                                  className="h-4 w-4 border-line text-primary-600 focus:ring-primary"
                                 />
                                 {formatCandidate(candidate)}
                               </label>
@@ -592,7 +592,7 @@ export function ProjectDetailPage() {
                           </div>
                         )}
                         {line.status === 'not_found' && (
-                          <p className="mt-1 text-sm text-neutral-400 dark:text-neutral-500">
+                          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
                             {t('bulkImport.notFound')}
                           </p>
                         )}
@@ -600,15 +600,15 @@ export function ProjectDetailPage() {
                     ))}
                   </ul>
                   {bulkNotFound.length > 0 && (
-                    <div className="rounded-lg bg-neutral-100 px-3 py-2 dark:bg-neutral-800/60">
-                      <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    <div className="rounded-lg bg-line/40 px-3 py-2 dark:bg-[#322A23]/60">
+                      <p className="text-xs font-medium text-muted dark:text-[#A09A92]">
                         {bulkNotFound.length === 1
                           ? t('bulkImport.notFoundOne')
                           : t('bulkImport.notFoundMany', { count: bulkNotFound.length })}
                       </p>
                       <ul className="mt-1 space-y-0.5">
                         {bulkNotFound.map((line, i) => (
-                          <li key={i} className="text-sm text-neutral-500 dark:text-neutral-400">
+                          <li key={i} className="text-sm text-muted dark:text-[#A09A92]">
                             {line}
                           </li>
                         ))}
@@ -642,7 +642,7 @@ export function ProjectDetailPage() {
         <h3 className="mb-3 font-display text-lg font-semibold">{t('projects.associatedTrips')}</h3>
         {project.trips.length === 0 ? (
           <div className="py-2 text-center">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('projects.noAssociatedTrips')}</p>
+            <p className="text-sm text-muted dark:text-[#A09A92]">{t('projects.noAssociatedTrips')}</p>
             <Link to={`/viagens/novo?projeto=${project.id}`} className="btn-primary mt-4 inline-block">
               {t('projects.newTripWithProject')}
             </Link>
@@ -657,7 +657,7 @@ export function ProjectDetailPage() {
                 >
                   {formatTripTitle(trip, user)}
                 </Link>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                <span className="text-sm text-muted dark:text-[#A09A92]">
                   {' '}· {trip.creator_username} · {trip.place_count} {pluralize(trip.place_count, 'units.place.one', 'units.place.other')}
                 </span>
               </li>
