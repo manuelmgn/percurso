@@ -25,13 +25,20 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-[#191512] dark:to-[#221D18]">
-      <div className="card w-full max-w-sm p-8">
-        <h1 className="mb-2 text-center font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
-          {t('login.appName')}
-        </h1>
-        <p className="mb-8 text-center text-muted dark:text-[#A09A92]">{t('login.subtitle')}</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-[#191512] dark:to-[#221D18]">
+      <div className="mb-6 flex flex-col items-center gap-4 text-center">
+        <div className="grid h-16 w-16 place-items-center rounded-3xl bg-primary-tint shadow-card dark:bg-primary/20">
+          <img src="/images/percurso-icono.svg" alt="" className="h-10 w-10" />
+        </div>
+        <div>
+          <h1 className="font-brand text-3xl font-bold tracking-tight text-primary">
+            {t('login.appName')}
+          </h1>
+          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">{t('login.subtitle')}</p>
+        </div>
+      </div>
 
+      <div className="card w-full max-w-sm p-8">
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
             {error}

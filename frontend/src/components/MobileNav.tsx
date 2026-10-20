@@ -1,14 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { Briefcase, FolderOpen, Home, MapPin, PieChart, Search, Settings } from 'lucide-react'
+import { Briefcase, Home, PieChart, Plane, Search, Settings } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
-  { to: '/viagens', icon: Briefcase, key: 'nav.trips' },
-  { to: '/projetos', icon: FolderOpen, key: 'nav.projects' },
-  { to: '/pesquisa', icon: Search, key: 'nav.search' },
-  { to: '/lugares', icon: MapPin, key: 'nav.places' },
+  { to: '/viagens', icon: Plane, key: 'nav.trips' },
+  { to: '/projetos', icon: Briefcase, key: 'nav.projects' },
   { to: '/estatisticas', icon: PieChart, key: 'nav.stats' },
+  { to: '/pesquisa', icon: Search, key: 'nav.search' },
 ]
 
 export function MobileNav() {

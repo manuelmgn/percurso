@@ -1,11 +1,11 @@
 import { Link, NavLink } from 'react-router-dom'
 import {
   Briefcase,
-  FolderOpen,
   Home,
   LogOut,
   MapPin,
   PieChart,
+  Plane,
   Search,
   ShieldCheck,
 } from 'lucide-react'
@@ -14,8 +14,8 @@ import { useAuth } from '@/context/AuthContext'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
-  { to: '/viagens', icon: Briefcase, key: 'nav.trips' },
-  { to: '/projetos', icon: FolderOpen, key: 'nav.projects' },
+  { to: '/viagens', icon: Plane, key: 'nav.trips' },
+  { to: '/projetos', icon: Briefcase, key: 'nav.projects' },
   { to: '/lugares', icon: MapPin, key: 'nav.places' },
   { to: '/estatisticas', icon: PieChart, key: 'nav.stats' },
   { to: '/pesquisa', icon: Search, key: 'nav.search' },

@@ -100,6 +100,21 @@
     @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92];
   }
 
+  /* Dropdowns using .input drop the native arrow and get a chevron that
+     matches the palette (via the select.input rule below). */
+  select.input {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236E655B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 1rem;
+  }
+
+  .dark select.input {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23A09A92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+  }
+
   /* Filter chip (listing pages) */
   .chip {
     @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink dark:border-[#322A23] dark:bg-[#221D18];

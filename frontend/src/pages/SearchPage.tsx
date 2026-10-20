@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
@@ -7,7 +8,7 @@ import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/f
 import type { SearchResult } from '@/types'
 
 export function SearchPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { t, pluralize } = useTranslation()
   const q = (searchParams.get('q') || '').trim()
@@ -52,6 +53,21 @@ export function SearchPage() {
 
   return (
     <div className="space-y-6">
+      <div className="search-pill w-full">
+        <Search size={18} className="shrink-0 text-muted dark:text-[#A09A92]" aria-hidden="true" />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) =>
+            setSearchParams(e.target.value ? { q: e.target.value } : {}, { replace: true })
+          }
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.title')}
+          autoFocus
+          className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92]"
+        />
+      </div>
+
       <h2 className="font-display text-2xl font-bold">{t('search.title')}</h2>
 
       {q.length < 2 ? (
