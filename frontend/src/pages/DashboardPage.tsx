@@ -12,9 +12,6 @@ import { formatTripDateRange, formatTripTitle } from '@/utils/format'
 import { getTripStatus } from '@/utils/tripStatus'
 import type { Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
 
-// Annual trip goal for the dashboard progress bar (no per-user goal exists yet).
-const YEAR_GOAL = 30
-
 function Stat({ value, label, className }: { value: number; label: string; className: string }) {
   return (
     <div>
@@ -178,33 +175,28 @@ export function DashboardPage() {
   ].slice(0, 5)
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-2xl font-bold">{t('dashboard.welcome', { name: user?.username ?? '' })}</h1>
-        {isEmpty ? (
-          <>
-            <p className="mt-1 text-sm text-muted">{t('dashboard.welcomeEmpty')}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/projetos/novo" className="btn-primary">{t('dashboard.createFirstProject')}</Link>
-              <Link to="/viagens/novo" className="btn-outline">{t('dashboard.registerFirstTrip')}</Link>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-1 text-sm text-muted">
-              {stats
-                ? `${stats.summary.trip_count} ${t(stats.summary.trip_count === 1 ? 'units.trip.one' : 'units.trip.other')} · ${stats.summary.place_count} ${t(stats.summary.place_count === 1 ? 'units.place.one' : 'units.place.other')} · ${stats.summary.active_projects} ${t(stats.summary.active_projects === 1 ? 'units.activeProject.one' : 'units.activeProject.other')}`
-                : t('dashboard.summaryNoStats')}
-            </p>
-            <Link
-              to="/estatisticas"
-              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-            >
-              {t('dashboard.viewStats')} <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </>
-        )}
-      </header>
+    <div className="space-y-8">
+      {/* Summary line lives here; the greeting itself is rendered by Header. */}
+      {isEmpty ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/projetos/novo" className="btn-primary">{t('dashboard.createFirstProject')}</Link>
+          <Link to="/viagens/novo" className="btn-outline">{t('dashboard.registerFirstTrip')}</Link>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <p className="text-sm text-muted">
+            {stats
+              ? `${stats.summary.trip_count} ${t(stats.summary.trip_count === 1 ? 'units.trip.one' : 'units.trip.other')} · ${stats.summary.place_count} ${t(stats.summary.place_count === 1 ? 'units.place.one' : 'units.place.other')} · ${stats.summary.active_projects} ${t(stats.summary.active_projects === 1 ? 'units.activeProject.one' : 'units.activeProject.other')}`
+              : t('dashboard.summaryNoStats')}
+          </p>
+          <Link
+            to="/estatisticas"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+          >
+            {t('dashboard.viewStats')} <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -255,22 +247,26 @@ export function DashboardPage() {
         )}
 
         <aside className={`card flex flex-col ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
-          <h2 className="font-display text-lg font-bold">{t('stats.yearInNumbers')}</h2>
+          <h2 className="font-display text-base font-bold">{t('stats.yearInNumbers')}</h2>
           <div className={`mt-5 grid grid-cols-2 gap-5 ${hasMap ? '' : 'sm:grid-cols-4'}`}>
             <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
             <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
             <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
             <Stat value={regionCount} label={t('stats.regions')} className="text-ink dark:text-[#FAF7F2]" />
           </div>
-          <hr className="my-5 border-line" />
-          <ProgressGoal current={tripsThisYear} total={YEAR_GOAL} />
+          {user?.yearly_trip_goal != null && (
+            <>
+              <hr className="my-5 border-line" />
+              <ProgressGoal current={tripsThisYear} total={user.yearly_trip_goal} />
+            </>
+          )}
         </aside>
       </section>
 
       {/* Viagens recentes */}
       <section>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-[22px] font-bold">{t('trips.recent')}</h2>
+          <h2 className="font-display text-xl font-bold">{t('trips.recent')}</h2>
           {trips.length > 0 && (
             <Link to="/viagens" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
               {t('trips.viewAll')} <ArrowRight size={14} aria-hidden="true" />
@@ -304,7 +300,7 @@ export function DashboardPage() {
         {/* Projetos */}
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">{t('dashboard.projects')}</h2>
+            <h2 className="font-display text-base font-bold">{t('dashboard.projects')}</h2>
             {projects.length > 0 && (
               <Link to="/projetos" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
                 {t('dashboard.viewAll')} <ArrowRight size={14} aria-hidden="true" />
@@ -344,7 +340,7 @@ export function DashboardPage() {
         {/* Conquistas recentes */}
         {recentHighlights.length > 0 && (
           <div className="card">
-            <h2 className="font-display text-lg font-bold">{t('dashboard.recentHighlights')}</h2>
+            <h2 className="font-display text-base font-bold">{t('dashboard.recentHighlights')}</h2>
             <ul className="timeline mt-5 space-y-5">
               {recentHighlights.map((item) => (
                 <li key={`${item.type}-${item.id}`} className="relative">

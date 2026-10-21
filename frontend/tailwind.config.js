@@ -61,7 +61,9 @@ export default {
         pop: '0 10px 24px rgba(58, 46, 31, 0.15)',
       },
       backgroundImage: {
-        brand: 'linear-gradient(45deg, #C1075D, #E06F56)',
+        // Monochrome magenta ramp: the old magenta→coral gradient read as
+        // orange-tinted on dark surfaces and clashed with the pink accents.
+        brand: 'linear-gradient(45deg, #C1075D, #EC3D80)',
       },
       keyframes: {
         'route-dash': { to: { strokeDashoffset: '-14' } },

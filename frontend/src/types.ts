@@ -34,6 +34,7 @@ export interface User {
   timezone: string
   date_format: string
   theme: ThemePreference
+  yearly_trip_goal: number | null
   created_at: string
   updated_at: string
 }
@@ -78,6 +79,7 @@ export interface UserPreferencesUpdate {
   timezone?: string
   date_format?: string
   theme?: ThemePreference
+  yearly_trip_goal?: number
 }
 
 // Place types

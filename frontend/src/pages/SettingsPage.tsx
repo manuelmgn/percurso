@@ -191,7 +191,7 @@ export function SettingsPage() {
     }
   }
 
-  const handlePreferenceChange = async (prefs: { timezone?: string; date_format?: string }) => {
+  const handlePreferenceChange = async (prefs: { timezone?: string; date_format?: string; yearly_trip_goal?: number }) => {
     setPrefsError('')
     setPrefsSuccess('')
     try {
@@ -512,6 +512,30 @@ export function SettingsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]" htmlFor="settings-goal">
+                  {t('settings.yearlyGoalLabel')}
+                </label>
+                <input
+                  id="settings-goal"
+                  type="number"
+                  min={0}
+                  max={1000}
+                  value={user?.yearly_trip_goal ?? ''}
+                  placeholder={t('settings.yearlyGoalPlaceholder')}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : Number(e.target.value)
+                    if (Number.isFinite(value) && value >= 0 && value <= 1000) {
+                      handlePreferenceChange({ yearly_trip_goal: value })
+                    }
+                  }}
+                  className="input"
+                />
+                <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+                  {t('settings.yearlyGoalHint')}
+                </p>
               </div>
             </div>
           </div>

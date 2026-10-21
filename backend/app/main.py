@@ -37,6 +37,8 @@ def _apply_lightweight_migrations():
             columns = [c["name"] for c in inspector.get_columns("users")]
             if "theme" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN theme VARCHAR(6) NOT NULL DEFAULT 'system'"))
+            if "yearly_trip_goal" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN yearly_trip_goal INTEGER"))
 
 
 @asynccontextmanager

@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { Bell, Briefcase, Home, Plane, Search, Settings } from 'lucide-react'
+import { Bell, Briefcase, Compass, Home, Search, Settings } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
-  { to: '/viagens', icon: Plane, key: 'nav.trips' },
+  { to: '/viagens', icon: Compass, key: 'nav.trips' },
   { to: '/projetos', icon: Briefcase, key: 'nav.projects' },
   { to: '/pesquisa', icon: Search, key: 'nav.search' },
   { to: '/notificacoes', icon: Bell, key: 'nav.notifications' },

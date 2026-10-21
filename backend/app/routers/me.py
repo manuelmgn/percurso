@@ -50,6 +50,9 @@ def update_profile(
         user.date_format = payload.date_format
     if payload.theme is not None:
         user.theme = payload.theme
+    if payload.yearly_trip_goal is not None:
+        # 0 clears the goal (hides the dashboard progress bar).
+        user.yearly_trip_goal = payload.yearly_trip_goal or None
     user.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)

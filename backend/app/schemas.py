@@ -35,6 +35,7 @@ class UserPreferencesUpdate(BaseModel):
     timezone: Optional[str] = None
     date_format: Optional[str] = None
     theme: Optional[ThemePreference] = None
+    yearly_trip_goal: Optional[int] = Field(None, ge=0, le=1000)
 
 
 class UserResponse(UserBase):
@@ -48,6 +49,7 @@ class UserResponse(UserBase):
     timezone: str
     date_format: str
     theme: ThemePreference
+    yearly_trip_goal: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

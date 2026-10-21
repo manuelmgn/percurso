@@ -21,6 +21,8 @@ class User(Base, TimestampMixin):
     timezone = Column(String(64), nullable=False, default="Europe/Lisbon")
     date_format = Column(String(32), nullable=False, default="%d/%m/%Y")
     theme = Column(Enum(ThemePreference), nullable=False, default=ThemePreference.SYSTEM)
+    # Optional annual trip goal shown on the dashboard; None hides the progress bar.
+    yearly_trip_goal = Column(Integer, nullable=True)
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     trips = relationship("Trip", back_populates="creator", cascade="all, delete-orphan")

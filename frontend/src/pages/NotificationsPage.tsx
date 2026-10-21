@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Briefcase, Plane } from 'lucide-react'
+import { Bell, Briefcase, Compass } from 'lucide-react'
 import { api } from '@/api'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
@@ -94,7 +94,7 @@ export function NotificationsPage() {
       ) : (
         <ul className="flex flex-col gap-2">
           {notifications.map((notification) => {
-            const Icon = notification.entity_type === 'trip' ? Plane : Briefcase
+            const Icon = notification.entity_type === 'trip' ? Compass : Briefcase
             return (
               <li key={notification.id}>
                 <button
