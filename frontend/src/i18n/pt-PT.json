@@ -24,7 +24,7 @@
   "search.searching": "A pesquisar...",
   "search.noResults": "Sem resultados para «{q}». Experimenta outro termo.",
   "notifications.title": "Notificações",
-  "notifications.empty": "Ainda não tens notificações. Quando alguém te adicionar a uma viagem ou projeto, aparece aqui.",
+  "notifications.empty": "Ainda não tens notificações.",
   "notifications.loadError": "Não foi possível carregar as notificações.",
   "notifications.markAllRead": "Marcar todas como lidas",
   "notifications.justNow": "Agora mesmo",
