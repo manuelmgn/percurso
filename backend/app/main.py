@@ -10,10 +10,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.config import settings
 from app.database import engine, Base, db_session
 from app.services import user_service
-from app.routers import auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones, pins
+from app.routers import auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push
 
 # Import all models so they are registered with SQLAlchemy before create_all
-from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin  # noqa: F401
+from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription  # noqa: F401
 
 
 def _apply_lightweight_migrations():
@@ -78,6 +78,8 @@ app.include_router(stats.router)
 app.include_router(milestones.router)
 app.include_router(admin.router)
 app.include_router(pins.router)
+app.include_router(notifications.router)
+app.include_router(push.router)
 
 
 @app.get("/api/health")

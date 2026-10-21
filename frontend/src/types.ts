@@ -365,3 +365,20 @@ export interface MilestoneInfo {
 export interface MilestoneCheckResponse {
   new_milestones: MilestoneInfo[]
 }
+
+// Notification types — fed by trip/project events created by other users.
+export interface Notification {
+  id: number
+  actor_username: string
+  type: string
+  entity_type: string
+  entity_id: number
+  entity_name: string
+  is_read: boolean
+  created_at: string
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[]
+  unread_count: number
+}

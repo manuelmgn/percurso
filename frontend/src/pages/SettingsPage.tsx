@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
 import { formatDate, formatDateTime } from '@/utils/format'
+import { isPushEnabled, subscribePush, unsubscribePush } from '@/utils/push'
 import type { ActivityItem, ThemePreference } from '@/types'
 
 const activityActionKeys: Record<ActivityItem['action'], string> = {
@@ -91,6 +92,26 @@ export function SettingsPage() {
   // Preferences
   const [prefsError, setPrefsError] = useState('')
   const [prefsSuccess, setPrefsSuccess] = useState('')
+
+  // Push notifications
+  const [pushState, setPushState] = useState<'checking' | 'enabled' | 'disabled' | 'denied' | 'unsupported'>('checking')
+  const [isTogglingPush, setIsTogglingPush] = useState(false)
+
+  useEffect(() => {
+    const check = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        setPushState('unsupported')
+        return
+      }
+      if (Notification.permission === 'denied') {
+        setPushState('denied')
+        return
+      }
+      const enabled = await isPushEnabled()
+      setPushState(enabled ? 'enabled' : 'disabled')
+    }
+    check()
+  }, [])
 
   // Account - Password
   const [currentPassword, setCurrentPassword] = useState('')
@@ -180,6 +201,25 @@ export function SettingsPage() {
       setTimeout(() => setPrefsSuccess(''), 2500)
     } catch (err: any) {
       setPrefsError(err.message || t('profile.preferencesError'))
+    }
+  }
+
+  const handlePushToggle = async () => {
+    setIsTogglingPush(true)
+    try {
+      if (pushState === 'enabled') {
+        await unsubscribePush()
+        setPushState('disabled')
+      } else {
+        await subscribePush()
+        setPushState('enabled')
+      }
+    } catch {
+      if (Notification.permission === 'denied') {
+        setPushState('denied')
+      }
+    } finally {
+      setIsTogglingPush(false)
     }
   }
 
@@ -474,6 +514,41 @@ export function SettingsPage() {
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* Div 3 (largura total): Notificações push */}
+          <div className="card space-y-4 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+                  {t('settings.pushTitle')}
+                </h3>
+                <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+                  {pushState === 'denied'
+                    ? t('settings.pushDenied')
+                    : pushState === 'unsupported'
+                      ? t('settings.pushUnsupported')
+                      : t('settings.pushDescription')}
+                </p>
+              </div>
+              {pushState !== 'unsupported' && pushState !== 'denied' && pushState !== 'checking' && (
+                <button
+                  type="button"
+                  onClick={handlePushToggle}
+                  disabled={isTogglingPush}
+                  className={pushState === 'enabled' ? 'btn-outline shrink-0' : 'btn-primary shrink-0'}
+                >
+                  {isTogglingPush
+                    ? t('settings.saving')
+                    : pushState === 'enabled'
+                      ? t('settings.pushDisable')
+                      : t('settings.pushEnable')}
+                </button>
+              )}
+            </div>
+            {pushState === 'enabled' && (
+              <p className="text-xs text-green-700 dark:text-green-300">{t('settings.pushEnabled')}</p>
+            )}
           </div>
         </div>
       </section>

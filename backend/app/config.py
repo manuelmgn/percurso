@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Seeded automatically on first launch when the database has no users
     default_admin_username: str = "admin"
     default_admin_password: str = "pass"
+    # Web Push (VAPID) keys in PEM format; when empty, push sending is
+    # silently disabled and only in-app notifications are used.
+    vapid_private_key: str | None = None
+    vapid_public_key: str | None = None
+    vapid_subject: str = "mailto:admin@percurso.local"
 
     @property
     def database_url(self) -> str:

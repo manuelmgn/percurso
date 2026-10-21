@@ -15,6 +15,15 @@ import '@fontsource/montserrat/600.css'
 import '@fontsource/montserrat/700.css'
 import './index.css'
 
+// Register the push service worker in production builds only (dev uses Vite's own SW handling off).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err)
+    })
+  })
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

@@ -21,6 +21,7 @@ const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ defaul
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) => ({ default: m.UserProfilePage })))
 const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
 function PageFallback() {
   const { t } = useTranslation()
@@ -118,6 +119,7 @@ export default function App() {
         <Route path="lugares/:id" element={<PlaceDetailPage />} />
         <Route path="estatisticas" element={<StatsPage />} />
         <Route path="pesquisa" element={<SearchPage />} />
+        <Route path="notificacoes" element={<NotificationsPage />} />
         <Route path="definicoes" element={<SettingsPage />} />
         <Route path="ajustes" element={<Navigate to="/definicoes" replace />} />
         <Route path="perfil" element={<Navigate to="/definicoes" replace />} />

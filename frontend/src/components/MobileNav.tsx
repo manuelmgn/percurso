@@ -1,17 +1,19 @@
 import { NavLink } from 'react-router-dom'
-import { Briefcase, Home, PieChart, Plane, Search, Settings } from 'lucide-react'
+import { Bell, Briefcase, Home, Plane, Search, Settings } from 'lucide-react'
 import { useTranslation } from '@/i18n'
+import { useUnreadCount } from '@/context/UnreadCountContext'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
   { to: '/viagens', icon: Plane, key: 'nav.trips' },
   { to: '/projetos', icon: Briefcase, key: 'nav.projects' },
-  { to: '/estatisticas', icon: PieChart, key: 'nav.stats' },
   { to: '/pesquisa', icon: Search, key: 'nav.search' },
+  { to: '/notificacoes', icon: Bell, key: 'nav.notifications' },
 ]
 
 export function MobileNav() {
   const { t } = useTranslation()
+  const { unreadCount } = useUnreadCount()
 
   return (
     <nav
@@ -27,12 +29,17 @@ export function MobileNav() {
           aria-label={t(key)}
           title={t(key)}
           className={({ isActive }) =>
-            `grid h-11 w-11 place-items-center rounded-full transition-colors ${
+            `relative grid h-11 w-11 place-items-center rounded-full transition-colors ${
               isActive ? 'bg-brand text-white shadow-brand' : 'text-muted'
             }`
           }
         >
           <Icon size={20} />
+          {to === '/notificacoes' && unreadCount > 0 && (
+            <span className="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </NavLink>
       ))}
       <NavLink

@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 from app.models import User, Trip, TripPlace, TripProject, Place, Project, Visibility
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate
-from app.services import visibility_service, project_service
+from app.services import visibility_service, project_service, notification_service
+
+
+def _trip_display_name(trip: Trip) -> str:
+    return trip.title or f"Viagem {trip.start_date} – {trip.end_date}"
 
 
 def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
@@ -27,6 +31,15 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
     _update_relations(db, trip, data)
     db.commit()
     db.refresh(trip)
+    notification_service.notify_participants(
+        db,
+        user,
+        notif_type="trip_created",
+        entity_type="trip",
+        entity_id=trip.id,
+        entity_name=_trip_display_name(trip),
+        participant_ids=[p.id for p in trip.participants],
+    )
     return trip
 
 
@@ -48,6 +61,15 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
     trip.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(trip)
+    notification_service.notify_participants(
+        db,
+        user,
+        notif_type="trip_updated",
+        entity_type="trip",
+        entity_id=trip.id,
+        entity_name=_trip_display_name(trip),
+        participant_ids=[p.id for p in trip.participants],
+    )
     return trip
 
 

@@ -30,6 +30,7 @@ import type {
   SearchResult,
   Pin,
   PinEntityType,
+  NotificationListResponse,
 } from './types'
 
 async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -223,6 +224,30 @@ export const api = {
       }),
     unpin: (entityType: PinEntityType, entityId: number) =>
       fetchJson<void>(`/api/pins/${entityType}/${entityId}`, { method: 'DELETE' }),
+  },
+
+  notifications: {
+    list: () => fetchJson<NotificationListResponse>('/api/notifications/'),
+    unreadCount: () => fetchJson<{ unread_count: number }>('/api/notifications/unread-count'),
+    markRead: (ids?: number[]) =>
+      fetchJson<{ marked: number }>('/api/notifications/read', {
+        method: 'POST',
+        body: JSON.stringify(ids ? { ids } : {}),
+      }),
+  },
+
+  push: {
+    vapidKey: () => fetchJson<{ public_key: string }>('/api/push/vapid-public-key'),
+    subscribe: (subscription: PushSubscriptionJSON) =>
+      fetchJson<void>('/api/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint: subscription.endpoint, keys: subscription.keys }),
+      }),
+    unsubscribe: (endpoint: string) =>
+      fetchJson<void>('/api/push/unsubscribe', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+      }),
   },
 
   admin: {

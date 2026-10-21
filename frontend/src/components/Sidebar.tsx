@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import {
+  Bell,
   Briefcase,
   Home,
   LogOut,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
+import { useUnreadCount } from '@/context/UnreadCountContext'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
@@ -19,11 +21,13 @@ const items = [
   { to: '/lugares', icon: MapPin, key: 'nav.places' },
   { to: '/estatisticas', icon: PieChart, key: 'nav.stats' },
   { to: '/pesquisa', icon: Search, key: 'nav.search' },
+  { to: '/notificacoes', icon: Bell, key: 'nav.notifications' },
 ]
 
 export function Sidebar() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
+  const { unreadCount } = useUnreadCount()
 
   return (
     <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border dark:border-[#322A23] dark:bg-[#221D18]">
@@ -48,7 +52,14 @@ export function Sidebar() {
           >
             {({ isActive }) => (
               <>
-                <Icon size={18} strokeWidth={isActive ? 2.4 : 2} />
+                <span className="relative">
+                  <Icon size={18} strokeWidth={isActive ? 2.4 : 2} />
+                  {to === '/notificacoes' && unreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
                 {t(key)}
               </>
             )}

@@ -6,7 +6,7 @@ from sqlalchemy import and_, exists
 
 from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, Visibility
 from app.schemas import ProjectCreate, ProjectUpdate
-from app.services import visibility_service
+from app.services import visibility_service, notification_service
 
 
 def create_project(db: Session, user: User, data: ProjectCreate) -> Project:
@@ -42,6 +42,15 @@ def create_project(db: Session, user: User, data: ProjectCreate) -> Project:
 
     db.commit()
     db.refresh(project)
+    notification_service.notify_participants(
+        db,
+        user,
+        notif_type="project_created",
+        entity_type="project",
+        entity_id=project.id,
+        entity_name=project.name,
+        participant_ids=[p.id for p in project.participants],
+    )
     return project
 
 
@@ -66,6 +75,15 @@ def update_project(db: Session, user: User, project: Project, data: ProjectUpdat
     project.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(project)
+    notification_service.notify_participants(
+        db,
+        user,
+        notif_type="project_updated",
+        entity_type="project",
+        entity_id=project.id,
+        entity_name=project.name,
+        participant_ids=[p.id for p in project.participants],
+    )
     return project
 
 

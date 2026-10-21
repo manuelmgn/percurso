@@ -405,3 +405,45 @@ class PinResponse(BaseModel):
     entity_type: EntityType
     entity_id: int
     created_at: datetime
+
+
+# --- Notification schemas ---
+
+class NotificationResponse(BaseModel):
+    id: int
+    actor_username: str
+    type: str
+    entity_type: str
+    entity_id: int
+    entity_name: str
+    is_read: bool
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    notifications: list[NotificationResponse]
+    unread_count: int
+
+
+class MarkNotificationsReadRequest(BaseModel):
+    # None means "mark all as read".
+    ids: list[int] | None = None
+
+
+class UnreadCountResponse(BaseModel):
+    unread_count: int
+
+
+# --- Web Push schemas ---
+
+class VapidPublicKeyResponse(BaseModel):
+    public_key: str
+
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    keys: dict
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str
