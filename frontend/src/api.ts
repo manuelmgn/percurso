@@ -31,9 +31,63 @@ import type {
   Pin,
   PinEntityType,
   NotificationListResponse,
+  Photo,
+  PhotoCaptionUpdate,
 } from './types'
 
+const CACHE_TTL_MS = 60_000
+
+interface CacheEntry {
+  expiresAt: number
+  promise: Promise<unknown>
+}
+
+// GET cache: key is method+path. Entries double as in-flight request dedupe —
+// two identical concurrent GETs share one fetch. Failures are evicted so
+// errors never get cached. Cleared wholesale by any mutating call, since a
+// mutation may change any list/detail response.
+const getCache = new Map<string, CacheEntry>()
+
+function clearGetCache() {
+  getCache.clear()
+}
+
+function shouldCacheGet(path: string, method: string): boolean {
+  // Notification polling (unread count, list) must always hit the network.
+  return method === 'GET' && !path.includes('/notifications')
+}
+
 async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = options.method || 'GET'
+  const cacheable = shouldCacheGet(path, method)
+  const cacheKey = `${method} ${path}`
+
+  if (method !== 'GET') {
+    clearGetCache()
+  } else if (cacheable) {
+    const hit = getCache.get(cacheKey)
+    if (hit && hit.expiresAt > Date.now()) return hit.promise as Promise<T>
+  }
+
+  const promise = performFetch<T>(path, options)
+
+  if (cacheable) {
+    // On failure, evict so the next call retries instead of re-serving the
+    // error from cache. The entry stays while in flight, deduping identical
+    // concurrent GETs onto the same promise.
+    const tracked = promise.catch((err) => {
+      const entry = getCache.get(cacheKey)
+      if (entry && entry.promise === tracked) getCache.delete(cacheKey)
+      throw err
+    })
+    getCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, promise: tracked })
+    return tracked
+  }
+
+  return promise
+}
+
+async function performFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const csrfToken = localStorage.getItem('csrf_token') || ''
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -80,10 +134,11 @@ export class ApiError extends Error {
 
 // Multipart uploads must not send Content-Type: application/json — the browser
 // sets the multipart boundary itself. Shares fetchJson's error handling.
-async function uploadFile<T>(path: string, file: File): Promise<T> {
+async function postFormData<T>(path: string, formData: FormData): Promise<T> {
   const csrfToken = localStorage.getItem('csrf_token') || ''
-  const formData = new FormData()
-  formData.append('file', file)
+
+  // Uploads are mutations: cached GET responses (e.g. /api/me/) may now be stale.
+  clearGetCache()
 
   const response = await fetch(path, {
     method: 'POST',
@@ -104,6 +159,18 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   }
 
   return response.json() as Promise<T>
+}
+
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return postFormData<T>(path, formData)
+}
+
+async function uploadFiles<T>(path: string, field: string, files: File[]): Promise<T> {
+  const formData = new FormData()
+  for (const file of files) formData.append(field, file)
+  return postFormData<T>(path, formData)
 }
 
 export const api = {
@@ -175,6 +242,18 @@ export const api = {
     }),
     delete: (id: number) => fetchJson<void>(`/api/trips/${id}`, { method: 'DELETE' }),
     deleteWarning: (id: number) => fetchJson<TripDeleteWarning>(`/api/trips/${id}/delete-warning`),
+  },
+
+  photos: {
+    list: (tripId: number) => fetchJson<Photo[]>(`/api/trips/${tripId}/photos/`),
+    upload: (tripId: number, files: File[]) => uploadFiles<Photo[]>(`/api/trips/${tripId}/photos/`, 'files', files),
+    updateCaption: (tripId: number, photoId: number, data: PhotoCaptionUpdate) =>
+      fetchJson<Photo>(`/api/trips/${tripId}/photos/${photoId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    remove: (tripId: number, photoId: number) =>
+      fetchJson<void>(`/api/trips/${tripId}/photos/${photoId}`, { method: 'DELETE' }),
   },
 
   projects: {

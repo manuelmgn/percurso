@@ -10,10 +10,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.config import settings
 from app.database import engine, Base, db_session
 from app.services import user_service
-from app.routers import auth, me, users, places, projects, trips, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push
+from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push
 
 # Import all models so they are registered with SQLAlchemy before create_all
-from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription  # noqa: F401
+from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription, Photo  # noqa: F401
 
 
 def _apply_lightweight_migrations():
@@ -72,6 +72,7 @@ app.include_router(users.router)
 app.include_router(places.router)
 app.include_router(projects.router)
 app.include_router(trips.router)
+app.include_router(trip_photos.router)
 app.include_router(activities.router)
 app.include_router(images.router)
 app.include_router(tiles.router)

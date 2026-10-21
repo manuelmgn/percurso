@@ -279,6 +279,24 @@ export interface TripDeleteWarning {
   affected_projects: ProjectListItem[]
 }
 
+// Photo types — a trip's photo gallery. Files live on disk; the API returns
+// the public URL plus dimensions for layout.
+export interface Photo {
+  id: number
+  trip_id: number
+  url: string
+  width: number
+  height: number
+  caption: string | null
+  uploader_id: number
+  uploader_username: string
+  created_at: string
+}
+
+export interface PhotoCaptionUpdate {
+  caption?: string
+}
+
 // Activity types
 export type ActivityAction = 'created' | 'updated' | 'deleted'
 export type ActivityEntityType = 'trip' | 'project' | 'place' | 'user'

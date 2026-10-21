@@ -5,9 +5,10 @@ from datetime import date
 from io import BytesIO
 from PIL import Image
 from fastapi.testclient import TestClient
+from app.config import settings
 from app.main import app
 from app.database import SessionLocal
-from app.models import User, Place, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType
+from app.models import User, Place, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType, Photo
 from app.auth import hash_password
 
 
@@ -41,6 +42,7 @@ def reset_test_data(db):
         if u:
             db.query(Activity).filter(Activity.user_id == u.id).delete()
             db.query(Milestone).filter(Milestone.user_id == u.id).delete()
+            db.query(Photo).filter(Photo.uploader_id == u.id).delete()
             db.query(TripProject).filter(TripProject.trip_id.in_([t.id for t in u.trips])).delete()
             db.query(TripPlace).filter(TripPlace.trip_id.in_([t.id for t in u.trips])).delete()
             db.query(Trip).filter(Trip.creator_id == u.id).delete()
@@ -53,6 +55,12 @@ def reset_test_data(db):
 
 
 def main():
+    # New tables added since the DB file was created only appear via create_all
+    # (run here before the first TestClient request triggers the app lifespan).
+    from app.database import engine, Base
+    from app import models as _models  # noqa: F401 — register all models with the metadata
+    Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     try:
         reset_test_data(db)
@@ -215,6 +223,47 @@ def main():
 
     r = client2.get('/api/search/?q=privado')
     check('user2 search no private trip', r.status_code == 200 and private_trip_id not in [t['id'] for t in r.json()['trips']])
+
+    # Trip photos: upload, list, caption, delete, permissions
+    r = client1.post(f'/api/trips/{trip_id}/photos/', files=[
+        ('files', ('photo1.png', make_image(), 'image/png')),
+        ('files', ('photo2.png', make_image(), 'image/png')),
+    ])
+    check('upload 2 photos', r.status_code == 201 and len(r.json()) == 2, r.text[:200])
+    photos = r.json()
+    photo_ids = [p['id'] for p in photos]
+    check('photo urls local', all(p['url'].startswith('/uploads/') for p in photos))
+    deleted_file = settings.uploads_dir / photos[1]['url'].rsplit('/', 1)[-1]
+
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('list photos', r.status_code == 200 and len(r.json()) == 2)
+
+    # A batch with one invalid file must be rejected wholesale (no partial rows).
+    r = client1.post(f'/api/trips/{trip_id}/photos/', files=[
+        ('files', ('ok.png', make_image(), 'image/png')),
+        ('files', ('bad.txt', b'hello', 'text/plain')),
+    ])
+    check('mixed batch rejected', r.status_code == 422)
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('no partial photos after failure', r.status_code == 200 and len(r.json()) == 2)
+
+    r = client1.patch(f'/api/trips/{trip_id}/photos/{photo_ids[0]}', json={'caption': 'Pôr do sol'})
+    check('edit photo caption', r.status_code == 200 and r.json()['caption'] == 'Pôr do sol')
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('caption persisted', r.json()[0]['caption'] == 'Pôr do sol')
+
+    r = client2.get(f'/api/trips/{private_trip_id}/photos/')
+    check('user2 cannot list private trip photos', r.status_code == 404)
+    r = client2.post(f'/api/trips/{private_trip_id}/photos/', files=[('files', ('x.png', make_image(), 'image/png'))])
+    check('user2 cannot upload to private trip', r.status_code == 404)
+    r = client2.patch(f'/api/trips/{trip_id}/photos/{photo_ids[0]}', json={'caption': 'hack'})
+    check('user2 cannot edit others photo', r.status_code == 404)
+
+    r = client1.delete(f'/api/trips/{trip_id}/photos/{photo_ids[1]}')
+    check('delete photo', r.status_code == 204)
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('photo deleted from list', r.status_code == 200 and len(r.json()) == 1)
+    check('photo file removed from disk', not deleted_file.exists())
 
     # Manual unmark a place in project
     place_to_unmark = place_ids_in_project[0]

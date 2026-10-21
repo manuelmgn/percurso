@@ -15,6 +15,7 @@ from app.models.activity import Activity
 from app.models.milestone import Milestone
 from app.models.pin import Pin
 from app.models.notification import Notification, PushSubscription
+from app.models.photo import Photo
 
 __all__ = [
     "User",
@@ -30,6 +31,7 @@ __all__ = [
     "Pin",
     "Notification",
     "PushSubscription",
+    "Photo",
     "UserRole",
     "ThemePreference",
     "Visibility",

@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n'
 import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
+import { TripPhotos } from '@/components/TripPhotos'
 import { getTripStatus } from '@/utils/tripStatus'
 import { formatDate, formatTripDateRange, formatTripTitle } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
@@ -162,7 +163,7 @@ export function TripDetailPage() {
           </Link>
           <button
             onClick={handleDeleteClick}
-            className="inline-flex items-center gap-2 rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512]"
+            className="btn-danger"
           >
             {t('actions.delete')}
           </button>
@@ -196,7 +197,7 @@ export function TripDetailPage() {
             <button
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
-              className="rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 active:scale-[0.97] disabled:opacity-50"
+              className="btn-danger"
             >
               {isDeleting ? t('trips.deleting') : t('trips.deleteConfirm')}
             </button>
@@ -267,7 +268,7 @@ export function TripDetailPage() {
 
           {trip.notes && (
             <section className="card">
-              <h2 className="flex items-center gap-2 font-display text-base font-bold">
+              <h2 className="flex items-center gap-2 font-display text-xl font-bold">
                 <StickyNote size={16} className="text-amber-deep" aria-hidden="true" /> {t('trip.notes')}
               </h2>
               {/* Notes HTML is sanitised server-side. */}
@@ -279,7 +280,7 @@ export function TripDetailPage() {
           )}
 
           <section className="card">
-            <h2 className="flex items-center gap-2 font-display text-base font-bold">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold">
               <Users size={16} className="text-coral" aria-hidden="true" /> {t('trips.companions')}
             </h2>
             {trip.participants.length === 0 && !trip.companions_text ? (
@@ -297,7 +298,7 @@ export function TripDetailPage() {
           </section>
 
           <section className="card">
-            <h2 className="flex items-center gap-2 font-display text-base font-bold">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold">
               <FolderOpen size={16} className="text-plum" aria-hidden="true" /> {t('trips.associatedProjects')}
             </h2>
             {trip.projects.length === 0 ? (
@@ -320,6 +321,8 @@ export function TripDetailPage() {
           </section>
         </div>
       </div>
+
+      <TripPhotos trip={trip} />
     </div>
   )
 }

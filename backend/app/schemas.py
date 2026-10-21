@@ -335,6 +335,26 @@ class ImageUploadResponse(BaseModel):
     height: int
 
 
+# --- Photo schemas ---
+
+class PhotoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    trip_id: int
+    url: str
+    width: int
+    height: int
+    caption: Optional[str] = None
+    uploader_id: int
+    uploader_username: str
+    created_at: datetime
+
+
+class PhotoCaptionUpdate(BaseModel):
+    caption: Optional[str] = Field(None, max_length=512)
+
+
 # --- Search schemas ---
 
 class SearchResult(BaseModel):
