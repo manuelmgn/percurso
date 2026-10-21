@@ -50,7 +50,7 @@
   "errors.reload": "Recarregar página",
   "sidebar.logoutAria": "Terminar sessão",
   "dashboard.greeting": "Olá, {name}!",
-  "dashboard.subtitle": "",
+  "dashboard.subtitle": "Aqui está o resumo dos teus percursos.",
   "dashboard.createFirstProject": "Criar o meu primeiro projeto",
   "dashboard.registerFirstTrip": "Registar a minha primeira viagem",
   "dashboard.summaryNoStats": "Aqui está um resumo dos teus projetos e viagens.",
