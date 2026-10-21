@@ -74,7 +74,7 @@ export function NotificationsPage() {
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-[28px] font-bold">{t('notifications.title')}</h1>
+        <h1 className="font-display text-[28px] font-bold md:text-[40px]">{t('notifications.title')}</h1>
         {unreadCount > 0 && (
           <button onClick={handleMarkAll} className="btn-outline">
             {t('notifications.markAllRead')}

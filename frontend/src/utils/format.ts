@@ -8,6 +8,21 @@ export interface DatePrefs {
 
 type DateLike = string | Date
 
+// Intl.DateTimeFormat instances are expensive to construct; cache one per
+// options shape (timezone included) so date-heavy lists don't keep rebuilding
+// formatters.
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>()
+
+function getDateTimeFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = JSON.stringify(options)
+  let formatter = dateTimeFormatCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('pt-PT', options)
+    dateTimeFormatCache.set(key, formatter)
+  }
+  return formatter
+}
+
 // Split a date/datetime into day/month/year parts. Date-only strings
 // ("2026-07-01") are calendar dates and must not be shifted by timezones.
 function dateParts(value: DateLike, prefs?: DatePrefs | null): { day: string; month: string; year: string } {
@@ -15,7 +30,7 @@ function dateParts(value: DateLike, prefs?: DatePrefs | null): { day: string; mo
     const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
     if (dateOnly) return { year: dateOnly[1], month: dateOnly[2], day: dateOnly[3] }
   }
-  const parts = new Intl.DateTimeFormat('pt-PT', {
+  const parts = getDateTimeFormat({
     timeZone: prefs?.timezone || undefined,
     day: '2-digit',
     month: '2-digit',
@@ -48,7 +63,7 @@ export function formatDate(value: DateLike, prefs?: DatePrefs | null): string {
 
 // Format a datetime (date + time) in the user's timezone and date format.
 export function formatDateTime(value: DateLike, prefs?: DatePrefs | null): string {
-  const time = new Intl.DateTimeFormat('pt-PT', {
+  const time = getDateTimeFormat({
     timeZone: prefs?.timezone || undefined,
     hour: '2-digit',
     minute: '2-digit',

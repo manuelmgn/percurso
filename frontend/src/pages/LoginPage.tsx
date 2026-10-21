@@ -31,10 +31,10 @@ export function LoginPage() {
           <img src="/images/percurso-icono.svg" alt="" className="h-10 w-10" />
         </div>
         <div>
-          <h1 className="font-brand text-3xl font-bold tracking-tight text-primary">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-primary">
             {t('login.appName')}
           </h1>
-          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">{t('login.subtitle')}</p>
+          <p className="mt-1 text-sm text-muted">{t('login.subtitle')}</p>
         </div>
       </div>
 

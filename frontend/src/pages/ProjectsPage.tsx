@@ -103,7 +103,7 @@ export function ProjectsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <h3 className="mt-4 font-display text-lg font-semibold">{t('projects.empty.title')}</h3>
-          <p className="mt-1 max-w-sm text-sm text-muted dark:text-[#A09A92]">
+          <p className="mt-1 max-w-sm text-sm text-muted">
             {t('projects.empty.description')}
           </p>
           <Link to="/projetos/novo" className="btn-primary mt-6">
@@ -114,7 +114,7 @@ export function ProjectsPage() {
         <>
           <div className="card grid gap-3 p-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="projects-search">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="projects-search">
                 {t('projects.searchLabel')}
               </label>
               <input
@@ -127,7 +127,7 @@ export function ProjectsPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="projects-sort">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="projects-sort">
                 {t('projects.sortLabel')}
               </label>
               <select
@@ -145,7 +145,7 @@ export function ProjectsPage() {
 
           {visibleProjects.length === 0 ? (
             <div className="card py-8 text-center">
-              <p className="text-sm text-muted dark:text-[#A09A92]">{t('projects.noResults')}</p>
+              <p className="text-sm text-muted">{t('projects.noResults')}</p>
               <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
                 {t('actions.clearFilters')}
               </button>
@@ -169,7 +169,7 @@ export function ProjectsPage() {
                     )}
                   </div>
                   {project.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted dark:text-[#A09A92]">
+                    <p className="mt-1 line-clamp-2 text-sm text-muted">
                       {project.description}
                     </p>
                   )}
@@ -180,7 +180,7 @@ export function ProjectsPage() {
                         style={{ width: `${project.progress_percent}%` }}
                       />
                     </div>
-                    <p className="mt-2 text-xs text-muted dark:text-[#A09A92]">
+                    <p className="mt-2 text-xs text-muted">
                       {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}% ·{' '}
                       {t(`visibility.option${project.visibility.charAt(0).toUpperCase() + project.visibility.slice(1)}`)}
                     </p>

@@ -247,7 +247,7 @@ export function DashboardPage() {
         )}
 
         <aside className={`card flex flex-col ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
-          <h2 className="font-display text-base font-bold">{t('stats.yearInNumbers')}</h2>
+          <h2 className="font-display text-lg font-bold">{t('stats.yearInNumbers')}</h2>
           <div className={`mt-5 grid grid-cols-2 gap-5 ${hasMap ? '' : 'sm:grid-cols-4'}`}>
             <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
             <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
@@ -266,7 +266,7 @@ export function DashboardPage() {
       {/* Viagens recentes */}
       <section>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold">{t('trips.recent')}</h2>
+          <h2 className="font-display text-[22px] font-bold">{t('trips.recent')}</h2>
           {trips.length > 0 && (
             <Link to="/viagens" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
               {t('trips.viewAll')} <ArrowRight size={14} aria-hidden="true" />

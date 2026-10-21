@@ -60,6 +60,12 @@ export const POLYGON_STYLE = {
   pending: { borderColor: '#f2a5b8', fillColor: '#f2a5b8', fillOpacity: 0.5 },
 }
 
+// Stable empty defaults: `markers = []` in the props destructuring would
+// create a fresh array on every render and retrigger the [markers, polygons]
+// effect (clearLayers + refit bounds) with no actual change.
+const EMPTY_MARKERS: MapMarker[] = []
+const EMPTY_POLYGONS: MapPolygon[] = []
+
 function popupHtml(title: string, subtitle: string | undefined, href: string | undefined, viewPageText: string): string {
   let html = `<strong>${title}</strong>`
   if (subtitle) html += `<br><span>${subtitle}</span>`
@@ -68,8 +74,8 @@ function popupHtml(title: string, subtitle: string | undefined, href: string | u
 }
 
 export default function MapViewInner({
-  markers = [],
-  polygons = [],
+  markers = EMPTY_MARKERS,
+  polygons = EMPTY_POLYGONS,
   variant,
   height = '350px',
   connectMarkers = false,

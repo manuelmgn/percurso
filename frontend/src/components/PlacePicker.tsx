@@ -140,7 +140,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
         )}
 
         {isOpen && results.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-white shadow-lg dark:border-[#322A23] dark:bg-[#221D18]" role="listbox">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-surface shadow-lg dark:border-[#322A23] dark:bg-[#221D18]" role="listbox">
             {results.map((result) => (
               <li key={`${result.osm_type}-${result.osm_id}`}>
                 <button
@@ -152,9 +152,9 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
                 >
                   <span className="font-medium text-ink dark:text-[#FAF7F2]">{result.name}</span>
                   {formatHierarchy(result.hierarchy) && (
-                    <span className="text-muted dark:text-[#A09A92]"> — {formatHierarchy(result.hierarchy)}</span>
+                    <span className="text-muted"> — {formatHierarchy(result.hierarchy)}</span>
                   )}
-                  <span className="text-muted dark:text-[#A09A92]"> [{result.place_type}]</span>
+                  <span className="text-muted"> [{result.place_type}]</span>
                 </button>
               </li>
             ))}

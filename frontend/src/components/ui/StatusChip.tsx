@@ -3,7 +3,7 @@ import type { TripStatus } from '@/utils/tripStatus'
 
 const styles: Record<TripStatus, string> = {
   concluida: 'bg-plum-tint text-plum dark:bg-plum/25',
-  em_curso: 'bg-[#FBE9F0] text-primary dark:bg-primary/20',
+  em_curso: 'bg-primary-tint text-primary dark:bg-primary/20',
   planeada: 'bg-amber-tint text-amber-deep dark:bg-amber/15',
 }
 

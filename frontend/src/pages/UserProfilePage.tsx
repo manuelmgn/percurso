@@ -75,7 +75,7 @@ export function UserProfilePage() {
           )}
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold">{profile.username}</h2>
-            <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+            <p className="mt-1 text-sm text-muted">
               {t('userProfile.memberSince', { date: formatMemberSince(profile.created_at) })}
             </p>
           </div>
@@ -93,7 +93,7 @@ export function UserProfilePage() {
             <p className="font-display text-3xl font-bold text-primary-700 dark:text-primary-300">
               {counter.value}
             </p>
-            <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">{counter.label}</p>
+            <p className="mt-1 text-sm text-muted">{counter.label}</p>
           </div>
         ))}
       </div>

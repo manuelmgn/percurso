@@ -36,7 +36,7 @@ export function Sidebar() {
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-tint dark:bg-primary/20">
           <img src="/images/percurso-icono.svg" alt="" className="h-7 w-7" />
         </div>
-        <span className="font-brand text-xl font-bold tracking-tight text-primary">{t('app.name')}</span>
+        <span className="font-display text-xl font-bold tracking-tight text-primary">{t('app.name')}</span>
       </div>
 
       {/* Navigation */}
@@ -47,7 +47,7 @@ export function Sidebar() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `nav-item ${isActive ? 'bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20' : ''}`
+              `nav-item ${isActive ? 'bg-primary-tint font-semibold text-primary dark:bg-primary/20' : ''}`
             }
           >
             {({ isActive }) => (
@@ -69,7 +69,7 @@ export function Sidebar() {
           <NavLink
             to="/admin"
             className={({ isActive }) =>
-              `nav-item ${isActive ? 'bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20' : ''}`
+              `nav-item ${isActive ? 'bg-primary-tint font-semibold text-primary dark:bg-primary/20' : ''}`
             }
           >
             {({ isActive }) => (

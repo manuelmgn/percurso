@@ -118,7 +118,7 @@ export function PlacesPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <h3 className="mt-4 font-display text-lg font-semibold">{t('places.empty.title')}</h3>
-          <p className="mt-1 max-w-sm text-sm text-muted dark:text-[#A09A92]">
+          <p className="mt-1 max-w-sm text-sm text-muted">
             {t('places.empty.description')}
           </p>
           <Link to="/viagens/novo" className="btn-primary mt-6">
@@ -129,7 +129,7 @@ export function PlacesPage() {
         <>
           <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2 lg:col-span-1">
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-search">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="places-search">
                 {t('places.searchLabel')}
               </label>
               <input
@@ -142,7 +142,7 @@ export function PlacesPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-type">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="places-type">
                 {t('places.typeLabel')}
               </label>
               <select
@@ -158,7 +158,7 @@ export function PlacesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-status">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="places-status">
                 {t('places.statusLabel')}
               </label>
               <select
@@ -173,7 +173,7 @@ export function PlacesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted dark:text-[#A09A92]" htmlFor="places-sort">
+              <label className="mb-1 block text-xs font-medium text-muted" htmlFor="places-sort">
                 {t('places.sortLabel')}
               </label>
               <select
@@ -191,7 +191,7 @@ export function PlacesPage() {
 
           {visiblePlaces.length === 0 ? (
             <div className="card py-8 text-center">
-              <p className="text-sm text-muted dark:text-[#A09A92]">
+              <p className="text-sm text-muted">
                 {t('places.noResults')}
               </p>
               <button onClick={() => setFilters(DEFAULT_FILTERS)} className="btn-outline mt-4">
@@ -221,7 +221,7 @@ export function PlacesPage() {
                         )}
                       </div>
                     </div>
-                    <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+                    <p className="mt-2 text-sm text-muted">
                       {place.place_type}
                       {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
                     </p>

@@ -27,7 +27,12 @@ export function UnreadCountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh()
-    timerRef.current = window.setInterval(refresh, POLL_INTERVAL_MS)
+    // Skip polls while the tab is hidden — the focus listener catches up on return.
+    const onInterval = () => {
+      if (document.hidden) return
+      refresh()
+    }
+    timerRef.current = window.setInterval(onInterval, POLL_INTERVAL_MS)
 
     const onFocus = () => refresh()
     window.addEventListener('focus', onFocus)

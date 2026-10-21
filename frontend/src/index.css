@@ -87,6 +87,11 @@
     @apply inline-flex items-center gap-2 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all duration-200 hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
   }
 
+  /* Danger variant for destructive actions (delete, remove). */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
+  }
+
   /* Secondary variant used by ProjectDetailPage. */
   .btn-secondary {
     @apply rounded-pill bg-coral px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-coral-600 focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
@@ -138,7 +143,7 @@
     @apply flex items-center gap-3 rounded-pill px-4 py-3 text-[15px] text-muted transition-colors hover:text-ink dark:hover:text-[#FAF7F2];
   }
   .nav-item[data-active='true'] {
-    @apply bg-[#FBE9F0] font-semibold text-primary dark:bg-primary/20;
+    @apply bg-primary-tint font-semibold text-primary dark:bg-primary/20;
   }
 
   /* Vertical timeline (trip detail) */
@@ -196,7 +201,7 @@
   }
 
   .notes-content blockquote {
-    @apply border-l-4 border-line pl-4 italic text-muted dark:border-[#322A23] dark:text-[#A09A92];
+    @apply border-l-4 border-line pl-4 italic text-muted dark:border-[#322A23];
   }
 
   .notes-content ul {

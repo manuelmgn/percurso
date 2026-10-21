@@ -295,7 +295,7 @@ export function SettingsPage() {
       <section className="space-y-4">
         <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">{t('profile.title')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
-          {/* Div 1 (Esquerda): Link para ver o perfil */}
+          {/* Div 1 (left): link to view the profile */}
           <div className="card flex flex-col justify-between">
             <div>
               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
@@ -306,7 +306,7 @@ export function SettingsPage() {
               <h3 className="font-display text-lg font-semibold text-ink dark:text-[#FAF7F2]">
                 {t('settings.profilePublicTitle')}
               </h3>
-              <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+              <p className="mt-2 text-sm text-muted">
                 {t('settings.profilePublicDescription')}
               </p>
             </div>
@@ -324,7 +324,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Div 2 (Direita): Imagem acima no centro com hover para mudar + campo de nome público */}
+          {/* Div 2 (right): centred image above with hover-to-change + public name field */}
           <div className="card flex flex-col items-center p-6 text-center">
             {avatarError && (
               <div className="mb-4 w-full rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -332,7 +332,7 @@ export function SettingsPage() {
               </div>
             )}
 
-            {/* Imagem centrada com hover para alterar */}
+            {/* Centred image with hover-to-change */}
             <div className="group relative">
               <button
                 type="button"
@@ -353,7 +353,7 @@ export function SettingsPage() {
                   </div>
                 )}
 
-                {/* Overlay visível ao passar o rato */}
+                {/* Overlay shown on hover */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-2 text-white opacity-0 backdrop-blur-xs transition-opacity duration-200 group-hover:opacity-100">
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -366,7 +366,7 @@ export function SettingsPage() {
               </button>
             </div>
 
-            <p className="mt-2 text-xs text-muted dark:text-[#A09A92]">
+            <p className="mt-2 text-xs text-muted">
               {t('settings.avatarHint')}
             </p>
 
@@ -379,7 +379,7 @@ export function SettingsPage() {
               aria-hidden="true"
             />
 
-            {/* Campo editável para o nome público */}
+            {/* Editable field for the public name */}
             <form onSubmit={handleSaveUsername} className="mt-5 w-full text-left">
               <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]">
                 {t('settings.publicNameLabel')}
@@ -415,7 +415,7 @@ export function SettingsPage() {
                   {isSavingUsername ? t('settings.saving') : t('actions.save')}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+              <p className="mt-1 text-xs text-muted">
                 {t('settings.publicNameHint')}
               </p>
             </form>
@@ -427,13 +427,13 @@ export function SettingsPage() {
       <section className="space-y-4">
         <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">{t('profile.preferences')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
-          {/* Div 1: Escolha do tema */}
+          {/* Div 1: theme choice */}
           <div className="card space-y-4">
             <div>
               <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
                 {t('settings.themeSection')}
               </h3>
-              <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+              <p className="mt-1 text-sm text-muted">
                 {t('settings.themeDescription')}
               </p>
             </div>
@@ -457,13 +457,13 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Div 2: Timezone e formatos de data e hora */}
+          {/* Div 2: timezone and date/time formats */}
           <div className="card space-y-4">
             <div>
               <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
                 {t('settings.timezoneDatesSection')}
               </h3>
-              <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+              <p className="mt-1 text-sm text-muted">
                 {t('settings.timezoneDatesDescription')}
               </p>
             </div>
@@ -533,21 +533,21 @@ export function SettingsPage() {
                   }}
                   className="input"
                 />
-                <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+                <p className="mt-1 text-xs text-muted">
                   {t('settings.yearlyGoalHint')}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Div 3 (largura total): Notificações push */}
+          {/* Div 3 (full width): push notifications */}
           <div className="card space-y-4 md:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0">
                 <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
                   {t('settings.pushTitle')}
                 </h3>
-                <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+                <p className="mt-1 text-sm text-muted">
                   {pushState === 'denied'
                     ? t('settings.pushDenied')
                     : pushState === 'unsupported'
@@ -588,7 +588,7 @@ export function SettingsPage() {
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : activities.length === 0 ? (
-            <p className="text-sm text-muted dark:text-[#A09A92]">
+            <p className="text-sm text-muted">
               {t('settings.noActivity')}
             </p>
           ) : (
@@ -613,7 +613,7 @@ export function SettingsPage() {
                         <span className="font-medium">{activity.entity_name}</span>
                       )}
                     </p>
-                    <span className="shrink-0 text-xs text-muted dark:text-[#A09A92]">
+                    <span className="shrink-0 text-xs text-muted">
                       {formatDateTime(activity.created_at, user)}
                     </span>
                   </li>
@@ -633,7 +633,7 @@ export function SettingsPage() {
             <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
               {t('settings.passwordSection')}
             </h3>
-            <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+            <p className="mt-1 text-sm text-muted">
               {t('settings.passwordDescription')}
             </p>
 
@@ -691,12 +691,12 @@ export function SettingsPage() {
             </form>
           </div>
 
-          {/* Subseção: Terminar sessão & Eliminar conta */}
+          {/* Subsection: log out & delete account */}
           <div className="border-t border-line/50 pt-6 dark:border-[#322A23]/50">
             <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
               {t('settings.accountActionsSection')}
             </h3>
-            <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+            <p className="mt-1 text-sm text-muted">
               {t('settings.accountActionsDescription')}
             </p>
 
@@ -718,7 +718,7 @@ export function SettingsPage() {
                   setDeleteError('')
                   setShowDeleteModal(true)
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-pill border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20 active:scale-[0.97] dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
+                className="btn-danger"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -742,7 +742,7 @@ export function SettingsPage() {
             <h3 id="delete-modal-title" className="font-display text-lg font-bold text-red-600 dark:text-red-400">
               {t('settings.deleteModalTitle')}
             </h3>
-            <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+            <p className="mt-2 text-sm text-muted">
               {t('settings.deleteModalWarning')}
             </p>
 
@@ -765,7 +765,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={isDeletingAccount}
-                className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                className="btn-danger"
               >
                 {isDeletingAccount ? t('settings.deleting') : t('settings.deleteConfirm')}
               </button>

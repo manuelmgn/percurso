@@ -9,7 +9,7 @@ interface StatCardProps {
 }
 
 const tones = {
-  primary: 'bg-[#FBE9F0] text-primary dark:bg-primary/20',
+  primary: 'bg-primary-tint text-primary dark:bg-primary/20',
   coral: 'bg-coral-tint text-coral dark:bg-coral/20',
   plum: 'bg-plum-tint text-plum dark:bg-plum/25',
   amber: 'bg-amber-tint text-amber-deep dark:bg-amber/15',
@@ -23,7 +23,7 @@ export function StatCard({ icon: Icon, value, label, delta, tone = 'primary' }: 
           <Icon size={18} aria-hidden="true" />
         </span>
         {delta && (
-          <span className="rounded-pill bg-[#FBE9F0] px-2.5 py-1 text-xs font-bold text-primary dark:bg-primary/20">
+          <span className="rounded-pill bg-primary-tint px-2.5 py-1 text-xs font-bold text-primary dark:bg-primary/20">
             {delta}
           </span>
         )}

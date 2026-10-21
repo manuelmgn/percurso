@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
@@ -63,6 +63,54 @@ export function ProjectDetailPage() {
     }
     load()
   }, [projectId, t])
+
+  // Map data is derived from the project — memoise it so typing in the bulk
+  // import textarea or toggling a place doesn't rebuild the map (and refit
+  // its bounds) on every render.
+  const { mapMarkers, mapPolygons } = useMemo(() => {
+    const markers: MapMarker[] = []
+    const polygons: MapPolygon[] = []
+    if (!project) return { mapMarkers: markers, mapPolygons: polygons }
+
+    const types = new Set(project.places.map((p) => p.place_type))
+    const homogeneous = types.size <= 1
+    let effectiveMode: 'points' | 'polygons' = 'points'
+    if (homogeneous) {
+      if (project.map_mode === 'polygons') {
+        effectiveMode = 'polygons'
+      } else if (project.map_mode === 'auto') {
+        const onlyType = project.places[0]?.place_type
+        effectiveMode = onlyType && BIG_PLACE_TYPES.includes(onlyType) ? 'polygons' : 'points'
+      }
+    }
+
+    for (const place of project.places) {
+      const visited = place.is_visited && !place.is_unmarked
+      const stateLabel = visited ? t('projects.visited') : t('projects.pending')
+      const href = `/lugares/${place.place_id}`
+      if (effectiveMode === 'polygons' && place.place_polygon) {
+        polygons.push({
+          id: place.place_id,
+          geojson: place.place_polygon as unknown as Geometry,
+          title: place.place_name,
+          subtitle: stateLabel,
+          href,
+          visited,
+        })
+      } else {
+        markers.push({
+          id: place.place_id,
+          lat: place.place_lat,
+          lon: place.place_lon,
+          title: place.place_name,
+          subtitle: stateLabel,
+          href,
+          color: visited ? VISITED_COLOR : PENDING_COLOR,
+        })
+      }
+    }
+    return { mapMarkers: markers, mapPolygons: polygons }
+  }, [project, t])
 
   const handleDelete = async () => {
     setError('')
@@ -237,46 +285,6 @@ export function ProjectDetailPage() {
     )
   }
 
-  const types = new Set(project.places.map((p) => p.place_type))
-  const homogeneous = types.size <= 1
-  let effectiveMode: 'points' | 'polygons' = 'points'
-  if (homogeneous) {
-    if (project.map_mode === 'polygons') {
-      effectiveMode = 'polygons'
-    } else if (project.map_mode === 'auto') {
-      const onlyType = project.places[0]?.place_type
-      effectiveMode = onlyType && BIG_PLACE_TYPES.includes(onlyType) ? 'polygons' : 'points'
-    }
-  }
-
-  const mapMarkers: MapMarker[] = []
-  const mapPolygons: MapPolygon[] = []
-  for (const place of project.places) {
-    const visited = place.is_visited && !place.is_unmarked
-    const stateLabel = visited ? t('projects.visited') : t('projects.pending')
-    const href = `/lugares/${place.place_id}`
-    if (effectiveMode === 'polygons' && place.place_polygon) {
-      mapPolygons.push({
-        id: place.place_id,
-        geojson: place.place_polygon as unknown as Geometry,
-        title: place.place_name,
-        subtitle: stateLabel,
-        href,
-        visited,
-      })
-    } else {
-      mapMarkers.push({
-        id: place.place_id,
-        lat: place.place_lat,
-        lon: place.place_lon,
-        title: place.place_name,
-        subtitle: stateLabel,
-        href,
-        color: visited ? VISITED_COLOR : PENDING_COLOR,
-      })
-    }
-  }
-
   const mapModeLabelKey: Record<Project['map_mode'], string> = {
     points: 'projects.mapPoints',
     polygons: 'projects.mapPolygons',
@@ -317,7 +325,7 @@ export function ProjectDetailPage() {
           <h3 className="font-display text-lg font-semibold text-red-700 dark:text-red-300">
             {t('projects.deleteTitle')}
           </h3>
-          <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+          <p className="mt-2 text-sm text-muted">
             {t('projects.deleteWarning')}
           </p>
           <div className="mt-4 flex gap-2">
@@ -347,11 +355,11 @@ export function ProjectDetailPage() {
         {project.description && (
           <p className="mt-2 whitespace-pre-line text-ink dark:text-[#FAF7F2]">{project.description}</p>
         )}
-        <p className="mt-3 text-sm text-muted dark:text-[#A09A92]">
+        <p className="mt-3 text-sm text-muted">
           {t('projects.visibility')}: {t(visibilityKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
         </p>
         {project.participants.length > 0 && (
-          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+          <p className="mt-1 text-sm text-muted">
             {t('projects.participants')}: {project.participants.map((u) => u.username).join(', ')}
           </p>
         )}
@@ -365,12 +373,12 @@ export function ProjectDetailPage() {
                   style={{ width: `${project.progress_percent}%` }}
                 />
               </div>
-              <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+              <p className="mt-2 text-sm text-muted">
                 {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}%
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted dark:text-[#A09A92]">
+            <p className="text-sm text-muted">
               {t('projects.openProject')}
             </p>
           )}
@@ -388,7 +396,7 @@ export function ProjectDetailPage() {
         <h3 className="mb-4 font-display text-lg font-semibold">{t('projects.targetPlaces')}</h3>
 
         {project.places.length === 0 ? (
-          <p className="text-sm text-muted dark:text-[#A09A92]">
+          <p className="text-sm text-muted">
             {t('projects.noPlaces')}
           </p>
         ) : (
@@ -405,7 +413,7 @@ export function ProjectDetailPage() {
                   >
                     {place.place_name}
                   </Link>
-                  <span className="text-sm text-muted dark:text-[#A09A92]">[{place.place_type}]</span>
+                  <span className="text-sm text-muted">[{place.place_type}]</span>
                   {place.is_unmarked ? (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                       {t('projects.unmarked')}
@@ -421,7 +429,7 @@ export function ProjectDetailPage() {
                   )}
                 </div>
                 {formatHierarchy(place.place_hierarchy) && (
-                  <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+                  <p className="mt-1 text-xs text-muted">
                     {formatHierarchy(place.place_hierarchy)}
                   </p>
                 )}
@@ -440,7 +448,7 @@ export function ProjectDetailPage() {
                       <button
                         onClick={() => handleRemovePlace(place.place_id)}
                         disabled={busyPlaceId === place.place_id}
-                        className="rounded-lg bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                        className="btn-danger"
                       >
                         {busyPlaceId === place.place_id ? t('projects.removing') : t('projects.confirmRemove')}
                       </button>
@@ -471,7 +479,7 @@ export function ProjectDetailPage() {
           <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
           <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
           {isAddingPlace && (
-            <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">{t('projects.addingPlace')}</p>
+            <p className="mt-2 text-sm text-muted">{t('projects.addingPlace')}</p>
           )}
         </div>
 
@@ -494,7 +502,7 @@ export function ProjectDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <label
                   htmlFor="bulk-type"
-                  className="text-xs font-medium text-muted dark:text-[#A09A92]"
+                  className="text-xs font-medium text-muted"
                 >
                   {t('bulkImport.typeLabel')}
                 </label>
@@ -530,7 +538,7 @@ export function ProjectDetailPage() {
                 <div className="space-y-3 rounded-xl border border-line p-4 dark:border-[#322A23]">
                   {bulkSelectableTypes.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-muted dark:text-[#A09A92]">
+                      <span className="text-xs font-medium text-muted">
                         {t('bulkImport.selectAll')}
                       </span>
                       {bulkSelectableTypes.map(({ type, count }) => (
@@ -592,7 +600,7 @@ export function ProjectDetailPage() {
                           </div>
                         )}
                         {line.status === 'not_found' && (
-                          <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+                          <p className="mt-1 text-sm text-muted">
                             {t('bulkImport.notFound')}
                           </p>
                         )}
@@ -601,14 +609,14 @@ export function ProjectDetailPage() {
                   </ul>
                   {bulkNotFound.length > 0 && (
                     <div className="rounded-lg bg-line/40 px-3 py-2 dark:bg-[#322A23]/60">
-                      <p className="text-xs font-medium text-muted dark:text-[#A09A92]">
+                      <p className="text-xs font-medium text-muted">
                         {bulkNotFound.length === 1
                           ? t('bulkImport.notFoundOne')
                           : t('bulkImport.notFoundMany', { count: bulkNotFound.length })}
                       </p>
                       <ul className="mt-1 space-y-0.5">
                         {bulkNotFound.map((line, i) => (
-                          <li key={i} className="text-sm text-muted dark:text-[#A09A92]">
+                          <li key={i} className="text-sm text-muted">
                             {line}
                           </li>
                         ))}
@@ -642,7 +650,7 @@ export function ProjectDetailPage() {
         <h3 className="mb-3 font-display text-lg font-semibold">{t('projects.associatedTrips')}</h3>
         {project.trips.length === 0 ? (
           <div className="py-2 text-center">
-            <p className="text-sm text-muted dark:text-[#A09A92]">{t('projects.noAssociatedTrips')}</p>
+            <p className="text-sm text-muted">{t('projects.noAssociatedTrips')}</p>
             <Link to={`/viagens/novo?projeto=${project.id}`} className="btn-primary mt-4 inline-block">
               {t('projects.newTripWithProject')}
             </Link>
@@ -657,7 +665,7 @@ export function ProjectDetailPage() {
                 >
                   {formatTripTitle(trip, user)}
                 </Link>
-                <span className="text-sm text-muted dark:text-[#A09A92]">
+                <span className="text-sm text-muted">
                   {' '}· {trip.creator_username} · {trip.place_count} {pluralize(trip.place_count, 'units.place.one', 'units.place.other')}
                 </span>
               </li>

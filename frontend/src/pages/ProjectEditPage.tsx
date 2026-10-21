@@ -18,7 +18,7 @@ function UserChecklist({
   emptyMessage: string
 }) {
   if (users.length === 0) {
-    return <p className="text-sm text-muted dark:text-[#A09A92]">{emptyMessage}</p>
+    return <p className="text-sm text-muted">{emptyMessage}</p>
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -202,7 +202,7 @@ export function ProjectEditPage() {
             {mixedTypes ? (
               <div>
                 <label className="mb-1 block text-sm font-medium">{t('projectEdit.mapModeLabel')}</label>
-                <p className="rounded-lg border border-line bg-line/40 px-4 py-2 text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#A09A92]">
+                <p className="rounded-lg border border-line bg-line/40 px-4 py-2 text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18]">
                   {t('projectEdit.mapModeMixedTypes')}
                 </p>
               </div>

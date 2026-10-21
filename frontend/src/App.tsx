@@ -84,7 +84,7 @@ export default function App() {
         <div className="flex min-h-screen items-center justify-center p-4">
           <div className="card mx-auto max-w-md p-8 text-center">
             <h1 className="font-display text-xl font-bold">{t('errors.loadFailedTitle')}</h1>
-            <p className="mt-2 text-sm text-muted dark:text-[#A09A92]">
+            <p className="mt-2 text-sm text-muted">
               {t('errors.loadFailedMessage')}
             </p>
             <button type="button" onClick={reload} className="btn-primary mt-6">
@@ -130,7 +130,7 @@ export default function App() {
           path="*"
           element={
             <div className="card mx-auto max-w-md p-8 text-center">
-              <p className="text-muted dark:text-[#A09A92]">{t('pageNotFound')}</p>
+              <p className="text-muted">{t('pageNotFound')}</p>
               <Link
                 to="/"
                 className="mt-4 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"

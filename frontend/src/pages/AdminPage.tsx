@@ -191,7 +191,7 @@ export function AdminPage() {
                       className={`rounded-full px-2 py-1 text-xs ${
                         user.is_active
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                          : 'bg-line/40 text-muted dark:bg-[#322A23] dark:text-[#A09A92]'
+                          : 'bg-line/40 text-muted dark:bg-[#322A23]'
                       }`}
                     >
                       {user.is_active ? t('admin.statusActive') : t('admin.statusInactive')}
@@ -228,7 +228,7 @@ export function AdminPage() {
 
       <div className="card">
         <h3 className="mb-2 font-display text-lg font-semibold">{t('admin.backupTitle')}</h3>
-        <p className="mb-4 text-sm text-muted dark:text-[#A09A92]">
+        <p className="mb-4 text-sm text-muted">
           {t('admin.backupDescription')}
         </p>
         <button

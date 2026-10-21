@@ -20,7 +20,7 @@ function UserChecklist({
   emptyMessage: string
 }) {
   if (users.length === 0) {
-    return <p className="text-sm text-muted dark:text-[#A09A92]">{emptyMessage}</p>
+    return <p className="text-sm text-muted">{emptyMessage}</p>
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -186,7 +186,7 @@ export function TripEditPage() {
               }
               className="input"
             />
-            <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+            <p className="mt-1 text-xs text-muted">
               {t('tripEdit.titleHint')}
             </p>
           </div>
@@ -213,7 +213,7 @@ export function TripEditPage() {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="input"
               />
-              <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+              <p className="mt-1 text-xs text-muted">
                 {t('tripEdit.endDateHint')}
               </p>
             </div>
@@ -227,7 +227,7 @@ export function TripEditPage() {
           <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.projectsLabel')}</label>
             {projects.length === 0 ? (
-              <p className="text-sm text-muted dark:text-[#A09A92]">{t('tripEdit.noProjectsAvailable')}</p>
+              <p className="text-sm text-muted">{t('tripEdit.noProjectsAvailable')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {projects.map((p) => {

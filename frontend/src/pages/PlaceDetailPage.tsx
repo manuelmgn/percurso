@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
@@ -31,6 +31,28 @@ export function PlaceDetailPage() {
     load()
   }, [id, t])
 
+  // Memoised so unrelated state changes (e.g. user prefs) don't rebuild the
+  // map and refit its bounds on every render.
+  const { markers, polygons } = useMemo(() => {
+    if (!place) return { markers: [] as MapMarker[], polygons: [] as MapPolygon[] }
+    if (place.polygon) {
+      return {
+        markers: [] as MapMarker[],
+        polygons: [{
+          id: place.id,
+          geojson: place.polygon as unknown as Geometry,
+          title: place.name,
+          subtitle: place.place_type,
+          visited: true,
+        }] as MapPolygon[],
+      }
+    }
+    return {
+      markers: [{ id: place.id, lat: place.lat, lon: place.lon, title: place.name, subtitle: place.place_type }] as MapMarker[],
+      polygons: [] as MapPolygon[],
+    }
+  }, [place])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
@@ -53,13 +75,6 @@ export function PlaceDetailPage() {
     )
   }
 
-  const markers: MapMarker[] = place.polygon
-    ? []
-    : [{ id: place.id, lat: place.lat, lon: place.lon, title: place.name, subtitle: place.place_type }]
-  const polygons: MapPolygon[] = place.polygon
-    ? [{ id: place.id, geojson: place.polygon as unknown as Geometry, title: place.name, subtitle: place.place_type, visited: true }]
-    : []
-
   return (
     <div className="space-y-6">
       <Link to="/lugares" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
@@ -68,11 +83,11 @@ export function PlaceDetailPage() {
 
       <div className="card">
         <h2 className="font-display text-2xl font-bold">{place.name}</h2>
-        <p className="mt-1 text-sm text-muted dark:text-[#A09A92]">
+        <p className="mt-1 text-sm text-muted">
           {place.place_type}
           {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
         </p>
-        <p className="mt-1 text-xs text-muted dark:text-[#A09A92]">
+        <p className="mt-1 text-xs text-muted">
           {t('places.coordinates', { lat: place.lat.toFixed(5), lon: place.lon.toFixed(5) })}
         </p>
       </div>
@@ -84,7 +99,7 @@ export function PlaceDetailPage() {
       <div className="card">
         <h3 className="mb-3 font-display text-lg font-semibold">{t('places.projects')}</h3>
         {place.projects.length === 0 ? (
-          <p className="text-sm text-muted dark:text-[#A09A92]">
+          <p className="text-sm text-muted">
             {t('places.noProjects')}
           </p>
         ) : (
@@ -97,7 +112,7 @@ export function PlaceDetailPage() {
                 >
                   {project.name}
                 </Link>
-                <span className="text-sm text-muted dark:text-[#A09A92]">
+                <span className="text-sm text-muted">
                   {' '}· {t('projects.progressText', { visited: project.visited_places, total: project.total_places })}
                 </span>
               </li>
@@ -109,7 +124,7 @@ export function PlaceDetailPage() {
       <div className="card">
         <h3 className="mb-3 font-display text-lg font-semibold">{t('places.tripHistory')}</h3>
         {place.trips.length === 0 ? (
-          <p className="text-sm text-muted dark:text-[#A09A92]">
+          <p className="text-sm text-muted">
             {t('places.noTripHistory')}
           </p>
         ) : (
@@ -122,7 +137,7 @@ export function PlaceDetailPage() {
                 >
                   {formatTripTitle(trip, user)}
                 </Link>
-                <span className="text-sm text-muted dark:text-[#A09A92]">
+                <span className="text-sm text-muted">
                   {' '}· {trip.creator_username}
                 </span>
               </li>

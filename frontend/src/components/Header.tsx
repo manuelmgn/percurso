@@ -16,7 +16,7 @@ export function Header() {
       <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight md:text-[40px]">
         {t('dashboard.greeting', { name: firstName ?? '' })}
       </h1>
-      <p className="mt-1 text-base text-muted dark:text-[#A09A92]">{t('dashboard.subtitle')}</p>
+      <p className="mt-1 text-base text-muted">{t('dashboard.subtitle')}</p>
     </header>
   )
 }

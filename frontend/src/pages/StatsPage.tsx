@@ -159,7 +159,7 @@ export function StatsPage() {
                   <defs>
                     <linearGradient id="barGrad" x1="0" y1="1" x2="0" y2="0">
                       <stop offset="0%" stopColor="#C1075D" />
-                      <stop offset="100%" stopColor="#E06F56" />
+                      <stop offset="100%" stopColor="#EC3D80" />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
@@ -264,7 +264,7 @@ export function StatsPage() {
                 </div>
                 {project.total_places > 0 && (
                   <div
-                    className="mt-2 h-2.5 w-full overflow-hidden rounded-pill bg-[#F0E8DC] dark:bg-[#322A23]"
+                    className="mt-2 h-2.5 w-full overflow-hidden rounded-pill bg-line dark:bg-[#322A23]"
                     role="progressbar"
                     aria-label={t('stats.projectProgress')}
                     aria-valuenow={Math.round(project.progress_percent)}
@@ -296,7 +296,7 @@ export function StatsPage() {
                   <span className="text-sm font-medium">{region.region}</span>
                   <span className="text-sm text-muted">{region.count}</span>
                 </div>
-                <div className="mt-1 h-2 w-full overflow-hidden rounded-pill bg-[#F0E8DC] dark:bg-[#322A23]">
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-pill bg-line dark:bg-[#322A23]">
                   <div
                     className="h-full rounded-pill bg-coral transition-all"
                     style={{ width: `${(region.count / maxRegionCount) * 100}%` }}
