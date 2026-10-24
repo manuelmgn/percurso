@@ -30,16 +30,22 @@ def needs_rehash(password_hash: str) -> bool:
     return ph.check_needs_rehash(password_hash)
 
 
-def create_session(db: Session, user: User) -> str:
+def _generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def create_session(db: Session, user: User) -> tuple[str, str]:
     token = secrets.token_urlsafe(32)
+    csrf_token = _generate_csrf_token()
     session = UserSession(
         token=token,
+        csrf_token=csrf_token,
         user_id=user.id,
         expires_at=UserSession.default_expiry(),
     )
     db.add(session)
     db.commit()
-    return token
+    return token, csrf_token
 
 
 def get_session_token(request: Request) -> Optional[str]:
@@ -67,8 +73,19 @@ def get_current_user(
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Utilizador inativo")
 
-    session.extend()
-    db.commit()
+    # Backfill CSRF token for sessions created before this change.
+    if not session.csrf_token:
+        session.csrf_token = _generate_csrf_token()
+        db.commit()
+        db.refresh(session)
+
+    # Extend only when close to expiry to avoid a write on every request.
+    if session.needs_extension():
+        session.extend()
+        db.commit()
+    else:
+        db.commit()
+
     return user
 
 
@@ -82,10 +99,14 @@ def get_csrf_token(request: Request) -> str:
     return request.headers.get("x-csrf-token", "")
 
 
-def validate_csrf(request: Request, user: User = Depends(get_current_user)) -> User:
+def validate_csrf(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
     token = get_csrf_token(request)
     session_token = get_session_token(request)
-    if not token or not session_token or token != session_token:
+    if not token or not session_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
+
+    session = db.query(UserSession).filter(UserSession.token == session_token).first()
+    if not session or not session.csrf_token or token != session.csrf_token:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
     return user
 

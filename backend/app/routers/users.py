@@ -76,6 +76,10 @@ def reset_password(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
     user_service.reset_password(db, user, payload.new_password)
+    from app.models import Session as UserSession
+
+    db.query(UserSession).filter(UserSession.user_id == user.id).delete(synchronize_session=False)
+    db.commit()
     return {"message": "Palavra-passe redefinida"}
 
 

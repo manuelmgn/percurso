@@ -172,7 +172,13 @@ export function TripEditPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="title">{t('tripEdit.titleLabel')}</label>
+            <div className="mb-1 flex items-center gap-2">
+              <label className="block text-sm font-medium" htmlFor="title">{t('tripEdit.titleLabel')}</label>
+              <span className="group relative">
+                <span className="tooltip-question">?</span>
+                <span className="tooltip">{t('tripEdit.titleHint')}</span>
+              </span>
+            </div>
             <input
               id="title"
               type="text"
@@ -186,9 +192,6 @@ export function TripEditPage() {
               }
               className="input"
             />
-            <p className="mt-1 text-xs text-muted">
-              {t('tripEdit.titleHint')}
-            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -204,7 +207,13 @@ export function TripEditPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="end_date">{t('tripEdit.endDateLabel')}</label>
+              <div className="mb-1 flex items-center gap-2">
+                <label className="block text-sm font-medium" htmlFor="end_date">{t('tripEdit.endDateLabel')}</label>
+                <span className="group relative">
+                  <span className="tooltip-question">?</span>
+                  <span className="tooltip">{t('tripEdit.endDateHint')}</span>
+                </span>
+              </div>
               <input
                 id="end_date"
                 type="date"
@@ -213,9 +222,6 @@ export function TripEditPage() {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="input"
               />
-              <p className="mt-1 text-xs text-muted">
-                {t('tripEdit.endDateHint')}
-              </p>
             </div>
           </div>
 
@@ -261,25 +267,45 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t('tripEdit.participantsLabel')}</label>
-            <UserChecklist
-              users={users}
-              selectedIds={participantIds}
-              onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
-              emptyMessage={t('tripEdit.noOtherUsers')}
-            />
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.galleryLabel')}</label>
+            <div className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-muted dark:border-[#322A23]">
+              {t('tripEdit.galleryComingSoon')}
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="companions">{t('tripEdit.companionsLabel')}</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="external-link">{t('tripEdit.externalLinkLabel')}</label>
             <input
-              id="companions"
-              type="text"
-              value={companionsText}
-              onChange={(e) => setCompanionsText(e.target.value)}
-              placeholder={t('tripEdit.companionsPlaceholder')}
+              id="external-link"
+              type="url"
               className="input"
+              placeholder="https://"
+              disabled
             />
+            <p className="mt-1 text-xs text-muted">{t('tripEdit.externalLinkHint')}</p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">{t('tripEdit.participantsLabel')}</label>
+              <UserChecklist
+                users={users}
+                selectedIds={participantIds}
+                onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
+                emptyMessage={t('tripEdit.noOtherUsers')}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="companions">{t('tripEdit.companionsLabel')}</label>
+              <input
+                id="companions"
+                type="text"
+                value={companionsText}
+                onChange={(e) => setCompanionsText(e.target.value)}
+                placeholder={t('tripEdit.companionsPlaceholder')}
+                className="input"
+              />
+            </div>
           </div>
 
           <div>

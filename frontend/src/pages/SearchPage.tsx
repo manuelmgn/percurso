@@ -68,6 +68,8 @@ export function SearchPage() {
           placeholder={t('search.placeholder')}
           aria-label={t('search.title')}
           autoFocus
+          inputMode="search"
+          enterKeyHint="search"
           className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92]"
         />
       </div>

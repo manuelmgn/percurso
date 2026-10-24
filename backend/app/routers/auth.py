@@ -32,9 +32,9 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
     user = user_service.check_and_update_password_hash(db, user, payload.password)
-    token = create_session(db, user)
+    token, csrf_token = create_session(db, user)
     _set_session_cookie(response, token)
-    return MeResponse(user=user, csrf_token=token)
+    return MeResponse(user=user, csrf_token=csrf_token)
 
 
 @router.post("/logout")
@@ -51,4 +51,11 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db), 
 @router.get("/me", response_model=MeResponse)
 def me(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     token = get_session_token(request)
-    return MeResponse(user=user, csrf_token=token or "")
+    csrf_token = ""
+    if token:
+        from app.models import Session as UserSession
+
+        session = db.query(UserSession).filter(UserSession.token == token).first()
+        if session and session.csrf_token:
+            csrf_token = session.csrf_token
+    return MeResponse(user=user, csrf_token=csrf_token)

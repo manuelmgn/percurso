@@ -1,0 +1,1 @@
+0 3 * * 0 cd /app && PYTHONPATH=/app /usr/local/bin/python -m app.backup >> /var/log/percursos-backup.log 2>&1

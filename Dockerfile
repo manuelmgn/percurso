@@ -2,8 +2,8 @@
 FROM node:20-slim AS frontend-builder
 
 WORKDIR /build
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 
 COPY frontend/ ./
 RUN npm run build
@@ -18,7 +18,6 @@ ENV PYTHONPATH=/app
 
 WORKDIR /app
 
-# CAMBIO 1: Instalamos wget en lugar de cron
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libheif-examples \
     libffi-dev \
@@ -26,12 +25,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /data /app/uploads /app/tile-cache /backups
+RUN mkdir -p /data /app/uploads /app/tile-cache /app/backups /backups
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# CAMBIO 2: Descargar e instalar supercronic (versión estable para contenedores)
 ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.29/supercronic-linux-amd64 \
     SUPERCRONIC_SHA1SUM=cd48d45c4b10f3f0bfdd3a57d054cd05ac96812b
 RUN wget -q -O /usr/local/bin/supercronic "$SUPERCRONIC_URL" \
@@ -41,13 +39,9 @@ RUN wget -q -O /usr/local/bin/supercronic "$SUPERCRONIC_URL" \
 COPY backend/app /app/app
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 
-# CAMBIO 3: Copiar tu archivo de tareas (llámalo 'crontab' y ponlo junto al Dockerfile)
-# IMPORTANTE: En supercronic, NO se pone el usuario (ej: "root") al inicio de la línea.
-# Ejemplo de contenido del archivo 'crontab':
-# 0 2 * * * python /app/app/scripts/tarea.py
+# Supercronic expects crontab lines without a user field.
 COPY crontab /app/crontab
 
 EXPOSE 8000
 
-# CAMBIO 4: Ejecutar supercronic en segundo plano (&) y luego uvicorn
-CMD ["sh", "-c", "supercronic /app/crontab & uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+CMD ["sh", "-c", "mkdir -p /var/log && touch /var/log/percursos-backup.log && supercronic /app/crontab >> /var/log/percursos-backup.log 2>&1 & uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]

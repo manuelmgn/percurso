@@ -4,25 +4,23 @@
 
 @layer base {
   :root {
-    /* New design tokens (rediseño §3.1) */
-    --color-primary: #C1075D;
-    --color-coral: #E06F56;
-    --color-amber: #FFD64E;
-    --color-plum: #6B21A8;
-    --color-bg: #FAF7F2;
-    --color-surface: #FFFFFF;
-    --color-line: #EDE4D8;
-    --color-text: #241F19;
-    --color-text-muted: #6E655B;
+    /* Design tokens (rediseño §3.1). Space-separated RGB channels so
+       Tailwind can apply opacity modifiers via <alpha-value>. */
+    --color-bg: 250 247 242;
+    --color-surface: 255 255 255;
+    --color-fill: 245 243 240;
+    --color-line: 237 228 216;
+    --color-text: 36 31 25;
+    --color-text-muted: 110 101 91;
   }
 
   .dark {
-    /* New design tokens (rediseño §3.1) */
-    --color-bg: #191512;
-    --color-surface: #221D18;
-    --color-line: #322A23;
-    --color-text: #FAF7F2;
-    --color-text-muted: #A09A92;
+    --color-bg: 25 21 18;
+    --color-surface: 34 29 24;
+    --color-fill: 50 42 35;
+    --color-line: 50 42 35;
+    --color-text: 250 247 242;
+    --color-text-muted: 160 154 146;
   }
 
   html {
@@ -31,7 +29,7 @@
   }
 
   body {
-    @apply bg-bg text-ink dark:bg-[#191512] dark:text-[#FAF7F2];
+    @apply bg-bg text-ink;
     font-family: 'Inter', system-ui, sans-serif;
   }
 
@@ -56,11 +54,11 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Sora', 'Inter', system-ui, sans-serif;
-    @apply text-ink dark:text-[#FAF7F2];
+    @apply text-ink;
   }
 
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2 dark:ring-offset-[#191512];
+    @apply outline-none ring-2 ring-primary ring-offset-2 dark:ring-offset-bg;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -75,7 +73,7 @@
 @layer components {
   /* Base card — white solid, 24px radius, warm soft shadow (rediseño §3.2) */
   .card {
-    @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:border-[#322A23] dark:bg-[#221D18] dark:shadow-none;
+    @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:border-line dark:shadow-none;
   }
 
   /* Interactive cards: soft lift on hover, quick press feedback. */
@@ -84,25 +82,25 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center gap-2 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all duration-200 hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
+    @apply inline-flex items-center gap-2 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all duration-200 hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-bg;
   }
 
   /* Danger variant for destructive actions (delete, remove). */
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
+    @apply inline-flex items-center justify-center gap-2 rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-bg;
   }
 
   /* Secondary variant used by ProjectDetailPage. */
   .btn-secondary {
-    @apply rounded-pill bg-coral px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-coral-600 focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-[#191512];
+    @apply rounded-pill bg-coral px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-coral-600 focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-bg;
   }
 
   .btn-outline {
-    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-line/40 focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.97] dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]/40;
+    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-line/40 focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.97] dark:border-line dark:hover:bg-line/40;
   }
 
   .input {
-    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18] dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92];
+    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-line;
   }
 
   /* Dropdowns using .input drop the native arrow and get a chevron that
@@ -122,10 +120,10 @@
 
   /* Filter chip (listing pages) */
   .chip {
-    @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink dark:border-[#322A23] dark:bg-[#221D18];
+    @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink dark:border-line;
   }
   .chip[data-active='true'] {
-    @apply border-ink bg-ink text-white dark:border-[#FAF7F2] dark:bg-[#FAF7F2] dark:text-ink;
+    @apply border-ink bg-ink text-white dark:text-ink;
   }
 
   /* Status chip over trip photos */
@@ -135,12 +133,20 @@
 
   /* Pill search box (header) */
   .search-pill {
-    @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:border-[#322A23] dark:bg-[#221D18] dark:shadow-none;
+    @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:border-line dark:shadow-none;
+  }
+
+  .tooltip {
+    @apply pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink/80 px-2 py-0.5 text-[11px] text-surface opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 dark:bg-[#FAF7F2]/90 dark:text-ink;
+  }
+
+  .tooltip-question {
+    @apply inline-flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold text-muted transition-colors hover:text-ink;
   }
 
   /* Sidebar navigation item */
   .nav-item {
-    @apply flex items-center gap-3 rounded-pill px-4 py-3 text-[15px] text-muted transition-colors hover:text-ink dark:hover:text-[#FAF7F2];
+    @apply flex items-center gap-3 rounded-pill px-4 py-3 text-[15px] text-muted transition-colors hover:text-ink;
   }
   .nav-item[data-active='true'] {
     @apply bg-primary-tint font-semibold text-primary dark:bg-primary/20;
@@ -148,10 +154,10 @@
 
   /* Vertical timeline (trip detail) */
   .timeline {
-    @apply relative ml-2 border-l-2 border-line pl-7 dark:border-[#322A23];
+    @apply relative ml-2 border-l-2 border-line pl-7;
   }
   .timeline-node {
-    @apply absolute -left-[9px] top-0.5 h-4 w-4 rounded-full border-[3px] border-surface shadow-pop dark:border-[#221D18];
+    @apply absolute -left-[9px] top-0.5 h-4 w-4 rounded-full border-[3px] border-surface shadow-pop;
   }
 
   /* Dashed animated route for map overlays (<path> SVG) */
@@ -201,7 +207,7 @@
   }
 
   .notes-content blockquote {
-    @apply border-l-4 border-line pl-4 italic text-muted dark:border-[#322A23];
+    @apply border-l-4 border-line pl-4 italic text-muted;
   }
 
   .notes-content ul {
@@ -235,14 +241,9 @@
   }
 }
 
-/* In dark mode, muted body text must switch to the lighter warm grey for
-   contrast on the dark surfaces (same value the dark: text variants use). */
-.dark .text-muted {
-  color: #A09A92;
-}
-
 /* The brand magenta is too dark on the dark surfaces; use the lighter
-   primary-400 so links and accents keep a 4.5:1 contrast. */
+   primary-400 so links and accents keep a 4.5:1 contrast. (text-muted needs
+   no such rule: the --color-text-muted variable switches in .dark.) */
 .dark .text-primary {
   color: #f470a3;
 }

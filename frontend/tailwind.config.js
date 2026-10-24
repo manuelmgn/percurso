@@ -13,11 +13,14 @@ export default {
         brand: ['Montserrat', 'Sora', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
-        bg: '#FAF7F2',
-        surface: '#FFFFFF',
-        ink: '#241F19',
-        muted: '#6E655B',
-        line: '#EDE4D8',
+        // Semantic tokens wired to the CSS variables in index.css — they
+        // switch automatically in .dark, so components need a single class.
+        bg: 'rgb(var(--color-bg) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        fill: 'rgb(var(--color-fill) / <alpha-value>)',
+        line: 'rgb(var(--color-line) / <alpha-value>)',
+        ink: 'rgb(var(--color-text) / <alpha-value>)',
+        muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
         coral: { DEFAULT: '#E06F56', tint: '#FBE7E0', 600: '#b85542' },
         amber: { DEFAULT: '#FFD64E', tint: '#FFF3D0', deep: '#8A6A00' },
         plum: { DEFAULT: '#6B21A8', tint: '#EDE4F7' },

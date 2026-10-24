@@ -298,44 +298,46 @@ export function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Projetos */}
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-bold">{t('dashboard.projects')}</h2>
+        <section>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-display text-[22px] font-bold">{t('dashboard.projects')}</h2>
             {projects.length > 0 && (
               <Link to="/projetos" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
                 {t('dashboard.viewAll')} <ArrowRight size={14} aria-hidden="true" />
               </Link>
             )}
           </div>
-          {topProjects.length === 0 ? (
-            <div className="py-4 text-center">
-              <p className="text-sm text-muted">{t('dashboard.noProjectsYet')}</p>
-              <Link to="/projetos/novo" className="btn-primary mt-4 inline-block">
-                {t('dashboard.createFirstProject')}
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {topProjects.map((project) => (
-                <li key={project.id} className="group relative">
-                  <Link to={`/projetos/${project.id}`} className="block rounded-xl p-2 transition-colors hover:bg-line/40 dark:hover:bg-[#322A23]/40">
-                    <p className="pr-8 font-medium text-ink dark:text-[#FAF7F2]">{project.name}</p>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-pill bg-line dark:bg-[#322A23]">
-                      <div
-                        className="h-full rounded-pill bg-brand transition-all"
-                        style={{ width: `${project.progress_percent}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-muted">
-                      {t('projects.progressText', { visited: project.visited_places, total: project.total_places })}
-                    </p>
-                  </Link>
-                  {pinButton('project', project.id, t('units.project.one'), 'right-2 top-2')}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          <div className="card">
+            {topProjects.length === 0 ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted">{t('dashboard.noProjectsYet')}</p>
+                <Link to="/projetos/novo" className="btn-primary mt-4 inline-block">
+                  {t('dashboard.createFirstProject')}
+                </Link>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {topProjects.map((project) => (
+                  <li key={project.id} className="group relative">
+                    <Link to={`/projetos/${project.id}`} className="block rounded-xl p-2 transition-colors hover:bg-line/40 dark:hover:bg-[#322A23]/40">
+                      <p className="pr-8 font-medium text-ink dark:text-[#FAF7F2]">{project.name}</p>
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-pill bg-line dark:bg-[#322A23]">
+                        <div
+                          className="h-full rounded-pill bg-brand transition-all"
+                          style={{ width: `${project.progress_percent}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        {t('projects.progressText', { visited: project.visited_places, total: project.total_places })}
+                      </p>
+                    </Link>
+                    {pinButton('project', project.id, t('units.project.one'), 'right-2 top-2')}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
         {/* Conquistas recentes */}
         {recentHighlights.length > 0 && (

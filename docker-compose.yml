@@ -11,45 +11,27 @@ services:
       - percursos-data:/data
       - percursos-uploads:/app/uploads
       - percursos-tiles:/app/tile-cache
+      - percursos-backups:/backups
     environment:
       - PERCURSOS_DATA_DIR=/data
       - PERCURSOS_UPLOADS_DIR=/app/uploads
       - PERCURSOS_TILE_CACHE_DIR=/app/tile-cache
+      - PERCURSOS_BACKUPS_DIR=/backups
+      - PERCURSOS_BACKUP_RETENTION_DAYS=${PERCURSOS_BACKUP_RETENTION_DAYS:-30}
       - PERCURSOS_SECRET_KEY=${PERCURSOS_SECRET_KEY:-change-me-in-production}
       - PERCURSOS_ENV=${PERCURSOS_ENV:-production}
+      - PERCURSOS_SESSION_COOKIE_SECURE=${PERCURSOS_SESSION_COOKIE_SECURE:-false}
       - PERCURSOS_DEFAULT_ADMIN_USERNAME=${PERCURSOS_DEFAULT_ADMIN_USERNAME:-admin}
       - PERCURSOS_DEFAULT_ADMIN_PASSWORD=${PERCURSOS_DEFAULT_ADMIN_PASSWORD:-pass}
+      - PERCURSOS_VAPID_PRIVATE_KEY=${PERCURSOS_VAPID_PRIVATE_KEY:-}
+      - PERCURSOS_VAPID_PUBLIC_KEY=${PERCURSOS_VAPID_PUBLIC_KEY:-}
+      - PERCURSOS_VAPID_SUBJECT=${PERCURSOS_VAPID_SUBJECT:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  backup:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: percursos-backup
-    restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        printenv | grep PERCURSOS_ >> /etc/environment
-        echo "0 3 * * 0 cd /app && PYTHONPATH=/app /usr/local/bin/python -m app.backup >> /var/log/percursos-backup.log 2>&1" | crontab -
-        cron -f
-    volumes:
-      - percursos-data:/data
-      - percursos-uploads:/app/uploads:ro
-      - percursos-backups:/backups
-    environment:
-      - PERCURSOS_DATA_DIR=/data
-      - PERCURSOS_UPLOADS_DIR=/app/uploads
-      - PERCURSOS_BACKUPS_DIR=/backups
-      - PERCURSOS_BACKUP_RETENTION_DAYS=${PERCURSOS_BACKUP_RETENTION_DAYS:-30}
 
 volumes:
   percursos-data:

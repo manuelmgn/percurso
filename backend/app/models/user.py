@@ -48,6 +48,11 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True)
     token = Column(String(255), unique=True, nullable=False, index=True)
+    # Sent to the browser separately from the session cookie so the
+    # httponly cookie token never has to be exposed to JavaScript.
+    # Nullable only for sessions created before this column existed;
+    # get_current_user backfills it on first use.
+    csrf_token = Column(String(64), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
@@ -65,6 +70,12 @@ class Session(Base):
 
     def is_expired(self) -> bool:
         return datetime.now(timezone.utc) > self._aware_expires_at()
+
+    def needs_extension(self, threshold_days: int = 7) -> bool:
+        """Only extend the expiry when it is close, to avoid a DB write on
+        every authenticated request."""
+        remaining = self._aware_expires_at() - datetime.now(timezone.utc)
+        return remaining < timedelta(days=threshold_days)
 
     def extend(self):
         self.expires_at = self.default_expiry()

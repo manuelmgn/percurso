@@ -309,7 +309,7 @@ export const api = {
     list: () => fetchJson<NotificationListResponse>('/api/notifications/'),
     unreadCount: () => fetchJson<{ unread_count: number }>('/api/notifications/unread-count'),
     markRead: (ids?: number[]) =>
-      fetchJson<{ marked: number }>('/api/notifications/read', {
+      fetchJson<{ unread_count: number }>('/api/notifications/read', {
         method: 'POST',
         body: JSON.stringify(ids ? { ids } : {}),
       }),

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response, Request
 from sqlalchemy.orm import Session
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime, timezone
@@ -80,6 +80,7 @@ def delete_account(
 
 @router.post("/password")
 def change_password(
+    request: Request,
     payload: UserPasswordChange,
     db: Session = Depends(get_db),
     user=Depends(validate_csrf),
@@ -87,6 +88,16 @@ def change_password(
     ok = user_service.change_password(db, user, payload)
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A palavra-passe atual está incorreta")
+    # Invalidate all other sessions so stolen tokens cannot be reused.
+    from app.models import Session as UserSession
+    from app.auth import get_session_token
+
+    current_token = get_session_token(request)
+    q = db.query(UserSession).filter(UserSession.user_id == user.id)
+    if current_token:
+        q = q.filter(UserSession.token != current_token)
+    q.delete(synchronize_session=False)
+    db.commit()
     return {"message": "Palavra-passe atualizada"}
 
 

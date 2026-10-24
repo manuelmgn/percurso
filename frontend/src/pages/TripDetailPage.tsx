@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarDays, FolderOpen, MapPin, StickyNote, Users } from 'lucide-react'
 import { api } from '@/api'
@@ -33,6 +33,8 @@ export function TripDetailPage() {
   const [deleteWarning, setDeleteWarning] = useState<TripDeleteWarning | null>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const detailMapRef = useRef<HTMLDivElement | null>(null)
+  const [showDetailMap, setShowDetailMap] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -47,6 +49,30 @@ export function TripDetailPage() {
     }
     load()
   }, [id, t])
+
+  useEffect(() => {
+    if (!trip || trip.places.length === 0) {
+      setShowDetailMap(false)
+      return
+    }
+    const el = detailMapRef.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setShowDetailMap(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShowDetailMap(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [trip])
 
   const tripMarkers = useMemo(
     () =>
@@ -246,8 +272,12 @@ export function TripDetailPage() {
         {/* Right column: map, mini stats, notes, companions, projects. */}
         <div className="flex flex-col gap-6 lg:col-span-5">
           {trip.places.length > 0 && (
-            <div className="relative overflow-hidden rounded-card shadow-card">
-              <MapView variant="detailed" markers={tripMarkers} height="232px" connectMarkers />
+            <div ref={detailMapRef} className="relative h-[232px] overflow-hidden rounded-card shadow-card">
+              {showDetailMap ? (
+                <MapView variant="detailed" markers={tripMarkers} height="232px" connectMarkers />
+              ) : (
+                <div className="h-full w-full bg-fill" />
+              )}
             </div>
           )}
 
