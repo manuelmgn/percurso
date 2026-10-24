@@ -33,7 +33,7 @@ function UserChecklist({
             className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
               checked
                 ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                : 'border-line text-ink hover:bg-line/40 dark:border-[#322A23] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
+                : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
             }`}
           >
             <input
@@ -239,7 +239,7 @@ export function TripEditPage() {
                       className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
                         checked
                           ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                          : 'border-line text-ink hover:bg-line/40 dark:border-[#322A23] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
+                          : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
                       }`}
                     >
                       <input
@@ -263,7 +263,7 @@ export function TripEditPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.galleryLabel')}</label>
-            <div className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-muted dark:border-[#322A23]">
+            <div className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-muted">
               {t('tripEdit.galleryComingSoon')}
             </div>
           </div>

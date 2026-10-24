@@ -159,7 +159,7 @@ export function ProjectsPage() {
                   className="card block"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
+                    <p className="font-display font-semibold text-ink">
                       {project.name}
                     </p>
                     {project.is_completed && (
@@ -174,7 +174,7 @@ export function ProjectsPage() {
                     </p>
                   )}
                   <div className="mt-4">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-line dark:bg-[#322A23]">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-line">
                       <div
                         className="h-full rounded-full bg-primary-600 transition-all"
                         style={{ width: `${project.progress_percent}%` }}

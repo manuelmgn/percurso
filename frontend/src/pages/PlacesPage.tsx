@@ -205,7 +205,7 @@ export function PlacesPage() {
                 return (
                   <Link key={place.id} to={`/lugares/${place.id}`} className="card block">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
+                      <p className="font-display font-semibold text-ink">
                         {place.name}
                       </p>
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">

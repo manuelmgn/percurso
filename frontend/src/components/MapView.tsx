@@ -19,7 +19,7 @@ function MapLoading({ height }: { height: string }) {
   return (
     <div
       style={{ height }}
-      className="flex w-full items-center justify-center rounded-card border border-line bg-surface text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18]"
+      className="flex w-full items-center justify-center rounded-card border border-line bg-surface text-sm text-muted"
       role="status"
     >
       {t('map.loading')}

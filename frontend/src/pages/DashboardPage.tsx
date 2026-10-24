@@ -213,7 +213,7 @@ export function DashboardPage() {
       {/* Hero map + yearly stats panel */}
       <section className="grid gap-6 lg:grid-cols-12">
         {hasMap && (
-          <div className="relative h-[300px] overflow-hidden rounded-card shadow-card md:h-[390px] lg:col-span-8 dark:border dark:border-[#322A23] dark:shadow-none">
+          <div className="relative h-[300px] overflow-hidden rounded-card shadow-card md:h-[390px] lg:col-span-8 dark:border dark:shadow-none">
             <MapView
               variant="minimal"
               height="100%"
@@ -222,19 +222,19 @@ export function DashboardPage() {
             <RouteOverlay className="pointer-events-none absolute inset-x-[8%] top-[18%] z-[500] w-[65%]" />
             <Link
               to="/lugares"
-              className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-pill bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-pop dark:bg-[#221D18]"
+              className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-pill bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-pop"
             >
               {t('dashboard.viewPlaces')} <ArrowRight size={14} aria-hidden="true" />
             </Link>
             {nextTrip && (
               <Link
                 to={`/viagens/${nextTrip.id}`}
-                className="absolute bottom-4 left-4 z-10 w-[min(392px,90%)] rounded-2xl bg-surface p-3 shadow-pop transition-shadow hover:shadow-card-hover dark:bg-[#221D18]"
+                className="absolute bottom-4 left-4 z-10 w-[min(392px,90%)] rounded-2xl bg-surface p-3 shadow-pop transition-shadow hover:shadow-card-hover"
               >
                 <p className="text-[11px] font-bold uppercase tracking-[1.5px] text-primary">
                   {t('dashboard.nextTrip')}
                 </p>
-                <p className="mt-0.5 truncate font-display text-lg font-bold text-ink dark:text-[#FAF7F2]">
+                <p className="mt-0.5 truncate font-display text-lg font-bold text-ink">
                   {formatTripTitle(nextTrip, user)}
                 </p>
                 <p className="mt-0.5 text-[13px] text-muted">
@@ -252,7 +252,7 @@ export function DashboardPage() {
             <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
             <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
             <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
-            <Stat value={regionCount} label={t('stats.regions')} className="text-ink dark:text-[#FAF7F2]" />
+            <Stat value={regionCount} label={t('stats.regions')} className="text-ink" />
           </div>
           {user?.yearly_trip_goal != null && (
             <>
@@ -319,9 +319,9 @@ export function DashboardPage() {
               <ul className="space-y-3">
                 {topProjects.map((project) => (
                   <li key={project.id} className="group relative">
-                    <Link to={`/projetos/${project.id}`} className="block rounded-xl p-2 transition-colors hover:bg-line/40 dark:hover:bg-[#322A23]/40">
-                      <p className="pr-8 font-medium text-ink dark:text-[#FAF7F2]">{project.name}</p>
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded-pill bg-line dark:bg-[#322A23]">
+                    <Link to={`/projetos/${project.id}`} className="block rounded-xl p-2 transition-colors hover:bg-line/40 dark:hover:bg-fill/40">
+                      <p className="pr-8 font-medium text-ink">{project.name}</p>
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-pill bg-line">
                         <div
                           className="h-full rounded-pill bg-brand transition-all"
                           style={{ width: `${project.progress_percent}%` }}
@@ -352,9 +352,9 @@ export function DashboardPage() {
                   />
                   <Link
                     to={item.type === 'project' ? `/projetos/${item.id}` : `/viagens/${item.id}`}
-                    className="-mt-0.5 block rounded-xl px-1 py-0.5 transition-colors hover:bg-line/40 dark:hover:bg-[#322A23]/40"
+                    className="-mt-0.5 block rounded-xl px-1 py-0.5 transition-colors hover:bg-line/40 dark:hover:bg-fill/40"
                   >
-                    <p className="truncate font-medium text-ink dark:text-[#FAF7F2]">{item.label}</p>
+                    <p className="truncate font-medium text-ink">{item.label}</p>
                     <p className="text-xs text-muted">{item.sub}</p>
                   </Link>
                 </li>

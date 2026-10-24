@@ -9,7 +9,7 @@ interface NotesEditorProps {
 }
 
 const toolbarButtonClass =
-  'rounded-lg px-2 py-1 text-sm font-medium text-muted transition-colors hover:bg-line/40 disabled:opacity-50 dark:hover:bg-[#322A23]'
+  'rounded-lg px-2 py-1 text-sm font-medium text-muted transition-colors hover:bg-line/40 disabled:opacity-50 dark:hover:bg-fill'
 
 // Keep in sync with ALLOWED_FONT_FACES in backend/app/sanitize.py.
 const FONT_OPTIONS = [
@@ -105,8 +105,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-[#322A23] dark:bg-[#221D18]">
-      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1 dark:border-[#322A23]">
+    <div className="rounded-xl border border-line bg-surface transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1">
         <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title={t('notesEditor.bold')} aria-label={t('notesEditor.bold')}>
           B
         </button>
@@ -131,7 +131,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <select
           onChange={handleFontChange}
           defaultValue=""
-          className="rounded-lg bg-transparent px-1 py-1 text-sm text-muted hover:bg-line/40 dark:hover:bg-[#322A23]"
+          className="rounded-lg bg-transparent px-1 py-1 text-sm text-muted hover:bg-line/40 dark:hover:bg-fill"
           title={t('notesEditor.font')}
           aria-label={t('notesEditor.font')}
         >
@@ -256,13 +256,13 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         contentEditable
         onInput={handleInput}
         data-placeholder={placeholder || t('notesEditor.placeholder')}
-        className="notes-content min-h-[120px] px-4 py-3 text-sm text-ink outline-none empty:before:text-muted empty:before:content-[attr(data-placeholder)] dark:text-[#FAF7F2]"
+        className="notes-content min-h-[120px] px-4 py-3 text-sm text-ink outline-none empty:before:text-muted empty:before:content-[attr(data-placeholder)]"
         role="textbox"
         aria-multiline="true"
         aria-label={t('notesEditor.aria')}
       />
       {uploadError && (
-        <p className="border-t border-line px-4 py-2 text-xs text-red-700 dark:border-[#322A23] dark:text-red-300">
+        <p className="border-t border-line px-4 py-2 text-xs text-red-700 dark:text-red-300">
           {uploadError}
         </p>
       )}

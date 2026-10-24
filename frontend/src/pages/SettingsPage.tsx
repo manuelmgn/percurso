@@ -293,7 +293,7 @@ export function SettingsPage() {
 
       {/* SECTION 1: PROFILE */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">{t('profile.title')}</h2>
+        <h2 className="font-display text-xl font-bold text-ink">{t('profile.title')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
           {/* Div 1 (left): link to view the profile */}
           <div className="card flex flex-col justify-between">
@@ -303,7 +303,7 @@ export function SettingsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h3 className="font-display text-lg font-semibold text-ink dark:text-[#FAF7F2]">
+              <h3 className="font-display text-lg font-semibold text-ink">
                 {t('settings.profilePublicTitle')}
               </h3>
               <p className="mt-2 text-sm text-muted">
@@ -381,7 +381,7 @@ export function SettingsPage() {
 
             {/* Editable field for the public name */}
             <form onSubmit={handleSaveUsername} className="mt-5 w-full text-left">
-              <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]">
+              <label className="mb-1 block text-sm font-medium text-ink">
                 {t('settings.publicNameLabel')}
               </label>
 
@@ -425,12 +425,12 @@ export function SettingsPage() {
 
       {/* SECTION 2: PREFERENCES */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">{t('profile.preferences')}</h2>
+        <h2 className="font-display text-xl font-bold text-ink">{t('profile.preferences')}</h2>
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
           {/* Div 1: theme choice */}
           <div className="card space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+              <h3 className="font-display text-base font-semibold text-ink">
                 {t('settings.themeSection')}
               </h3>
               <p className="mt-1 text-sm text-muted">
@@ -447,7 +447,7 @@ export function SettingsPage() {
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-medium transition-all ${
                     theme === opt.value
                       ? 'bg-primary-600 text-white shadow-md ring-2 ring-primary/30'
-                      : 'bg-line/40 text-ink hover:bg-line dark:bg-[#322A23] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
+                      : 'bg-line/40 text-ink hover:bg-line dark:hover:bg-fill'
                   }`}
                 >
                   {opt.icon}
@@ -460,7 +460,7 @@ export function SettingsPage() {
           {/* Div 2: timezone and date/time formats */}
           <div className="card space-y-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+              <h3 className="font-display text-base font-semibold text-ink">
                 {t('settings.timezoneDatesSection')}
               </h3>
               <p className="mt-1 text-sm text-muted">
@@ -481,7 +481,7 @@ export function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]" htmlFor="settings-tz">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="settings-tz">
                   {t('settings.timezoneLabel')}
                 </label>
                 <select
@@ -497,7 +497,7 @@ export function SettingsPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]" htmlFor="settings-df">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="settings-df">
                   {t('profile.dateFormat')}
                 </label>
                 <select
@@ -515,7 +515,7 @@ export function SettingsPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]" htmlFor="settings-goal">
+                <label className="mb-1 block text-sm font-medium text-ink" htmlFor="settings-goal">
                   {t('settings.yearlyGoalLabel')}
                 </label>
                 <input
@@ -544,7 +544,7 @@ export function SettingsPage() {
           <div className="card space-y-4 md:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+                <h3 className="font-display text-base font-semibold text-ink">
                   {t('settings.pushTitle')}
                 </h3>
                 <p className="mt-1 text-sm text-muted">
@@ -579,7 +579,7 @@ export function SettingsPage() {
 
       {/* SECTION: RECENT ACTIVITY */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">
+        <h2 className="font-display text-xl font-bold text-ink">
           {t('dashboard.recentActivity')}
         </h2>
         <div className="card">
@@ -597,8 +597,8 @@ export function SettingsPage() {
                 const path = activityEntityPath(activity)
                 return (
                   <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
-                    <p className="text-ink dark:text-[#FAF7F2]">
-                      <span className="font-medium text-ink dark:text-[#FAF7F2]">
+                    <p className="text-ink">
+                      <span className="font-medium text-ink">
                         {activity.user_username}
                       </span>{' '}
                       {t(activityActionKeys[activity.action])} {t(activityEntityKeys[activity.entity_type])}{' '}
@@ -626,11 +626,11 @@ export function SettingsPage() {
 
       {/* SECTION 3: ACCOUNT */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold text-ink dark:text-[#FAF7F2]">{t('settings.accountSection')}</h2>
+        <h2 className="font-display text-xl font-bold text-ink">{t('settings.accountSection')}</h2>
         <div className="card space-y-6">
           {/* Subsection: change password */}
           <div>
-            <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+            <h3 className="font-display text-base font-semibold text-ink">
               {t('settings.passwordSection')}
             </h3>
             <p className="mt-1 text-sm text-muted">
@@ -651,7 +651,7 @@ export function SettingsPage() {
             <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]">
+                  <label htmlFor="settings-current-password" className="mb-1 block text-sm font-medium text-ink">
                     {t('profile.currentPassword')}
                   </label>
                   <input
@@ -665,7 +665,7 @@ export function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-ink dark:text-[#FAF7F2]">
+                  <label htmlFor="settings-new-password" className="mb-1 block text-sm font-medium text-ink">
                     {t('profile.newPassword')}
                   </label>
                   <input
@@ -692,8 +692,8 @@ export function SettingsPage() {
           </div>
 
           {/* Subsection: log out & delete account */}
-          <div className="border-t border-line/50 pt-6 dark:border-[#322A23]/50">
-            <h3 className="font-display text-base font-semibold text-ink dark:text-[#FAF7F2]">
+          <div className="border-t border-line/50 pt-6">
+            <h3 className="font-display text-base font-semibold text-ink">
               {t('settings.accountActionsSection')}
             </h3>
             <p className="mt-1 text-sm text-muted">

@@ -70,7 +70,7 @@ export function SearchPage() {
           autoFocus
           inputMode="search"
           enterKeyHint="search"
-          className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted dark:text-[#FAF7F2] dark:placeholder:text-[#A09A92]"
+          className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted dark:placeholder:text-muted"
         />
       </div>
 
@@ -85,7 +85,7 @@ export function SearchPage() {
       ) : (
         <>
           <p className="text-sm text-muted">
-            {t('search.resultsFor')} <span className="font-medium text-ink dark:text-[#FAF7F2]">«{q}»</span>
+            {t('search.resultsFor')} <span className="font-medium text-ink">«{q}»</span>
           </p>
 
           {error && (
@@ -114,7 +114,7 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.trips.map((trip) => (
                   <Link key={trip.id} to={`/viagens/${trip.id}`} className="card block">
-                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
+                    <p className="font-display font-semibold text-ink">
                       {formatTripTitle(trip, user)}
                     </p>
                     <p className="mt-2 text-sm text-muted">
@@ -134,7 +134,7 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.projects.map((project) => (
                   <Link key={project.id} to={`/projetos/${project.id}`} className="card block">
-                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
+                    <p className="font-display font-semibold text-ink">
                       {project.name}
                     </p>
                     <p className="mt-2 text-sm text-muted">
@@ -154,7 +154,7 @@ export function SearchPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {results.places.map((place) => (
                   <Link key={place.id} to={`/lugares/${place.id}`} className="card block">
-                    <p className="font-display font-semibold text-ink dark:text-[#FAF7F2]">
+                    <p className="font-display font-semibold text-ink">
                       {place.name}
                     </p>
                     <p className="mt-2 text-sm text-muted">

@@ -30,7 +30,7 @@ export function Sidebar() {
   const { unreadCount } = useUnreadCount()
 
   return (
-    <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border dark:border-[#322A23] dark:bg-[#221D18]">
+    <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border">
       {/* Logo */}
       <div className="flex items-center gap-3 px-2 pt-2">
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-tint dark:bg-primary/20">
@@ -83,7 +83,7 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="mt-auto flex items-center gap-1 rounded-2xl bg-bg p-2 dark:bg-[#191512]">
+      <div className="mt-auto flex items-center gap-1 rounded-2xl bg-bg p-2">
         <Link to="/definicoes" className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-opacity hover:opacity-80">
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -102,7 +102,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={logout}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-line/50 hover:text-ink dark:hover:bg-[#322A23] dark:hover:text-[#FAF7F2]"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-line/50 hover:text-ink dark:hover:bg-fill"
           aria-label={t('sidebar.logoutAria')}
           title={t('nav.logout')}
         >

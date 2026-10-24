@@ -19,7 +19,7 @@ export function ProgressGoal({ current, total, year }: ProgressGoalProps) {
         <span className="text-[13px] font-bold">{current} / {total}</span>
       </div>
       <div
-        className="mt-2 h-2.5 overflow-hidden rounded-pill bg-line dark:bg-[#322A23]"
+        className="mt-2 h-2.5 overflow-hidden rounded-pill bg-line"
         role="progressbar"
         aria-label={t('goal.label', { year: goalYear })}
         aria-valuenow={current}

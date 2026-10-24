@@ -174,7 +174,7 @@ export function AdminPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-left dark:border-[#322A23]">
+              <tr className="border-b border-line text-left">
                 <th className="pb-2 font-medium">{t('admin.tableUser')}</th>
                 <th className="pb-2 font-medium">{t('admin.tableRole')}</th>
                 <th className="pb-2 font-medium">{t('admin.tableStatus')}</th>
@@ -183,7 +183,7 @@ export function AdminPage() {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-line/50 dark:border-[#322A23]/50">
+                <tr key={user.id} className="border-b border-line/50">
                   <td className="py-3">{user.username}</td>
                   <td className="py-3">{user.role === 'admin' ? t('admin.roleAdmin') : t('admin.roleUser')}</td>
                   <td className="py-3">
@@ -191,7 +191,7 @@ export function AdminPage() {
                       className={`rounded-full px-2 py-1 text-xs ${
                         user.is_active
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                          : 'bg-line/40 text-muted dark:bg-[#322A23]'
+                          : 'bg-line/40 text-muted dark:bg-fill'
                       }`}
                     >
                       {user.is_active ? t('admin.statusActive') : t('admin.statusInactive')}
@@ -201,13 +201,13 @@ export function AdminPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleToggleActive(user)}
-                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23]/70 dark:hover:bg-[#322A23]"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line/70 dark:hover:bg-fill"
                       >
                         {user.is_active ? t('admin.actionDeactivate') : t('admin.actionActivate')}
                       </button>
                       <button
                         onClick={() => handleResetPassword(user)}
-                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23]/70 dark:hover:bg-[#322A23]"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line/70 dark:hover:bg-fill"
                       >
                         {t('admin.actionResetPassword')}
                       </button>

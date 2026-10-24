@@ -17,7 +17,7 @@ export function MobileNav() {
 
   return (
     <nav
-      className="fixed inset-x-4 z-40 flex items-center justify-between rounded-pill bg-surface px-2 py-2 shadow-pop md:hidden dark:border dark:border-[#322A23] dark:bg-[#221D18]"
+      className="fixed inset-x-4 z-40 flex items-center justify-between rounded-pill bg-surface px-2 py-2 shadow-pop md:hidden dark:border"
       style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       aria-label={t('nav.main')}
     >

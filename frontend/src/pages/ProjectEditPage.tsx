@@ -30,7 +30,7 @@ function UserChecklist({
             className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
               checked
                 ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                : 'border-line text-ink hover:bg-line/40 dark:border-[#322A23] dark:text-[#FAF7F2] dark:hover:bg-[#322A23]'
+                : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
             }`}
           >
             <input
@@ -202,7 +202,7 @@ export function ProjectEditPage() {
             {mixedTypes ? (
               <div>
                 <label className="mb-1 block text-sm font-medium">{t('projectEdit.mapModeLabel')}</label>
-                <p className="rounded-lg border border-line bg-line/40 px-4 py-2 text-sm text-muted dark:border-[#322A23] dark:bg-[#221D18]">
+                <p className="rounded-lg border border-line bg-line/40 px-4 py-2 text-sm text-muted">
                   {t('projectEdit.mapModeMixedTypes')}
                 </p>
               </div>

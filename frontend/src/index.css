@@ -73,7 +73,7 @@
 @layer components {
   /* Base card — white solid, 24px radius, warm soft shadow (rediseño §3.2) */
   .card {
-    @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:border-line dark:shadow-none;
+    @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:shadow-none;
   }
 
   /* Interactive cards: soft lift on hover, quick press feedback. */
@@ -96,11 +96,11 @@
   }
 
   .btn-outline {
-    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-line/40 focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.97] dark:border-line dark:hover:bg-line/40;
+    @apply inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-line/40 focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.97] dark:hover:bg-line/40;
   }
 
   .input {
-    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-line;
+    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20;
   }
 
   /* Dropdowns using .input drop the native arrow and get a chevron that
@@ -120,10 +120,10 @@
 
   /* Filter chip (listing pages) */
   .chip {
-    @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink dark:border-line;
+    @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink;
   }
   .chip[data-active='true'] {
-    @apply border-ink bg-ink text-white dark:text-ink;
+    @apply border-ink bg-ink text-white;
   }
 
   /* Status chip over trip photos */
@@ -133,7 +133,7 @@
 
   /* Pill search box (header) */
   .search-pill {
-    @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:border-line dark:shadow-none;
+    @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:shadow-none;
   }
 
   /* Info tooltip (ui/InfoTooltip.tsx): a tiny semi-transparent bubble with a
@@ -143,7 +143,7 @@
   }
 
   .info-tooltip-bubble {
-    @apply pointer-events-none absolute bottom-full z-50 mb-2 w-max max-w-[min(240px,calc(100vw-2rem))] rounded-xl border border-white/10 bg-ink/80 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-surface shadow-pop backdrop-blur-sm transition-opacity duration-150 dark:border-line/60 dark:bg-surface/90 dark:text-ink;
+    @apply pointer-events-none absolute bottom-full z-50 mb-2 w-max max-w-[min(240px,calc(100vw-2rem))] rounded-xl border border-white/10 bg-ink/80 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-surface shadow-pop backdrop-blur-sm transition-opacity duration-150/60/90;
   }
 
   /* Sidebar navigation item */

@@ -25,7 +25,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-[#191512] dark:to-[#221D18]">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-bg dark:to-surface">
       <div className="mb-6 flex flex-col items-center gap-4 text-center">
         <div className="grid h-16 w-16 place-items-center rounded-3xl bg-primary-tint shadow-card dark:bg-primary/20">
           <img src="/images/percurso-icono.svg" alt="" className="h-10 w-10" />

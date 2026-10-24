@@ -307,7 +307,7 @@ export function ProjectDetailPage() {
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
-            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-[#191512]"
+            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-bg"
           >
             {t('actions.delete')}
           </button>
@@ -353,7 +353,7 @@ export function ProjectDetailPage() {
           )}
         </div>
         {project.description && (
-          <p className="mt-2 whitespace-pre-line text-ink dark:text-[#FAF7F2]">{project.description}</p>
+          <p className="mt-2 whitespace-pre-line text-ink">{project.description}</p>
         )}
         <p className="mt-3 text-sm text-muted">
           {t('projects.visibility')}: {t(visibilityKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
@@ -367,7 +367,7 @@ export function ProjectDetailPage() {
         <div className="mt-4">
           {project.total_places > 0 ? (
             <>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-line dark:bg-[#322A23]">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-line">
                 <div
                   className="h-full rounded-full bg-primary-600 transition-all"
                   style={{ width: `${project.progress_percent}%` }}
@@ -404,7 +404,7 @@ export function ProjectDetailPage() {
             {project.places.map((place) => (
               <li
                 key={place.id}
-                className="rounded-xl border border-line p-3 dark:border-[#322A23]"
+                className="rounded-xl border border-line p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
@@ -423,7 +423,7 @@ export function ProjectDetailPage() {
                       {t('projects.visited')}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-line/40 px-2 py-0.5 text-xs font-medium text-muted dark:bg-[#322A23] dark:text-muted">
+                    <span className="rounded-full bg-line/40 px-2 py-0.5 text-xs font-medium text-muted dark:bg-fill dark:text-muted">
                       {t('projects.pending')}
                     </span>
                   )}
@@ -438,7 +438,7 @@ export function ProjectDetailPage() {
                     <button
                       onClick={() => handleToggleUnmark(place.place_id)}
                       disabled={busyPlaceId === place.place_id}
-                      className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line disabled:opacity-50 dark:bg-[#322A23] dark:hover:bg-[#322A23]"
+                      className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line disabled:opacity-50 dark:bg-fill dark:hover:bg-fill"
                     >
                       {place.is_unmarked ? t('projects.markVisitedAgain') : t('projects.unmarkVisit')}
                     </button>
@@ -455,7 +455,7 @@ export function ProjectDetailPage() {
                       <button
                         onClick={() => setRemovingPlaceId(null)}
                         disabled={busyPlaceId === place.place_id}
-                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:bg-[#322A23] dark:hover:bg-[#322A23]"
+                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:hover:bg-fill"
                       >
                         {t('actions.cancel')}
                       </button>
@@ -475,7 +475,7 @@ export function ProjectDetailPage() {
           </ul>
         )}
 
-        <div className="mt-6 border-t border-line pt-4 dark:border-[#322A23]">
+        <div className="mt-6 border-t border-line pt-4">
           <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
           <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
           {isAddingPlace && (
@@ -483,7 +483,7 @@ export function ProjectDetailPage() {
           )}
         </div>
 
-        <div className="mt-6 border-t border-line pt-4 dark:border-[#322A23]">
+        <div className="mt-6 border-t border-line pt-4">
           <button onClick={() => setShowBulk((v) => !v)} className="btn-outline">
             {showBulk ? t('bulkImport.close') : t('bulkImport.title')}
           </button>
@@ -535,7 +535,7 @@ export function ProjectDetailPage() {
               </button>
 
               {bulkLines && (
-                <div className="space-y-3 rounded-xl border border-line p-4 dark:border-[#322A23]">
+                <div className="space-y-3 rounded-xl border border-line p-4">
                   {bulkSelectableTypes.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-muted">
@@ -564,7 +564,7 @@ export function ProjectDetailPage() {
                             : undefined
                         }
                       >
-                        <p className="text-sm font-medium text-ink dark:text-[#FAF7F2]">{line.line}</p>
+                        <p className="text-sm font-medium text-ink">{line.line}</p>
                         {line.status === 'resolved' && line.selected && (
                           <p className="mt-1 text-sm text-green-700 dark:text-green-300">
                             ✓ {formatCandidate(line.selected)}
@@ -575,7 +575,7 @@ export function ProjectDetailPage() {
                             {line.candidates.map((candidate) => (
                               <label
                                 key={`${candidate.osm_type}-${candidate.osm_id}`}
-                                className="flex items-center gap-2 text-sm text-ink dark:text-[#FAF7F2]"
+                                className="flex items-center gap-2 text-sm text-ink"
                               >
                                 <input
                                   type="radio"
@@ -608,7 +608,7 @@ export function ProjectDetailPage() {
                     ))}
                   </ul>
                   {bulkNotFound.length > 0 && (
-                    <div className="rounded-lg bg-line/40 px-3 py-2 dark:bg-[#322A23]/60">
+                    <div className="rounded-lg bg-line/40 px-3 py-2 dark:bg-fill/60">
                       <p className="text-xs font-medium text-muted">
                         {bulkNotFound.length === 1
                           ? t('bulkImport.notFoundOne')
