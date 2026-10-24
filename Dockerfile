@@ -45,3 +45,6 @@ COPY crontab /app/crontab
 EXPOSE 8000
 
 CMD ["sh", "-c", "mkdir -p /var/log && touch /var/log/percursos-backup.log && supercronic /app/crontab >> /var/log/percursos-backup.log 2>&1 & uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+# Init script
+COPY scripts/init_prepare.py /app/init_prepare.py
+RUN chmod +x /app/init_prepare.py

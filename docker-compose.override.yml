@@ -1,0 +1,6 @@
+# Local override to ensure init runs before app
+services:
+  app:
+    depends_on:
+      init:
+        condition: service_completed_successfully
