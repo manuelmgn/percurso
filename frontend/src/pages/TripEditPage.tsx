@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { formatTripDateRange } from '@/utils/format'
 import type { ProjectListItem, User, Visibility } from '@/types'
 
@@ -174,10 +175,7 @@ export function TripEditPage() {
           <div>
             <div className="mb-1 flex items-center gap-2">
               <label className="block text-sm font-medium" htmlFor="title">{t('tripEdit.titleLabel')}</label>
-              <span className="group relative">
-                <span className="tooltip-question">?</span>
-                <span className="tooltip">{t('tripEdit.titleHint')}</span>
-              </span>
+              <InfoTooltip text={t('tripEdit.titleHint')} />
             </div>
             <input
               id="title"
@@ -209,10 +207,7 @@ export function TripEditPage() {
             <div>
               <div className="mb-1 flex items-center gap-2">
                 <label className="block text-sm font-medium" htmlFor="end_date">{t('tripEdit.endDateLabel')}</label>
-                <span className="group relative">
-                  <span className="tooltip-question">?</span>
-                  <span className="tooltip">{t('tripEdit.endDateHint')}</span>
-                </span>
+                <InfoTooltip text={t('tripEdit.endDateHint')} />
               </div>
               <input
                 id="end_date"

@@ -136,12 +136,14 @@
     @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:border-line dark:shadow-none;
   }
 
-  .tooltip {
-    @apply pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink/80 px-2 py-0.5 text-[11px] text-surface opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 dark:bg-[#FAF7F2]/90 dark:text-ink;
+  /* Info tooltip (ui/InfoTooltip.tsx): a tiny semi-transparent bubble with a
+     clear "?" in the middle, plus its semi-transparent hint bubble. */
+  .info-tooltip-trigger {
+    @apply inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold leading-none text-primary backdrop-blur-sm transition-colors hover:bg-primary/20 dark:border-primary/30 dark:bg-primary/20;
   }
 
-  .tooltip-question {
-    @apply inline-flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold text-muted transition-colors hover:text-ink;
+  .info-tooltip-bubble {
+    @apply pointer-events-none absolute bottom-full z-50 mb-2 w-max max-w-[min(240px,calc(100vw-2rem))] rounded-xl border border-white/10 bg-ink/80 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-surface shadow-pop backdrop-blur-sm transition-opacity duration-150 dark:border-line/60 dark:bg-surface/90 dark:text-ink;
   }
 
   /* Sidebar navigation item */
