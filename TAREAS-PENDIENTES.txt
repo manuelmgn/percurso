@@ -5,4 +5,5 @@
 # No se borran comentarios (líneas que comienzan por #)
 # -----------------------------------------------
 
-
+- Repaso general de todos los archivos de la app y consecuente revision
+- Ultimar detalles para que la app pase a produccion

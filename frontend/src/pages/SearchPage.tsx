@@ -71,7 +71,7 @@ export function SearchPage() {
           autoFocus
           inputMode="search"
           enterKeyHint="search"
-          className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted dark:placeholder:text-muted"
+          className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted focus-visible:ring-0 focus-visible:ring-offset-0 dark:placeholder:text-muted"
         />
       </div>
 

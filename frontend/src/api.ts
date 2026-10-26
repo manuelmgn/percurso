@@ -72,7 +72,7 @@ const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
   photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   pins: ['/api/pins'],
-  me: ['/api/me', '/api/users/public'],
+  me: ['/api/me', '/api/auth/me', '/api/users/public'],
   users: ['/api/users'],
   auth: ['/api/'],
   admin: ['/api/'],
