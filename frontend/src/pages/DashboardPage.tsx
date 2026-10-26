@@ -241,20 +241,22 @@ export function DashboardPage() {
           </div>
         )}
 
-        <aside className={`card flex flex-col ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
-          <h2 className="font-display text-lg font-bold">{t('stats.yearInNumbers')}</h2>
-          <div className={`mt-5 grid grid-cols-2 gap-5 ${hasMap ? '' : 'sm:grid-cols-4'}`}>
-            <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
-            <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
-            <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
-            <Stat value={regionCount} label={t('stats.regions')} className="text-ink" />
+        <aside className={`flex flex-col gap-5 ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
+          <h2 className="font-display text-[22px] font-bold">{t('stats.yearInNumbers')}</h2>
+          <div className="card flex flex-1 flex-col">
+            <div className={`grid grid-cols-2 gap-5 ${hasMap ? '' : 'sm:grid-cols-4'}`}>
+              <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
+              <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
+              <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
+              <Stat value={regionCount} label={t('stats.regions')} className="text-ink" />
+            </div>
+            {user?.yearly_trip_goal != null && (
+              <>
+                <hr className="my-5 border-line" />
+                <ProgressGoal current={tripsThisYear} total={user.yearly_trip_goal} />
+              </>
+            )}
           </div>
-          {user?.yearly_trip_goal != null && (
-            <>
-              <hr className="my-5 border-line" />
-              <ProgressGoal current={tripsThisYear} total={user.yearly_trip_goal} />
-            </>
-          )}
         </aside>
       </section>
 
