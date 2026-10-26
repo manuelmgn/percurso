@@ -10,7 +10,9 @@ interface NotesEditorProps {
 }
 
 const toolbarButtonClass =
-  'rounded-lg px-2 py-1 text-sm font-medium text-muted transition-colors hover:bg-line/40 disabled:opacity-50 dark:hover:bg-fill'
+  'inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5 text-sm font-medium text-muted transition-colors hover:bg-line/50 hover:text-ink disabled:opacity-50 dark:hover:bg-fill/60'
+
+const toolbarIconButtonClass = `${toolbarButtonClass} w-8 px-0`
 
 // Keep in sync with ALLOWED_FONT_FACES in backend/app/sanitize.py.
 const FONT_OPTIONS = [
@@ -106,8 +108,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-      <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1">
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-line bg-fill/60 px-2 py-1.5 dark:bg-fill/40">
         <button type="button" onClick={() => exec('bold')} className={`${toolbarButtonClass} font-bold`} title={t('notesEditor.bold')} aria-label={t('notesEditor.bold')}>
           B
         </button>
@@ -132,7 +134,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <select
           onChange={handleFontChange}
           defaultValue=""
-          className="rounded-lg bg-transparent px-1 py-1 text-sm text-muted hover:bg-line/40 dark:hover:bg-fill"
+          className="input ml-1 h-8 w-auto py-0 pl-3 pr-8 text-xs"
           title={t('notesEditor.font')}
           aria-label={t('notesEditor.font')}
         >
@@ -148,7 +150,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={() => exec('formatBlock', 'blockquote')}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.quote')}
           aria-label={t('notesEditor.quote')}
         >
@@ -159,7 +161,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={() => exec('insertUnorderedList')}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.bulletedList')}
           aria-label={t('notesEditor.bulletedList')}
         >
@@ -175,7 +177,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={() => exec('insertOrderedList')}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.numberedList')}
           aria-label={t('notesEditor.numberedList')}
         >
@@ -191,7 +193,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={handleLink}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.link')}
           aria-label={t('notesEditor.link')}
         >
@@ -204,7 +206,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.image')}
           aria-label={t('notesEditor.image')}
         >
@@ -217,7 +219,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={handleVideo}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.video')}
           aria-label={t('notesEditor.video')}
         >
@@ -229,7 +231,7 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button
           type="button"
           onClick={() => exec('removeFormat')}
-          className={toolbarButtonClass}
+          className={toolbarIconButtonClass}
           title={t('notesEditor.clearFormatting')}
           aria-label={t('notesEditor.clearFormatting')}
         >

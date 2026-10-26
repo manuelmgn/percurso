@@ -29,7 +29,8 @@ async def search_places(
         osm_results = []
 
     # Combine (cache first), deduplicate by OSM identity, rank by relevance
-    return place_service.merge_dedup_rank(cached_results, place_service.rank_results(osm_results, q), limit=10)
+    ranked_osm = place_service.rank_results(osm_results, q)
+    return place_service.merge_dedup_rank([*cached_results, *ranked_osm], limit=10)
 
 
 @router.get("/visited", response_model=list[PlaceResponse])

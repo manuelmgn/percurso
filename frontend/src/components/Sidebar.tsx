@@ -31,13 +31,17 @@ export function Sidebar() {
 
   return (
     <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border dark:border-line">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-2 pt-2">
+      {/* Logo: clicking it returns to the dashboard, like a wordmark link */}
+      <Link
+        to="/"
+        className="flex items-center gap-3 rounded-2xl px-2 pt-2 transition-colors hover:opacity-85"
+        aria-label={t('nav.home')}
+      >
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-tint dark:bg-primary/20">
           <img src="/images/percurso-icono.svg" alt="" className="h-7 w-7" />
         </div>
         <span className="font-display text-xl font-bold tracking-tight text-primary">{t('app.name')}</span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto" aria-label={t('nav.main')}>
