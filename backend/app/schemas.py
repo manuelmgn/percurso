@@ -370,6 +370,7 @@ class StatsSummary(BaseModel):
     place_count: int
     active_projects: int
     completed_projects: int
+    companion_count: int
 
 
 class ProjectStat(BaseModel):

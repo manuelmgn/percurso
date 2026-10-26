@@ -242,13 +242,14 @@ export function DashboardPage() {
         )}
 
         <aside className={`flex flex-col gap-5 ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
-          <h2 className="font-display text-[22px] font-bold">{t('stats.yearInNumbers')}</h2>
           <div className="card flex flex-1 flex-col">
-            <div className={`grid grid-cols-2 gap-5 ${hasMap ? '' : 'sm:grid-cols-4'}`}>
+            <h2 className="font-display text-[22px] font-bold">{t('stats.yearInNumbers')}</h2>
+            <div className={`mt-5 grid grid-cols-2 gap-5 ${hasMap ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
               <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
               <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
               <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
               <Stat value={regionCount} label={t('stats.regions')} className="text-ink" />
+              <Stat value={stats?.summary.companion_count ?? 0} label={t('stats.companions')} className="text-plum" />
             </div>
             {user?.yearly_trip_goal != null && (
               <>
@@ -296,15 +297,15 @@ export function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Projetos */}
         <section>
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-display text-[22px] font-bold">{t('dashboard.projects')}</h2>
-            {projects.length > 0 && (
-              <Link to="/projetos" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-                {t('dashboard.viewAll')} <ArrowRight size={14} aria-hidden="true" />
-              </Link>
-            )}
-          </div>
           <div className="card">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="font-display text-[22px] font-bold">{t('dashboard.projects')}</h2>
+              {projects.length > 0 && (
+                <Link to="/projetos" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+                  {t('dashboard.viewAll')} <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              )}
+            </div>
             {topProjects.length === 0 ? (
               <div className="py-4 text-center">
                 <p className="text-sm text-muted">{t('dashboard.noProjectsYet')}</p>

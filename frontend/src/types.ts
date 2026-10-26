@@ -355,6 +355,7 @@ export interface StatsSummary {
   place_count: number
   active_projects: number
   completed_projects: number
+  companion_count: number
 }
 
 export interface ProjectStat {

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import User, Place, TripPlace
+from app.models import User, Place, TripPlace, Trip, trip_participants
 from app.schemas import StatsResponse, StatsSummary, ProjectStat, PlaceRanking, RegionStat
 from app.services import visibility_service, project_service
 
@@ -25,6 +25,7 @@ def get_stats(
     region_counter: Counter[str] = Counter()
 
     trip_ids = visibility_service.get_visible_trip_ids(db, user)
+    companion_names: set[str] = set()
     if trip_ids:
         link_rows = (
             db.query(TripPlace.place_id, Place.hierarchy)
@@ -38,6 +39,34 @@ def get_stats(
             region = (hierarchy or {}).get("region")
             if region:
                 region_counter[region] += 1
+
+        # Companheires: distinct users sharing the trips (the owner excluded)
+        # plus free-text companion names (comma-separated list).
+        participant_rows = (
+            db.query(trip_participants.c.user_id)
+            .where(
+                trip_participants.c.trip_id.in_(trip_ids),
+                trip_participants.c.user_id != user.id,
+            )
+            .distinct()
+            .all()
+        )
+        for (participant_id,) in participant_rows:
+            companion_names.add(f"user:{participant_id}")
+        text_companions = (
+            db.query(Trip.companions_text)
+            .filter(
+                Trip.id.in_(trip_ids),
+                Trip.companions_text.isnot(None),
+                Trip.companions_text != "",
+            )
+            .all()
+        )
+        for (companions_text,) in text_companions:
+            for name in str(companions_text).split(","):
+                name = name.strip()
+                if name:
+                    companion_names.add(f"text:{name.lower()}")
 
     # Project progress in two aggregate queries instead of per-project.
     projects = visibility_service.get_visible_projects(db, user)
@@ -84,6 +113,7 @@ def get_stats(
             place_count=len(place_ids),
             active_projects=active_projects,
             completed_projects=completed_projects,
+            companion_count=len(companion_names),
         ),
         project_stats=project_stats,
         region_stats=region_stats,
