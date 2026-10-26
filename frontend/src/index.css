@@ -75,6 +75,12 @@
   .card {
     @apply rounded-card bg-surface p-6 shadow-card transition-shadow duration-200 dark:border dark:shadow-none;
   }
+  /* Dark border colour written manually: Tailwind's @apply drops the colour
+     when `dark:border` and `dark:border-line` appear together, leaving the
+     default (light) border colour in dark mode. */
+  .dark .card {
+    border-color: rgb(var(--color-line) / 1);
+  }
 
   /* Interactive cards: soft lift on hover, quick press feedback. */
   a.card, button.card {
@@ -134,6 +140,9 @@
   /* Pill search box (header) */
   .search-pill {
     @apply flex items-center gap-2.5 rounded-pill bg-surface px-4 py-3 shadow-card dark:border dark:shadow-none;
+  }
+  .dark .search-pill {
+    border-color: rgb(var(--color-line) / 1);
   }
 
   /* Info tooltip (ui/InfoTooltip.tsx): a tiny semi-transparent bubble with a

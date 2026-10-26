@@ -208,7 +208,7 @@ export function DashboardPage() {
       {/* Hero map + yearly stats panel */}
       <section className="grid gap-6 lg:grid-cols-12">
         {hasMap && (
-          <div className="relative h-[300px] overflow-hidden rounded-card shadow-card md:h-[390px] lg:col-span-8 dark:border dark:shadow-none">
+          <div className="relative h-[300px] overflow-hidden rounded-card shadow-card md:h-[390px] lg:col-span-8 dark:border dark:border-line dark:shadow-none">
             <MapView
               variant="minimal"
               height="100%"

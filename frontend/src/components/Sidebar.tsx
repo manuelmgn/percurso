@@ -30,7 +30,7 @@ export function Sidebar() {
   const { unreadCount } = useUnreadCount()
 
   return (
-    <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border">
+    <aside className="sticky top-6 m-6 hidden h-[calc(100vh-3rem)] w-[232px] shrink-0 flex-col rounded-card bg-surface p-4 shadow-card md:flex dark:border dark:border-line">
       {/* Logo */}
       <div className="flex items-center gap-3 px-2 pt-2">
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-tint dark:bg-primary/20">
