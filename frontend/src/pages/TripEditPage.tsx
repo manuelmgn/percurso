@@ -1,54 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
+import { useUnloadGuard } from '@/hooks/useUnloadGuard'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
+import { PillChecklist } from '@/components/ui/PillChecklist'
 import { formatTripDateRange } from '@/utils/format'
 import type { ProjectListItem, User, Visibility } from '@/types'
-
-function UserChecklist({
-  users,
-  selectedIds,
-  onToggle,
-  emptyMessage,
-}: {
-  users: User[]
-  selectedIds: number[]
-  onToggle: (id: number) => void
-  emptyMessage: string
-}) {
-  if (users.length === 0) {
-    return <p className="text-sm text-muted">{emptyMessage}</p>
-  }
-  return (
-    <div className="flex flex-wrap gap-2">
-      {users.map((u) => {
-        const checked = selectedIds.includes(u.id)
-        return (
-          <label
-            key={u.id}
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
-              checked
-                ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => onToggle(u.id)}
-              className="h-4 w-4 rounded border-line text-primary-600 focus:ring-primary"
-            />
-            {u.username}
-          </label>
-        )
-      })}
-    </div>
-  )
-}
 
 export function TripEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -75,16 +39,37 @@ export function TripEditPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // JSON fingerprint of the whole form; frozen once the initial load
+  // finishes. Any later difference arms the "unsaved changes" dialog.
+  const savedFormRef = useRef<string | null>(null)
+  const formFingerprint = JSON.stringify({
+    title, startDate, endDate, notes, companionsText, visibility,
+    places, participantIds, visibleUserIds, projectIds,
+  })
+  if (savedFormRef.current === null && !isLoading) {
+    savedFormRef.current = formFingerprint
+  }
+  const isDirty =
+    savedFormRef.current !== null &&
+    !isSubmitting &&
+    formFingerprint !== savedFormRef.current
+  useUnloadGuard(isDirty)
+
   useEffect(() => {
+    // Cancellation guard: a slow response for trip A must never repopulate
+    // the form after a fast navigation to trip B.
+    let cancelled = false
     const load = async () => {
       try {
-        setIsLoading(true)
         const allUsers = await api.users.list()
+        const projectList = await api.projects.list()
+        if (cancelled) return
         setUsers(allUsers.filter((u) => u.id !== user?.id))
-        setProjects(await api.projects.list())
+        setProjects(projectList)
 
         if (isEdit) {
           const trip = await api.trips.get(Number(id))
+          if (cancelled) return
           setTitle(trip.title || '')
           setStartDate(trip.start_date)
           setEndDate(trip.end_date)
@@ -103,13 +88,15 @@ export function TripEditPage() {
           setVisibleUserIds(trip.visible_users.map((u) => u.id))
           setProjectIds(trip.projects.map((p) => p.id))
         }
-      } catch (err: any) {
-        setError(err.message || t('tripEdit.loadError'))
+      } catch (err) {
+        if (!cancelled) setError(getErrorMessage(err, t('tripEdit.loadError')))
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
+    setIsLoading(true)
     load()
+    return () => { cancelled = true }
   }, [id, isEdit, user?.id, t])
 
   const toggleId = (list: number[], idToToggle: number) =>
@@ -134,15 +121,12 @@ export function TripEditPage() {
     }
 
     try {
-      if (isEdit) {
-        const trip = await api.trips.update(Number(id), data)
-        navigate(`/viagens/${trip.id}`)
-      } else {
-        const trip = await api.trips.create(data)
-        navigate(`/viagens/${trip.id}`)
-      }
-    } catch (err: any) {
-      setError(err.message || t('trips.saveError'))
+      const trip = isEdit
+        ? await api.trips.update(Number(id), data)
+        : await api.trips.create(data)
+      navigate(`/viagens/${trip.id}`)
+    } catch (err) {
+      setError(getErrorMessage(err, t('trips.saveError')))
       setIsSubmitting(false)
     }
   }
@@ -152,12 +136,7 @@ export function TripEditPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   return (
@@ -165,11 +144,7 @@ export function TripEditPage() {
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('tripEdit.editTitle') : t('tripEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl">
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {error}
-          </div>
-        )}
+        <ErrorBanner className="mb-4" message={error} />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -230,29 +205,12 @@ export function TripEditPage() {
             {projects.length === 0 ? (
               <p className="text-sm text-muted">{t('tripEdit.noProjectsAvailable')}</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {projects.map((p) => {
-                  const checked = projectIds.includes(p.id)
-                  return (
-                    <label
-                      key={p.id}
-                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
-                        checked
-                          ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                          : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => setProjectIds((prev) => toggleId(prev, p.id))}
-                        className="h-4 w-4 rounded border-line text-primary-600 focus:ring-primary"
-                      />
-                      {p.name}
-                    </label>
-                  )
-                })}
-              </div>
+              <PillChecklist
+                items={projects.map((p) => ({ id: p.id, label: p.name }))}
+                selectedIds={projectIds}
+                onToggle={(pid) => setProjectIds((prev) => toggleId(prev, pid))}
+                emptyMessage={t('tripEdit.noProjectsAvailable')}
+              />
             )}
           </div>
 
@@ -283,8 +241,8 @@ export function TripEditPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">{t('tripEdit.participantsLabel')}</label>
-              <UserChecklist
-                users={users}
+              <PillChecklist
+                items={users.map((u) => ({ id: u.id, label: u.username }))}
                 selectedIds={participantIds}
                 onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
                 emptyMessage={t('tripEdit.noOtherUsers')}
@@ -320,8 +278,8 @@ export function TripEditPage() {
           {visibility === 'specific' && (
             <div>
               <label className="mb-1 block text-sm font-medium">{t('tripEdit.visibleToLabel')}</label>
-              <UserChecklist
-                users={users}
+              <PillChecklist
+                items={users.map((u) => ({ id: u.id, label: u.username }))}
                 selectedIds={visibleUserIds}
                 onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
                 emptyMessage={t('tripEdit.noOtherUsers')}

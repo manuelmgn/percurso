@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Route } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
+import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { TripCard } from '@/components/ui/TripCard'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import { formatTripTitle } from '@/utils/format'
 import { getTripStatus, type TripStatus } from '@/utils/tripStatus'
 import type { TripListItem } from '@/types'
@@ -22,45 +25,16 @@ const DEFAULT_FILTERS: TripFilters = { query: '', sort: 'recent', status: 'todas
 
 const STATUS_FILTERS: TripStatusFilter[] = ['todas', 'planeada', 'em_curso', 'concluida']
 
-function storageKey(userId: number | undefined): string {
-  return `viagens:filters:${userId ?? 'anon'}`
-}
-
-function loadFilters(userId: number | undefined): TripFilters {
-  try {
-    const raw = localStorage.getItem(storageKey(userId))
-    if (!raw) return DEFAULT_FILTERS
-    return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<TripFilters>) }
-  } catch {
-    return DEFAULT_FILTERS
-  }
-}
-
 export function TripsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [trips, setTrips] = useState<TripListItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [filters, setFilters] = useState<TripFilters>(() => loadFilters(user?.id))
-
-  useEffect(() => {
-    localStorage.setItem(storageKey(user?.id), JSON.stringify(filters))
-  }, [filters, user?.id])
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setTrips(await api.trips.list())
-      } catch (err: any) {
-        setError(err.message || t('trips.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [t])
+  const { data: trips, isLoading, error } = useApiResource<TripListItem[]>(
+    () => api.trips.list(),
+    [],
+    [],
+  )
+  // Filters survive navigation, scoped per user (shared hook).
+  const [filters, setFilters] = usePersistentFilters<TripFilters>('viagens:filters', user?.id, DEFAULT_FILTERS)
 
   const visibleTrips = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
@@ -86,12 +60,7 @@ export function TripsPage() {
   }, [trips, filters, user])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   return (
@@ -102,12 +71,7 @@ export function TripsPage() {
           {t('trips.create')}
         </Link>
       </div>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error} />
 
       {trips.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">

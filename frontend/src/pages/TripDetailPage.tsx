@@ -2,24 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarDays, FolderOpen, MapPin, StickyNote, Users } from 'lucide-react'
 import { api } from '@/api'
+import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import { TripPhotos } from '@/components/TripPhotos'
 import { getTripStatus } from '@/utils/tripStatus'
-import { formatDate, formatTripDateRange, formatTripTitle } from '@/utils/format'
+import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
 
 // Rotating accent colours for the itinerary timeline nodes.
 const DAY_COLORS = ['#C1075D', '#E06F56', '#6B21A8', '#FFD64E']
-
-function tripDayCount(startDate: string, endDate: string): number {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T00:00:00`)
-  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
-}
 
 export function TripDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,28 +23,20 @@ export function TripDetailPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
 
-  const [trip, setTrip] = useState<Trip | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  // Page data via the shared hook: cancellation guard included (a slow
+  // response for trip A can no longer overwrite trip B after a fast
+  // navigation between them).
+  const { data: trip, isLoading, error } = useApiResource<Trip>(
+    () => api.trips.get(Number(id)),
+    [id],
+  )
   const [deleteWarning, setDeleteWarning] = useState<TripDeleteWarning | null>(null)
+  // Errors from mutations (delete flow); load errors live in `error`.
+  const [actionError, setActionError] = useState('')
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const detailMapRef = useRef<HTMLDivElement | null>(null)
   const [showDetailMap, setShowDetailMap] = useState(false)
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setTrip(await api.trips.get(Number(id)))
-      } catch (err: any) {
-        setError(err.message || t('trips.detailLoadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [id, t])
 
   useEffect(() => {
     if (!trip || trip.places.length === 0) {
@@ -90,36 +78,31 @@ export function TripDetailPage() {
   )
 
   const handleDeleteClick = async () => {
-    setError('')
+    setActionError('')
     try {
       const warning = await api.trips.deleteWarning(Number(id))
       setDeleteWarning(warning)
       setIsConfirmingDelete(true)
-    } catch (err: any) {
-      setError(err.message || t('trips.deletePrepError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('trips.deletePrepError')))
     }
   }
 
   const handleDeleteConfirm = async () => {
-    setError('')
+    setActionError('')
     setIsDeleting(true)
     try {
       await api.trips.delete(Number(id))
       navigate('/viagens')
-    } catch (err: any) {
-      setError(err.message || t('trips.deleteError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('trips.deleteError')))
       setIsDeleting(false)
       setIsConfirmingDelete(false)
     }
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   if (!trip) {
@@ -179,7 +162,7 @@ export function TripDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-muted">
           {t('trips.createdBy', { username: trip.creator_username })} · {t('trips.visibility')}:{' '}
-          {t(`visibility.option${trip.visibility.charAt(0).toUpperCase() + trip.visibility.slice(1)}`)} ·{' '}
+          {t(visibilityLabelKey(trip.visibility))} ·{' '}
           {t('trips.updatedAt')} {formatDate(trip.updated_at, user)}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -196,9 +179,9 @@ export function TripDetailPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || actionError) && (
         <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
+          {error || actionError}
         </div>
       )}
 

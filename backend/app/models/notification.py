@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON, Index
 
 from app.database import Base
 
@@ -21,7 +21,12 @@ class Notification(Base):
     # Denormalised for list display and push payloads.
     entity_name = Column(String(255), nullable=False)
     is_read = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+
+    # The unread-count endpoint polls on (user_id, is_read) every minute.
+    __table_args__ = (
+        Index("ix_notifications_user_read", "user_id", "is_read"),
+    )
 
 
 class PushSubscription(Base):

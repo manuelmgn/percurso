@@ -1,16 +1,40 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, PinIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { api, ApiError } from '@/api'
 import { MapView, type MapMarker } from '@/components/MapView'
 import { RouteOverlay } from '@/components/map/RouteOverlay'
 import { TripCard } from '@/components/ui/TripCard'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressGoal } from '@/components/ui/ProgressGoal'
 import { formatTripDateRange, formatTripTitle } from '@/utils/format'
 import { getTripStatus } from '@/utils/tripStatus'
 import type { Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
+import { useApiResource } from '@/hooks/useApiResource'
+
+/**
+ * Pinned items first (oldest pin first), the rest keep their original order
+ * (updated_at desc from the backend). Module-level function so the sort
+ * identity is stable; the pin date map is passed in explicitly.
+ */
+function withPinsFirst<T extends { id: number; updated_at: string }>(
+  items: T[],
+  type: PinEntityType,
+  pinDates: Map<string, string>,
+): T[] {
+  return [...items].sort((a, b) => {
+    const pa = pinDates.get(`${type}:${a.id}`)
+    const pb = pinDates.get(`${type}:${b.id}`)
+    if (pa && pb) return pa.localeCompare(pb)
+    if (pa) return -1
+    if (pb) return 1
+    return b.updated_at.localeCompare(a.updated_at)
+  })
+}
 
 function Stat({ value, label, className }: { value: number; label: string; className: string }) {
   return (
@@ -24,43 +48,18 @@ function Stat({ value, label, className }: { value: number; label: string; class
 export function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [trips, setTrips] = useState<TripListItem[]>([])
-  const [projects, setProjects] = useState<ProjectListItem[]>([])
-  const [pins, setPins] = useState<Pin[]>([])
   const [pinError, setPinError] = useState('')
-  const [stats, setStats] = useState<StatsResponse | null>(null)
-  const [visitedPlaces, setVisitedPlaces] = useState<Place[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        const [tripsData, projectsData, visitedData, pinsData] = await Promise.all([
-          api.trips.list(),
-          api.projects.list(),
-          api.places.visited(),
-          api.pins.list(),
-        ])
-        setTrips(tripsData)
-        setProjects(projectsData)
-        setVisitedPlaces(visitedData)
-        setPins(pinsData)
-        try {
-          setStats(await api.stats.get())
-        } catch {
-          // Stats are optional on the dashboard.
-        }
-      } catch (err: any) {
-        setError(err.message || t('dashboard.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [])
+  // The four datasets load in parallel, each through the shared hook; stats
+  // stay optional (a failure there leaves the fallback numbers in place).
+  const { data: trips, isLoading: tripsLoading, error: tripsError } = useApiResource<TripListItem[]>(() => api.trips.list(), [], [])
+  const { data: projects, isLoading: projectsLoading, error: projectsError } = useApiResource<ProjectListItem[]>(() => api.projects.list(), [], [])
+  const { data: visitedPlaces, isLoading: placesLoading, error: placesError } = useApiResource<Place[]>(() => api.places.visited(), [], [])
+  const { data: pins, isLoading: pinsLoading, error: pinsError, setData: setPins } = useApiResource<Pin[]>(() => api.pins.list(), [], [])
+  const { data: stats } = useApiResource<StatsResponse>(() => api.stats.get())
 
+  const isLoading = tripsLoading || projectsLoading || placesLoading || pinsLoading
+  const error = tripsError || projectsError || placesError || pinsError
   const visitedMarkers = useMemo(
     () =>
       visitedPlaces.map(
@@ -83,28 +82,20 @@ export function DashboardPage() {
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]
   }, [trips])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
-  }
+  // --- Derived data (all memoised: stable identities keep purely visual
+  // re-renders cheap in a page with this many interactive pieces) ---
 
   // Pinned items come first (oldest pin first); the rest keep the backend
   // order (updated_at, most recent first).
-  const pinDates = new Map(pins.map((p) => [`${p.entity_type}:${p.entity_id}`, p.created_at]))
-  const pinnedKeys = new Set(pinDates.keys())
-  const withPinsFirst = <T extends { id: number; updated_at: string }>(items: T[], type: PinEntityType): T[] =>
-    [...items].sort((a, b) => {
-      const pa = pinDates.get(`${type}:${a.id}`)
-      const pb = pinDates.get(`${type}:${b.id}`)
-      if (pa && pb) return pa.localeCompare(pb)
-      if (pa) return -1
-      if (pb) return 1
-      return b.updated_at.localeCompare(a.updated_at)
-    })
+  const pinDates = useMemo(
+    () => new Map(pins.map((p) => [`${p.entity_type}:${p.entity_id}`, p.created_at])),
+    [pins],
+  )
+  const pinnedKeys = useMemo(() => new Set(pinDates.keys()), [pinDates])
+  const recentTrips = useMemo(() => withPinsFirst(trips, 'trip', pinDates).slice(0, 3), [trips, pinDates])
+  const topProjects = useMemo(() => withPinsFirst(projects, 'project', pinDates).slice(0, 3), [projects, pinDates])
+  const isEmpty = trips.length === 0 && projects.length === 0
+  const hasMap = visitedPlaces.length > 0
 
   const togglePin = async (entityType: PinEntityType, entityId: number) => {
     setPinError('')
@@ -135,44 +126,53 @@ export function DashboardPage() {
             : 'text-muted opacity-0 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100'
         }`}
       >
-        <svg className="h-4 w-4" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
-        </svg>
+        <PinIcon size={16} fill={isPinned ? 'currentColor' : 'none'} aria-hidden="true" />
       </button>
     )
   }
 
-  const recentTrips = withPinsFirst(trips, 'trip').slice(0, 3)
-  const topProjects = withPinsFirst(projects, 'project').slice(0, 3)
-  const isEmpty = trips.length === 0 && projects.length === 0
-  const hasMap = visitedPlaces.length > 0
-
   // Real figures for the stats panel; local data is the fallback while stats
   // are optional (the panel must still render if the stats call failed).
   const currentYear = String(new Date().getFullYear())
-  const tripsThisYear = trips.filter((trip) => trip.start_date.startsWith(currentYear)).length
-  const activeProjects = projects.filter((p) => p.progress_percent < 100).length
-  const regionCount = stats
-    ? stats.region_stats.length
-    : new Set(visitedPlaces.map((p) => p.hierarchy?.['concelho'] ?? p.name)).size
+  const tripsThisYear = useMemo(
+    () => trips.filter((trip) => trip.start_date.startsWith(currentYear)).length,
+    [trips, currentYear],
+  )
+  const activeProjects = useMemo(
+    () => projects.filter((p) => p.progress_percent < 100).length,
+    [projects],
+  )
+  const regionCount = useMemo(
+    () =>
+      stats
+        ? stats.region_stats.length
+        : new Set(visitedPlaces.map((p) => p.hierarchy?.['concelho'] ?? p.name)).size,
+    [stats, visitedPlaces],
+  )
 
   // "Conquistas recentes": completed projects + most recent trips (up to 5 items total)
-  const completedProjects = projects.filter((p) => p.progress_percent === 100)
-  const newestTrips = [...trips].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3)
-  const recentHighlights: Array<{ type: 'project' | 'trip'; id: number; label: string; sub: string }> = [
-    ...completedProjects.slice(0, 3).map((p) => ({
-      type: 'project' as const,
-      id: p.id,
-      label: p.name,
-      sub: t('dashboard.highlightCompleted'),
-    })),
-    ...newestTrips.map((tr) => ({
-      type: 'trip' as const,
-      id: tr.id,
-      label: formatTripTitle(tr, user),
-      sub: t('dashboard.highlightNewTrip'),
-    })),
-  ].slice(0, 5)
+  const recentHighlights = useMemo<Array<{ type: 'project' | 'trip'; id: number; label: string; sub: string }>>(() => {
+    const completedProjects = projects.filter((p) => p.progress_percent === 100)
+    const newestTrips = [...trips].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3)
+    return [
+      ...completedProjects.slice(0, 3).map((p) => ({
+        type: 'project' as const,
+        id: p.id,
+        label: p.name,
+        sub: t('dashboard.highlightCompleted'),
+      })),
+      ...newestTrips.map((tr) => ({
+        type: 'trip' as const,
+        id: tr.id,
+        label: formatTripTitle(tr, user),
+        sub: t('dashboard.highlightNewTrip'),
+      })),
+    ].slice(0, 5)
+  }, [projects, trips, t, user])
+
+  if (isLoading) {
+    return <PageSpinner />
+  }
 
   return (
     <div className="space-y-8">
@@ -197,12 +197,7 @@ export function DashboardPage() {
           </Link>
         </div>
       )}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error} />
 
       {pinError && (
         <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
@@ -321,12 +316,7 @@ export function DashboardPage() {
                   <li key={project.id} className="group relative">
                     <Link to={`/projetos/${project.id}`} className="block rounded-xl p-2 transition-colors hover:bg-line/40 dark:hover:bg-fill/40">
                       <p className="pr-8 font-medium text-ink">{project.name}</p>
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded-pill bg-line">
-                        <div
-                          className="h-full rounded-pill bg-brand transition-all"
-                          style={{ width: `${project.progress_percent}%` }}
-                        />
-                      </div>
+                      <div className="mt-2"><ProgressBar percent={project.progress_percent} heightClass="h-2" /></div>
                       <p className="mt-1 text-xs text-muted">
                         {t('projects.progressText', { visited: project.visited_places, total: project.total_places })}
                       </p>

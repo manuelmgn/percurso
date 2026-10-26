@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/context/AuthContext'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
@@ -23,14 +24,9 @@ const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) =>
 const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
+// Cheap suspense placeholder for lazy chunks.
 function PageFallback() {
-  const { t } = useTranslation()
-  return (
-    <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      <span className="sr-only">{t('loadingGeneric')}</span>
-    </div>
-  )
+  return <PageSpinner />
 }
 
 function FullscreenLoading() {

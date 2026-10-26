@@ -57,16 +57,62 @@ function shouldCacheGet(path: string, method: string): boolean {
   return method === 'GET' && !path.includes('/notifications')
 }
 
+/**
+ * Drop the GET cache entries matching any of these path prefixes.
+ */
+function invalidateCaches(...pathPrefixes: string[]): void {
+  for (const key of getCache.keys()) {
+    if (pathPrefixes.some((prefix) => key.includes(prefix))) getCache.delete(key)
+  }
+}
+
+/** GET cache families touched by a mutation under each API resource. */
+const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
+  trips: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  pins: ['/api/pins'],
+  me: ['/api/me', '/api/users/public'],
+  users: ['/api/users'],
+  auth: ['/api/'],
+  admin: ['/api/'],
+  // Resources whose mutations touch nothing cached
+  notifications: [],
+  push: [],
+  milestones: [],
+  images: [],
+}
+
+/**
+ * Drop only the GET cache entries plausibly affected by a mutation to
+ * `mutationPath`. Unrelated cached GETs stay warm — the old blanket
+ * clearGetCache() forced trips+projects+places+pins refetches whenever the
+ * user returned to any list after any mutation. `fallback` keeps the
+ * blanket behaviour for resources not listed above.
+ */
+function invalidateForMutation(mutationPath: string, fallback = true): void {
+  const resource = mutationPath.split('/')[2] // /api/<resource>/...
+  if (!resource) return
+  const prefixes = INVALIDATION_BY_RESOURCE[resource]
+  if (prefixes) {
+    invalidateCaches(...prefixes)
+  } else if (fallback) {
+    clearGetCache()
+  }
+}
+
 async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = options.method || 'GET'
   const cacheable = shouldCacheGet(path, method)
   const cacheKey = `${method} ${path}`
 
-  if (method !== 'GET') {
-    clearGetCache()
-  } else if (cacheable) {
-    const hit = getCache.get(cacheKey)
-    if (hit && hit.expiresAt > Date.now()) return hit.promise as Promise<T>
+  if (method === 'GET') {
+    if (cacheable) {
+      const hit = getCache.get(cacheKey)
+      if (hit && hit.expiresAt > Date.now()) return hit.promise as Promise<T>
+    }
+  } else {
+    invalidateForMutation(path)
   }
 
   const promise = performFetch<T>(path, options)
@@ -87,29 +133,18 @@ async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T>
   return promise
 }
 
-async function performFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const csrfToken = localStorage.getItem('csrf_token') || ''
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-    ...(options.headers as Record<string, string> || {}),
-  }
-
-  const response = await fetch(path, {
-    ...options,
-    headers,
-    credentials: 'include',
-  })
-
+/**
+ * Shared response handling: 401 navigation, error extraction, 204 short
+ * circuit. Used by both performFetch (JSON) and postFormData (multipart) so
+ * the login redirect logic lives in exactly one place.
+ */
+async function handleResponse<T>(path: string, response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     // Session expired or invalidated mid-use: drop the stale CSRF token and
     // send the user back to the login screen (except on auth endpoints,
     // where a 401 just means "wrong credentials").
-    if (
-      response.status === 401 &&
-      !path.startsWith('/api/auth/login')
-    ) {
+    if (response.status === 401 && !path.startsWith('/api/auth/login')) {
       localStorage.removeItem('csrf_token')
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
@@ -125,6 +160,23 @@ async function performFetch<T>(path: string, options: RequestInit = {}): Promise
   return response.json() as Promise<T>
 }
 
+async function performFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const csrfToken = localStorage.getItem('csrf_token') || ''
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+    ...(options.headers as Record<string, string> || {}),
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+    credentials: 'include',
+  })
+
+  return handleResponse<T>(path, response)
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)
@@ -133,12 +185,12 @@ export class ApiError extends Error {
 }
 
 // Multipart uploads must not send Content-Type: application/json — the browser
-// sets the multipart boundary itself. Shares fetchJson's error handling.
+// sets the multipart boundary itself. Shares performFetch's error handling.
 async function postFormData<T>(path: string, formData: FormData): Promise<T> {
   const csrfToken = localStorage.getItem('csrf_token') || ''
 
-  // Uploads are mutations: cached GET responses (e.g. /api/me/) may now be stale.
-  clearGetCache()
+  // Uploads are mutations: invalidate whatever family they belong to.
+  invalidateForMutation(path)
 
   const response = await fetch(path, {
     method: 'POST',
@@ -147,18 +199,7 @@ async function postFormData<T>(path: string, formData: FormData): Promise<T> {
     credentials: 'include',
   })
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    if (response.status === 401) {
-      localStorage.removeItem('csrf_token')
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
-      }
-    }
-    throw new ApiError(response.status, body.detail || body.message || `Request failed: ${response.status}`)
-  }
-
-  return response.json() as Promise<T>
+  return handleResponse<T>(path, response)
 }
 
 async function uploadFile<T>(path: string, file: File): Promise<T> {

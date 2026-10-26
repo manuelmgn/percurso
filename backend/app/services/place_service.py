@@ -3,9 +3,10 @@ import time
 
 import httpx
 from typing import Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Place, PlaceType
+from app.models import Place, PlaceType, TripPlace, Trip, ProjectPlace
 from app.schemas import PlaceSearchResult
 from app.services import visibility_service
 
@@ -131,6 +132,39 @@ def rank_results(results: list[PlaceSearchResult], query: str) -> list[PlaceSear
     return sorted(results, key=score)
 
 
+def find_cached_places(db: Session, query: str, limit: int = 5, exclude: set[tuple[str, int]] | None = None) -> list[Place]:
+    """Local places whose name contains the query (ILIKE), ordered best
+    match first. `exclude` removes already-known OSM identities (used when
+    merging cache results with OSM results)."""
+    exclude = exclude or set()
+    candidates = (
+        db.query(Place)
+        .filter(Place.name.ilike(f"%{query}%"))
+        .limit(limit + len(exclude))
+        .all()
+    )
+    result = []
+    for p in candidates:
+        if (p.osm_type, p.osm_id) not in exclude:
+            result.append(p)
+            if len(result) >= limit:
+                break
+    return result
+
+
+def merge_dedup_rank(candidates: list[PlaceSearchResult], limit: int | None = None) -> list[PlaceSearchResult]:
+    """Deduplicate candidate results by OSM identity (keeps the first
+    occurrence: cache results are passed before OSM ones) and cap the list."""
+    seen: set[tuple[str, int]] = set()
+    merged: list[PlaceSearchResult] = []
+    for r in candidates:
+        key = (r.osm_type, r.osm_id)
+        if key not in seen:
+            seen.add(key)
+            merged.append(r)
+    return merged[:limit] if limit is not None else merged
+
+
 def get_or_create_place(
     db: Session,
     osm_type: str,
@@ -174,20 +208,39 @@ def get_place_by_id(db: Session, place_id: int) -> Optional[Place]:
 
 def get_places_overview(db: Session, user) -> list[dict]:
     """Places relevant to the user: visited (via visible trips) and/or
-    targeted by visible projects, with visit counts and last visit date."""
+    targeted by visible projects, with visit counts and last visit date.
+
+    Computed with two aggregate queries; pure SQL instead of walking every
+    trip's places collection."""
+    visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
+
     visit_count: dict[int, int] = {}
     last_visited: dict[int, object] = {}
-    for trip in visibility_service.get_visible_trips(db, user):
-        visit_date = trip.end_date or trip.start_date
-        for tp in trip.places:
-            visit_count[tp.place_id] = visit_count.get(tp.place_id, 0) + 1
-            if tp.place_id not in last_visited or visit_date > last_visited[tp.place_id]:
-                last_visited[tp.place_id] = visit_date
+    if visible_trip_ids:
+        rows = (
+            db.query(
+                TripPlace.place_id,
+                func.count(TripPlace.trip_id),
+                func.coalesce(func.max(Trip.end_date), Trip.start_date),
+            )
+            .join(Trip, Trip.id == TripPlace.trip_id)
+            .filter(TripPlace.trip_id.in_(visible_trip_ids))
+            .group_by(TripPlace.place_id)
+            .all()
+        )
+        for place_id, count, last_date in rows:
+            visit_count[place_id] = count
+            last_visited[place_id] = last_date
 
     target_ids: set[int] = set()
-    for project in visibility_service.get_visible_projects(db, user):
-        for project_place in project.places:
-            target_ids.add(project_place.place_id)
+    visible_project_ids = visibility_service.get_visible_project_ids(db, user)
+    if visible_project_ids:
+        target_ids = {
+            row[0]
+            for row in db.query(ProjectPlace.place_id).filter(
+                ProjectPlace.project_id.in_(visible_project_ids)
+            )
+        }
 
     relevant_ids = set(visit_count) | target_ids
     if not relevant_ids:
@@ -210,15 +263,26 @@ def list_places(db: Session, limit: int = 100, offset: int = 0) -> list[Place]:
 
 
 def get_visible_place_ids(db: Session, user) -> set[int]:
-    """Return IDs of places the user can see (visited in visible trips
-    and/or targeted by visible projects)."""
+    """IDs of places the user can see (visited in visible trips and/or
+    targeted by visible projects) — two aggregate queries, no lazy loading."""
     visible_ids: set[int] = set()
-    for trip in visibility_service.get_visible_trips(db, user):
-        for tp in trip.places:
-            visible_ids.add(tp.place_id)
-    for project in visibility_service.get_visible_projects(db, user):
-        for pp in project.places:
-            visible_ids.add(pp.place_id)
+
+    visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
+    if visible_trip_ids:
+        visible_ids |= {
+            row[0]
+            for row in db.query(TripPlace.place_id).filter(TripPlace.trip_id.in_(visible_trip_ids))
+        }
+
+    visible_project_ids = visibility_service.get_visible_project_ids(db, user)
+    if visible_project_ids:
+        visible_ids |= {
+            row[0]
+            for row in db.query(ProjectPlace.place_id).filter(
+                ProjectPlace.project_id.in_(visible_project_ids)
+            )
+        }
+
     return visible_ids
 
 

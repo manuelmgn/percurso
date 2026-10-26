@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.auth import verify_password, create_session, get_current_user, get_session_token
+from app.models import Session as UserSession
 from app.schemas import LoginRequest, MeResponse
 from app.services import user_service
 
@@ -41,7 +42,6 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
 def logout(request: Request, response: Response, db: Session = Depends(get_db), user=Depends(get_current_user)):
     token = get_session_token(request)
     if token:
-        from app.models import Session as UserSession
         db.query(UserSession).filter(UserSession.token == token).delete()
         db.commit()
     _clear_session_cookie(response)
@@ -53,8 +53,6 @@ def me(request: Request, db: Session = Depends(get_db), user=Depends(get_current
     token = get_session_token(request)
     csrf_token = ""
     if token:
-        from app.models import Session as UserSession
-
         session = db.query(UserSession).filter(UserSession.token == token).first()
         if session and session.csrf_token:
             csrf_token = session.csrf_token

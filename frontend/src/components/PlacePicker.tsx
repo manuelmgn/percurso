@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
 import type { PlaceSearchResult, PlaceType } from '@/types'
 import { formatHierarchy } from '@/utils/format'
 
@@ -21,10 +22,13 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceSearchResult[]>([])
   const [isOpen, setIsOpen] = useState(false)
+  // Index of the listbox option reachable with ↑/↓ (activedescendant).
+  const [highlighted, setHighlighted] = useState(-1)
   const [isSearching, setIsSearching] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -39,10 +43,12 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
       try {
         const data = await api.places.search(trimmed)
         setResults(data)
+        // Reset the selection to the first candidate on every search.
+        setHighlighted(data.length > 0 ? 0 : -1)
         setIsOpen(true)
         setError('')
-      } catch (err: any) {
-        setError(err.message || t('placePicker.searchError'))
+      } catch (err) {
+        setError(getErrorMessage(err, t('placePicker.searchError')))
         setResults([])
       } finally {
         setIsSearching(false)
@@ -77,8 +83,8 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
       setQuery('')
       setResults([])
       setIsOpen(false)
-    } catch (err: any) {
-      setError(err.message || t('placePicker.importError'))
+    } catch (err) {
+      setError(getErrorMessage(err, t('placePicker.importError')))
     } finally {
       setIsImporting(false)
     }
@@ -88,16 +94,37 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
     onChange(selected.filter((p) => p.id !== id))
   }
 
+  // Combobox keyboard model: ↑/↓ move through the results (with the
+  // highlight role-announced via aria-activedescendant), Enter picks the
+  // highlighted candidate and Escape just closes the list.
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isOpen && results.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlighted((h) => (h + 1) % results.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlighted((h) => (h <= 0 ? results.length - 1 : h - 1))
+        return
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault()
       if (isOpen && results.length > 0 && !isImporting) {
-        pick(results[0])
+        pick(results[highlighted >= 0 ? highlighted : 0])
       }
     } else if (e.key === 'Escape') {
       setIsOpen(false)
     }
   }
+
+  // Keep the highlighted option visible while navigating.
+  useEffect(() => {
+    if (!isOpen || highlighted < 0) return
+    listRef.current?.querySelectorAll('li')[highlighted]?.scrollIntoView({ block: 'nearest' })
+  }, [highlighted, isOpen])
 
   return (
     <div ref={containerRef}>
@@ -132,6 +159,13 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
           placeholder={t('placePicker.placeholder')}
           className="input"
           aria-label={t('placePicker.aria')}
+          role="combobox"
+          aria-expanded={isOpen && results.length > 0}
+          aria-controls="place-picker-list"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            isOpen && highlighted >= 0 ? `place-picker-option-${highlighted}` : undefined
+          }
         />
         {(isSearching || isImporting) && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
@@ -140,15 +174,28 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
         )}
 
         {isOpen && results.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-surface shadow-lg" role="listbox">
-            {results.map((result) => (
-              <li key={`${result.osm_type}-${result.osm_id}`}>
+          <ul
+            id="place-picker-list"
+            ref={listRef}
+            className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-surface shadow-lg"
+            role="listbox"
+          >
+            {results.map((result, i) => (
+              <li
+                key={`${result.osm_type}-${result.osm_id}`}
+                id={`place-picker-option-${i}`}
+                role="option"
+                aria-selected={i === highlighted}
+              >
                 <button
                   type="button"
                   onClick={() => pick(result)}
                   disabled={isImporting}
-                  className="w-full px-4 py-2 text-left text-sm transition-colors hover:bg-line/40 disabled:opacity-50 dark:hover:bg-fill"
-                  role="option"
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors disabled:opacity-50 ${
+                    i === highlighted
+                      ? 'bg-primary-100 dark:bg-primary-900/30'
+                      : 'hover:bg-line/40 dark:hover:bg-fill'
+                  }`}
                 >
                   <span className="font-medium text-ink">{result.name}</span>
                   {formatHierarchy(result.hierarchy) && (

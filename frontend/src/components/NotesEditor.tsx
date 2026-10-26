@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
 
 interface NotesEditorProps {
   value: string
@@ -97,8 +98,8 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
       editorRef.current?.focus()
       document.execCommand('insertHTML', false, `<img src="${image.url}" loading="lazy" alt="">`)
       handleInput()
-    } catch (err: any) {
-      setUploadError(err.message || t('notesEditor.uploadError'))
+    } catch (err) {
+      setUploadError(getErrorMessage(err, t('notesEditor.uploadError')))
     } finally {
       setIsUploading(false)
     }

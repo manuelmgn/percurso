@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Briefcase, Compass } from 'lucide-react'
 import { api } from '@/api'
+import { useApiResource } from '@/hooks/useApiResource'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
 import type { Notification } from '@/types'
@@ -30,32 +31,27 @@ export function NotificationsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { unreadCount, refresh } = useUnreadCount()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { data, setData, isLoading, error } = useApiResource(() => api.notifications.list())
+  const notifications = data?.notifications ?? []
 
+  // Sync the badge count once loaded (the list view knows the exact number).
   useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        const res = await api.notifications.list()
-        setNotifications(res.notifications)
-        if (res.unread_count !== unreadCount) refresh()
-      } catch (err: any) {
-        setError(err.message || t('notifications.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
+    if (data && data.unread_count !== unreadCount) refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t])
+  }, [data])
 
   const handleOpen = async (notification: Notification) => {
     if (!notification.is_read) {
       api.notifications.markRead([notification.id]).then(refresh).catch(() => {})
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              notifications: prev.notifications.map((n) =>
+                n.id === notification.id ? { ...n, is_read: true } : n
+              ),
+            }
+          : prev
       )
     }
     navigate(entityPath(notification))
@@ -64,7 +60,9 @@ export function NotificationsPage() {
   const handleMarkAll = async () => {
     try {
       await api.notifications.markRead()
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      setData((prev) =>
+        prev ? { ...prev, notifications: prev.notifications.map((n) => ({ ...n, is_read: true })) } : prev
+      )
       refresh()
     } catch {
       // Keep the list as-is; the next poll will reconcile.

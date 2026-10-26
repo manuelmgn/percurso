@@ -41,9 +41,13 @@ def _get_editable_trip(db: Session, trip_id: int, user: User):
     return trip
 
 
-def _get_trip_photo(db: Session, trip_id: int, photo_id: int) -> Photo:
+def _get_editable_photo(db: Session, trip_id: int, user: User, photo_id: int) -> Photo:
+    """Photo inside the trip that this user may manage (uploader or creator).
+
+    Deliberate 404 (not 403) so outsiders cannot even learn the id exists."""
+    trip = _get_editable_trip(db, trip_id, user)
     photo = db.query(Photo).filter(Photo.id == photo_id, Photo.trip_id == trip_id).first()
-    if not photo:
+    if not photo or (photo.uploader_id != user.id and trip.creator_id != user.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
     return photo
 
@@ -131,10 +135,7 @@ def update_caption(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
-    photo = _get_trip_photo(db, trip.id, photo_id)
-    if photo.uploader_id != user.id and trip.creator_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
+    photo = _get_editable_photo(db, trip_id, user, photo_id)
 
     photo.caption = (payload.caption or "").strip() or None
     db.commit()
@@ -149,10 +150,7 @@ def delete_photo(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
-    photo = _get_trip_photo(db, trip.id, photo_id)
-    if photo.uploader_id != user.id and trip.creator_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
+    photo = _get_editable_photo(db, trip_id, user, photo_id)
 
     file_path = _uploads_path(photo.url)
     db.delete(photo)

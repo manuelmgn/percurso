@@ -3,13 +3,13 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import User, Trip, TripPlace, TripProject, Place, Project, Visibility
+from app.models import User, Trip, TripPlace, TripProject, Place, Project
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate
 from app.services import visibility_service, project_service, notification_service
 
 
-def _trip_display_name(trip: Trip) -> str:
+def trip_display_name(trip: Trip) -> str:
     return trip.title or f"Viagem {trip.start_date} – {trip.end_date}"
 
 
@@ -37,7 +37,7 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
         notif_type="trip_created",
         entity_type="trip",
         entity_id=trip.id,
-        entity_name=_trip_display_name(trip),
+        entity_name=trip_display_name(trip),
         participant_ids=[p.id for p in trip.participants],
     )
     return trip
@@ -67,39 +67,51 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
         notif_type="trip_updated",
         entity_type="trip",
         entity_id=trip.id,
-        entity_name=_trip_display_name(trip),
+        entity_name=trip_display_name(trip),
         participant_ids=[p.id for p in trip.participants],
     )
     return trip
 
 
 def _update_relations(db: Session, trip: Trip, data) -> None:
-    if hasattr(data, 'place_ids') and data.place_ids is not None:
+    """Replace the trip's places/projects/participants/viewers by what the
+    payload carries. Each block only runs when the ids key was sent (PATCH
+    may omit them). Unknown place/project ids are skipped, matching the
+    tolerant behaviour elsewhere; participant ids resolve through orml."""
+    if data.place_ids is not None:
+        # Rebuild the whole list (the association carries no per-row state
+        # worth diffing). Validate all ids in one IN query instead of one
+        # query per id.
         db.query(TripPlace).filter(TripPlace.trip_id == trip.id).delete()
-        for place_id in set(data.place_ids):
-            place = db.query(Place).filter(Place.id == place_id).first()
-            if place:
-                trip_place = TripPlace(trip_id=trip.id, place_id=place.id, added_at=datetime.now(timezone.utc))
-                db.add(trip_place)
+        valid_place_ids = (
+            {row[0] for row in db.query(Place.id).filter(Place.id.in_(set(data.place_ids)))}
+            if data.place_ids
+            else set()
+        )
+        for place_id in valid_place_ids:
+            db.add(TripPlace(trip_id=trip.id, place_id=place_id, added_at=datetime.now(timezone.utc)))
 
-    if hasattr(data, 'project_ids') and data.project_ids is not None:
+    if data.project_ids is not None:
         db.query(TripProject).filter(TripProject.trip_id == trip.id).delete()
-        for project_id in set(data.project_ids):
-            project = db.query(Project).filter(Project.id == project_id).first()
-            if project:
-                trip_project = TripProject(trip_id=trip.id, project_id=project.id)
-                db.add(trip_project)
+        valid_project_ids = (
+            {row[0] for row in db.query(Project.id).filter(Project.id.in_(set(data.project_ids)))}
+            if data.project_ids
+            else set()
+        )
+        for project_id in valid_project_ids:
+            db.add(TripProject(trip_id=trip.id, project_id=project_id))
 
-    if hasattr(data, 'participant_ids') and data.participant_ids is not None:
-        participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
-        trip.participants = participants
+    if data.participant_ids is not None:
+        trip.participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
 
-    if hasattr(data, 'visible_user_ids') and data.visible_user_ids is not None:
-        visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
-        trip.visible_users = visible_users
+    if data.visible_user_ids is not None:
+        trip.visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
 
 
-def delete_trip(db: Session, user: User, trip: Trip) -> None:
+def delete_trip(db: Session, trip: Trip) -> None:
+    """Deletes the trip; relation rows cascade, associated photos and the
+    caller handles deleting their files if necessary (not done here: photos
+    are removed with the trip in the DB cascade)."""
     db.delete(trip)
     db.commit()
 
@@ -121,8 +133,8 @@ def can_user_edit_trip(user: User, trip: Trip) -> bool:
 
 
 def list_trips(db: Session, user: User) -> list[Trip]:
-    trips = visibility_service.get_visible_trips(db, user)
-    return sorted(trips, key=lambda t: t.updated_at, reverse=True)
+    """Visible trips, most recently updated first (ordered in the DB)."""
+    return visibility_service.get_visible_trips(db, user)
 
 
 def get_trip_by_id(db: Session, trip_id: int) -> Optional[Trip]:

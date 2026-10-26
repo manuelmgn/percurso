@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -17,32 +16,51 @@ from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPl
 
 
 def _apply_lightweight_migrations():
-    """Add columns introduced after the schema was first created.
+    """Add columns/indexes introduced after the schema was first created.
 
     The project uses create_all instead of Alembic, so existing databases
-    need new columns added by hand. Keep each migration idempotent."""
+    need new schema pieces added by hand. Every entry below must be
+    idempotent: column/index existence is checked before touching anything."""
     from sqlalchemy import inspect, text
 
     inspector = inspect(engine)
+
+    _ADDED_COLUMNS = {
+        "project_places": {"is_unmarked": "BOOLEAN NOT NULL DEFAULT 0"},
+        "trips": {"title": "VARCHAR(255)"},
+        "users": {
+            "theme": "VARCHAR(6) NOT NULL DEFAULT 'system'",
+            "yearly_trip_goal": "INTEGER",
+        },
+        "sessions": {"csrf_token": "VARCHAR(64)"},
+    }
+
+    # Indexes absent from the original schema; create_all only builds them on
+    # new databases, so older ones need them synced by hand. Maps table name
+    # to (index name, SQL definition).
+    _ADDED_INDEXES = {
+        "notifications": ("ix_notifications_user_read", "CREATE INDEX ix_notifications_user_read ON notifications (user_id, is_read)"),
+    }
+
     with engine.begin() as conn:
-        if "project_places" in inspector.get_table_names():
-            columns = [c["name"] for c in inspector.get_columns("project_places")]
-            if "is_unmarked" not in columns:
-                conn.execute(text("ALTER TABLE project_places ADD COLUMN is_unmarked BOOLEAN NOT NULL DEFAULT 0"))
-        if "trips" in inspector.get_table_names():
-            columns = [c["name"] for c in inspector.get_columns("trips")]
-            if "title" not in columns:
-                conn.execute(text("ALTER TABLE trips ADD COLUMN title VARCHAR(255)"))
-        if "users" in inspector.get_table_names():
-            columns = [c["name"] for c in inspector.get_columns("users")]
-            if "theme" not in columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN theme VARCHAR(6) NOT NULL DEFAULT 'system'"))
-            if "yearly_trip_goal" not in columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN yearly_trip_goal INTEGER"))
-        if "sessions" in inspector.get_table_names():
-            columns = [c["name"] for c in inspector.get_columns("sessions")]
-            if "csrf_token" not in columns:
-                conn.execute(text("ALTER TABLE sessions ADD COLUMN csrf_token VARCHAR(64)"))
+        for table, columns in _ADDED_COLUMNS.items():
+            if not inspector.has_table(table):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for column, ddl in columns.items():
+                if column not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+    # A fresh inspector: the one above may have cached column info from
+    # before the ALTER statements ran.
+    inspector = inspect(engine)
+    for table, (index_name, ddl) in _ADDED_INDEXES.items():
+        if not inspector.has_table(table):
+            continue
+        if index_name in [idx["name"] for idx in inspector.get_indexes(table)]:
+            continue
+        with engine.begin() as conn:
+            conn.execute(text(ddl))
 
 
 @asynccontextmanager

@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
+import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
+import { ProgressBar } from '@/components/ui/ProgressBar'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import type { BulkImportLine, PlaceSearchResult, PlaceType, Project } from '@/types'
-import { BIG_PLACE_TYPES, PLACE_TYPES } from '@/types'
-import { formatHierarchy, formatTripTitle, formatDate as formatUserDate } from '@/utils/format'
+import { PLACE_TYPES, isPolygonMode } from '@/types'
+import { formatHierarchy, formatTripTitle, formatDate as formatUserDate, visibilityLabelKey } from '@/utils/format'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { checkAndCelebrate } from '@/utils/milestones'
@@ -27,10 +31,13 @@ export function ProjectDetailPage() {
   const { user } = useAuth()
   const { t, pluralize } = useTranslation()
 
-  const [project, setProject] = useState<Project | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-
+  // Page data via the shared hook (race-guarded across project switches);
+  // mutation errors get their own channel so load errors don't mask them.
+  const { data: project, setData: setProject, isLoading, error } = useApiResource<Project>(
+    () => api.projects.get(projectId),
+    [projectId],
+  )
+  const [actionError, setActionError] = useState('')
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -50,20 +57,6 @@ export function ProjectDetailPage() {
   const [isResolving, setIsResolving] = useState(false)
   const [isImportingBulk, setIsImportingBulk] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setProject(await api.projects.get(projectId))
-      } catch (err: any) {
-        setError(err.message || t('projects.detailLoadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [projectId, t])
-
   // Map data is derived from the project — memoise it so typing in the bulk
   // import textarea or toggling a place doesn't rebuild the map (and refit
   // its bounds) on every render.
@@ -72,23 +65,16 @@ export function ProjectDetailPage() {
     const polygons: MapPolygon[] = []
     if (!project) return { mapMarkers: markers, mapPolygons: polygons }
 
-    const types = new Set(project.places.map((p) => p.place_type))
-    const homogeneous = types.size <= 1
-    let effectiveMode: 'points' | 'polygons' = 'points'
-    if (homogeneous) {
-      if (project.map_mode === 'polygons') {
-        effectiveMode = 'polygons'
-      } else if (project.map_mode === 'auto') {
-        const onlyType = project.places[0]?.place_type
-        effectiveMode = onlyType && BIG_PLACE_TYPES.includes(onlyType) ? 'polygons' : 'points'
-      }
-    }
+    const types = project.places.map((p) => p.place_type)
+    // Polygon rendering only when the mode asks for it and the types are
+    // homogeneous — resolved by the shared helper (mirrors the editor).
+    const effectiveMode = isPolygonMode(project.map_mode, types)
 
     for (const place of project.places) {
       const visited = place.is_visited && !place.is_unmarked
       const stateLabel = visited ? t('projects.visited') : t('projects.pending')
       const href = `/lugares/${place.place_id}`
-      if (effectiveMode === 'polygons' && place.place_polygon) {
+      if (effectiveMode && place.place_polygon) {
         polygons.push({
           id: place.place_id,
           geojson: place.place_polygon as unknown as Geometry,
@@ -113,13 +99,13 @@ export function ProjectDetailPage() {
   }, [project, t])
 
   const handleDelete = async () => {
-    setError('')
+    setActionError('')
     setIsDeleting(true)
     try {
       await api.projects.delete(projectId)
       navigate('/projetos')
-    } catch (err: any) {
-      setError(err.message || t('projects.deleteError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.deleteError')))
       setIsDeleting(false)
       setIsConfirmingDelete(false)
     }
@@ -132,13 +118,13 @@ export function ProjectDetailPage() {
       setAddSelection([])
       return
     }
-    setError('')
+    setActionError('')
     setIsAddingPlace(true)
     try {
       setProject(await api.projects.addPlace(projectId, places[0].id))
       checkAndCelebrate()
-    } catch (err: any) {
-      setError(err.message || t('projects.addPlaceError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.addPlaceError')))
     } finally {
       setAddSelection([])
       setIsAddingPlace(false)
@@ -146,27 +132,27 @@ export function ProjectDetailPage() {
   }
 
   const handleToggleUnmark = async (placeId: number) => {
-    setError('')
+    setActionError('')
     setBusyPlaceId(placeId)
     try {
       setProject(await api.projects.toggleUnmark(projectId, placeId))
       checkAndCelebrate()
-    } catch (err: any) {
-      setError(err.message || t('projects.togglePlaceError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.togglePlaceError')))
     } finally {
       setBusyPlaceId(null)
     }
   }
 
   const handleRemovePlace = async (placeId: number) => {
-    setError('')
+    setActionError('')
     setBusyPlaceId(placeId)
     try {
       setProject(await api.projects.removePlace(projectId, placeId))
       setRemovingPlaceId(null)
       checkAndCelebrate()
-    } catch (err: any) {
-      setError(err.message || t('projects.removePlaceError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.removePlaceError')))
     } finally {
       setBusyPlaceId(null)
     }
@@ -175,14 +161,14 @@ export function ProjectDetailPage() {
   const handleResolve = async () => {
     const lines = bulkText.split('\n').map((l) => l.trim()).filter(Boolean)
     if (lines.length === 0) return
-    setError('')
+    setActionError('')
     setIsResolving(true)
     try {
       const response = await api.projects.bulkImport(projectId, lines, bulkType || null)
       setBulkLines(response.lines)
       setBulkConflicts(new Set())
-    } catch (err: any) {
-      setError(err.message || t('projects.bulkResolveError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.bulkResolveError')))
     } finally {
       setIsResolving(false)
     }
@@ -226,8 +212,8 @@ export function ProjectDetailPage() {
 
   // Types present among candidates of ambiguous lines still pending a choice,
   // with the number of lines each type could auto-resolve (exactly 1 candidate).
-  const bulkSelectableTypes: { type: PlaceType; count: number }[] = []
-  if (bulkLines) {
+  const bulkSelectableTypes = useMemo<{ type: PlaceType; count: number }[]>(() => {
+    if (!bulkLines) return []
     const counts = new Map<PlaceType, number>()
     for (const line of bulkLines) {
       if (line.status !== 'ambiguous' || line.selected) continue
@@ -238,38 +224,34 @@ export function ProjectDetailPage() {
         else if (!counts.has(type)) counts.set(type, counts.get(type) ?? 0)
       }
     }
-    for (const [type, count] of counts) bulkSelectableTypes.push({ type, count })
-  }
+    return [...counts].map(([type, count]) => ({ type, count }))
+  }, [bulkLines])
 
   // Lines with no candidate at all, summarised above the confirm button
-  const bulkNotFound = bulkLines?.filter((l) => l.status === 'not_found').map((l) => l.line) ?? []
+  const bulkNotFound = useMemo(
+    () => bulkLines?.filter((l) => l.status === 'not_found').map((l) => l.line) ?? [],
+    [bulkLines],
+  )
 
   const handleConfirmBulk = async () => {
     if (!bulkLines) return
-    setError('')
+    setActionError('')
     setIsImportingBulk(true)
     try {
       setProject(await api.projects.bulkImportConfirm(projectId, bulkLines))
       setBulkLines(null)
       setBulkText('')
       setShowBulk(false)
-    } catch (err: any) {
-      setError(err.message || t('projects.bulkImportError'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('projects.bulkImportError')))
     } finally {
       setIsImportingBulk(false)
     }
   }
 
-  const visibilityKey = (visibility: Project['visibility']) =>
-    `visibility.option${visibility.charAt(0).toUpperCase() + visibility.slice(1)}`
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   if (!project) {
@@ -307,18 +289,13 @@ export function ProjectDetailPage() {
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
-            className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 dark:focus-visible:ring-offset-bg"
+            className="btn-danger"
           >
             {t('actions.delete')}
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error || actionError} />
 
       {isConfirmingDelete && (
         <div className="card border-red-300 dark:border-red-800">
@@ -332,7 +309,7 @@ export function ProjectDetailPage() {
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="rounded-pill bg-red-600 px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              className="btn-danger"
             >
               {isDeleting ? t('projects.deleting') : t('projects.deleteConfirm')}
             </button>
@@ -356,7 +333,7 @@ export function ProjectDetailPage() {
           <p className="mt-2 whitespace-pre-line text-ink">{project.description}</p>
         )}
         <p className="mt-3 text-sm text-muted">
-          {t('projects.visibility')}: {t(visibilityKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
+          {t('projects.visibility')}: {t(visibilityLabelKey(project.visibility))} · {t('projects.map')}: {t(mapModeLabelKey[project.map_mode])} · {t('projects.createdBy', { username: project.creator_username })} · {t('projects.updatedAt')} {formatUserDate(project.updated_at, user)}
         </p>
         {project.participants.length > 0 && (
           <p className="mt-1 text-sm text-muted">
@@ -367,12 +344,7 @@ export function ProjectDetailPage() {
         <div className="mt-4">
           {project.total_places > 0 ? (
             <>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-line">
-                <div
-                  className="h-full rounded-full bg-primary-600 transition-all"
-                  style={{ width: `${project.progress_percent}%` }}
-                />
-              </div>
+              <ProgressBar percent={project.progress_percent} label={t('projects.progress')} heightClass="h-3" roundedClass="rounded-full" fillClass="bg-primary-600" />
               <p className="mt-2 text-sm text-muted">
                 {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}%
               </p>

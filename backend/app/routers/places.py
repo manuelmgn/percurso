@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
-from app.models import User, Place, PlaceType
-from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse, TripListResponse, ProjectListResponse
-from app.services import place_service, project_service, activity_service, visibility_service
+from app.models import User, Place
+from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse
+from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
+from app.services import place_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/places", tags=["places"])
@@ -17,21 +18,8 @@ async def search_places(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # First check local cache
-    cached = db.query(Place).filter(Place.name.ilike(f"%{q}%")).limit(5).all()
-    cached_results = [
-        PlaceSearchResult(
-            osm_type=p.osm_type,
-            osm_id=p.osm_id,
-            name=p.name,
-            place_type=p.place_type,
-            hierarchy=p.hierarchy,
-            lat=p.lat,
-            lon=p.lon,
-            is_cached=True,
-        )
-        for p in cached
-    ]
+    # First check local cache; ranking happens after merging with OSM below
+    cached_results = [to_search_result(p) for p in place_service.find_cached_places(db, q, limit=5)]
 
     # Then fetch from OSM; if Nominatim fails (network, rate limit), serve
     # the cached results instead of erroring out.
@@ -41,14 +29,7 @@ async def search_places(
         osm_results = []
 
     # Combine (cache first), deduplicate by OSM identity, rank by relevance
-    seen = set()
-    results = []
-    for r in cached_results + place_service.rank_results(osm_results, q):
-        key = (r.osm_type, r.osm_id)
-        if key not in seen:
-            seen.add(key)
-            results.append(r)
-    return results[:10]
+    return place_service.merge_dedup_rank(cached_results, place_service.rank_results(osm_results, q), limit=10)
 
 
 @router.get("/visited", response_model=list[PlaceResponse])
@@ -58,18 +39,18 @@ def visited_places(
 ):
     """All distinct places visited by the current user (via trips they can
     see), deduplicated — one entry per place however many times visited."""
-    visible_trips = visibility_service.get_visible_trips(db, user)
-    place_ids = []
-    seen = set()
-    for trip in visible_trips:
-        for tp in trip.places:
-            if tp.place_id not in seen:
-                seen.add(tp.place_id)
-                place_ids.append(tp.place_id)
-    if not place_ids:
+    visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
+    if not visible_trip_ids:
         return []
-    places = db.query(Place).filter(Place.id.in_(place_ids)).all()
-    return sorted(places, key=lambda p: p.name)
+    places = (
+        db.query(Place)
+        .join(TripPlace, TripPlace.place_id == Place.id)
+        .filter(TripPlace.trip_id.in_(visible_trip_ids))
+        .distinct()
+        .order_by(Place.name)
+        .all()
+    )
+    return places
 
 
 @router.get("/overview", response_model=list[PlaceOverviewItem])
@@ -107,15 +88,13 @@ def get_place(
     if not place:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lugar não encontrado")
 
-    # Only trips/projects the requester can actually see.
-    trips = [
-        t for t in visibility_service.get_visible_trips(db, user)
-        if any(tp.place_id == place.id for tp in t.places)
-    ]
-    projects = [
-        p for p in visibility_service.get_visible_projects(db, user)
-        if any(pp.place_id == place.id for pp in p.places)
-    ]
+    # Only trips/projects the requester can actually see, resolved with SQL
+    # joins on the link tables (no full-table fan-out).
+    trips = visibility_service.get_trips_for_place(db, user, place.id)
+    projects = visibility_service.get_projects_for_place(db, user, place.id)
+    sorted_project_rows = to_project_list_responses(
+        db, user, sorted(projects, key=lambda p: p.name)
+    )
 
     return PlaceDetailResponse(
         id=place.id,
@@ -130,33 +109,10 @@ def get_place(
         created_at=place.created_at,
         updated_at=place.updated_at,
         trips=[
-            TripListResponse(
-                id=t.id,
-                title=t.title,
-                start_date=t.start_date,
-                end_date=t.end_date,
-                visibility=t.visibility,
-                creator_username=t.creator.username,
-                place_count=len(t.places),
-                project_count=len(t.projects),
-                created_at=t.created_at,
-                updated_at=t.updated_at,
-            )
+            to_trip_list_response(t)
             for t in sorted(trips, key=lambda t: t.start_date, reverse=True)
         ],
-        projects=[
-            ProjectListResponse(
-                id=p.id,
-                name=p.name,
-                description=p.description,
-                visibility=p.visibility,
-                creator_username=p.creator.username,
-                **project_service.get_project_progress(db, user, p),
-                created_at=p.created_at,
-                updated_at=p.updated_at,
-            )
-            for p in sorted(projects, key=lambda p: p.name)
-        ],
+        projects=sorted_project_rows,
     )
 
 

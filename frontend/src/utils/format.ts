@@ -85,3 +85,16 @@ export function formatTripTitle(
 ): string {
   return trip.title?.trim() || `${t('trips.fallbackTitle')} ${formatTripDateRange(trip.start_date, trip.end_date, prefs)}`
 }
+
+// Number of days a trip spans, inclusive of both ends ("Sàb 3 → Lun 5" = 3).
+export function tripDayCount(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+}
+
+// i18n key for a visibility value (`all` | `specific` | `private`) →
+// `visibility.optionAll` etc. Built by hand in three pages before.
+export function visibilityLabelKey(visibility: string): string {
+  return `visibility.option${visibility.charAt(0).toUpperCase()}${visibility.slice(1)}`
+}

@@ -66,9 +66,19 @@ export const POLYGON_STYLE = {
 const EMPTY_MARKERS: MapMarker[] = []
 const EMPTY_POLYGONS: MapPolygon[] = []
 
+// Escape user/OSM-sourced strings before dropping them into popup innerHTML.
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function popupHtml(title: string, subtitle: string | undefined, href: string | undefined, viewPageText: string): string {
-  let html = `<strong>${title}</strong>`
-  if (subtitle) html += `<br><span>${subtitle}</span>`
+  let html = `<strong>${escapeHtml(title)}</strong>`
+  if (subtitle) html += `<br><span>${escapeHtml(subtitle)}</span>`
+  // href is always an internal router path built by us, never user input.
   if (href) html += `<br><a href="${href}">${viewPageText}</a>`
   return html
 }
@@ -100,7 +110,21 @@ export default function MapViewInner({
 
     setTimeout(() => map.invalidateSize(), 0)
 
+    // Leaflet caches its size at init; without this the map renders grey
+    // whenever it is mounted before its container gets real dimensions —
+    // animation-based page transitions and mobile sidebar swaps both do.
+    // ResizeObserver catches every such change; the initial setTimeout
+    // above remains as a belt-and-braces for the very first paint.
+    let raf = 0
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => map.invalidateSize())
+    })
+    observer.observe(containerRef.current)
+
     return () => {
+      observer.disconnect()
+      cancelAnimationFrame(raf)
       map.remove()
       mapRef.current = null
       layerRef.current = null

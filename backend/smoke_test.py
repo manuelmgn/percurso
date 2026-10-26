@@ -21,10 +21,12 @@ def make_image():
 
 
 def login(client, username, password):
+    """Logs in and stores the CSRF header. The backend uses a separate CSRF
+    token (session cookie stays http-only), returned by login/auth/me."""
     r = client.post('/api/auth/login', json={'username': username, 'password': password})
     assert r.status_code == 200, f'login failed: {r.text}'
-    token = r.cookies.get('session')
-    client.headers.update({'x-csrf-token': token})
+    csrf_token = r.json()['csrf_token']
+    client.headers.update({'x-csrf-token': csrf_token})
     return r.json()['user']
 
 

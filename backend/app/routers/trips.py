@@ -5,10 +5,26 @@ from app.database import get_db
 from app.auth import get_current_user, validate_csrf
 from app.models import User, Trip
 from app.schemas import TripCreate, TripUpdate, TripResponse, TripListResponse, TripDeleteWarning, ProjectListResponse
+from app.serializers import to_trip_list_response
 from app.services import trip_service, project_service, activity_service, visibility_service
+from app.services.trip_service import trip_display_name
 from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
+
+
+def _get_visible_trip(db: Session, trip_id: int, user: User) -> Trip:
+    trip = trip_service.get_trip_by_id(db, trip_id)
+    if not trip or not visibility_service.can_user_see_trip(db, user, trip):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    return trip
+
+
+def _get_editable_trip(db: Session, trip_id: int, user: User) -> Trip:
+    trip = trip_service.get_trip_by_id(db, trip_id)
+    if not trip or not trip_service.can_user_edit_trip(user, trip):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    return trip
 
 
 @router.get("/", response_model=list[TripListResponse])
@@ -17,21 +33,7 @@ def list_trips(
     user: User = Depends(get_current_user),
 ):
     trips = trip_service.list_trips(db, user)
-    return [
-        TripListResponse(
-            id=t.id,
-            title=t.title,
-            start_date=t.start_date,
-            end_date=t.end_date,
-            visibility=t.visibility,
-            creator_username=t.creator.username,
-            place_count=len(t.places),
-            project_count=len(t.projects),
-            created_at=t.created_at,
-            updated_at=t.updated_at,
-        )
-        for t in trips
-    ]
+    return [to_trip_list_response(t) for t in trips]
 
 
 @router.post("/", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
@@ -41,7 +43,7 @@ def create_trip(
     user: User = Depends(validate_csrf),
 ):
     trip = trip_service.create_trip(db, user, payload)
-    activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
+    activity_service.log_activity(db, user, EntityAction.CREATED, EntityType.TRIP, trip.id, trip_display_name(trip))
     return _trip_to_response(db, user, trip)
 
 
@@ -51,9 +53,7 @@ def get_trip(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not visibility_service.can_user_see_trip(db, user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    trip = _get_visible_trip(db, trip_id, user)
     return _trip_to_response(db, user, trip)
 
 
@@ -64,12 +64,10 @@ def update_trip(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not trip_service.can_user_edit_trip(user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    trip = _get_editable_trip(db, trip_id, user)
 
     trip = trip_service.update_trip(db, user, trip, payload)
-    activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, _trip_display_name(trip))
+    activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, trip_display_name(trip))
     return _trip_to_response(db, user, trip)
 
 
@@ -79,9 +77,7 @@ def get_delete_warning(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not trip_service.can_user_edit_trip(user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    trip = _get_editable_trip(db, trip_id, user)
 
     affected = trip_service.get_affected_projects(db, user, trip)
     return TripDeleteWarning(
@@ -110,17 +106,12 @@ def delete_trip(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not trip_service.can_user_edit_trip(user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+    trip = _get_editable_trip(db, trip_id, user)
 
-    activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.TRIP, trip.id, _trip_display_name(trip))
-    trip_service.delete_trip(db, user, trip)
+    activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.TRIP, trip.id, trip_display_name(trip))
+    trip_service.delete_trip(db, trip)
     return None
 
-
-def _trip_display_name(trip: Trip) -> str:
-    return trip.title or f"Viagem {trip.start_date}"
 
 
 def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
@@ -134,8 +125,8 @@ def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
         companions_text=trip.companions_text,
         creator_id=trip.creator_id,
         creator_username=trip.creator.username,
-        participants=[{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "role": u.role, "is_active": u.is_active, "timezone": u.timezone, "date_format": u.date_format, "theme": u.theme, "created_at": u.created_at, "updated_at": u.updated_at} for u in trip.participants],
-        visible_users=[{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "role": u.role, "is_active": u.is_active, "timezone": u.timezone, "date_format": u.date_format, "theme": u.theme, "created_at": u.created_at, "updated_at": u.updated_at} for u in trip.visible_users],
+        participants=[UserResponse.model_validate(u) for u in trip.participants],
+        visible_users=[UserResponse.model_validate(u) for u in trip.visible_users],
         places=[
             {
                 "id": tp.id,

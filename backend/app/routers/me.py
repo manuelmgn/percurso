@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 from app.config import settings
 from app.database import get_db
-from app.auth import get_current_user, validate_csrf
-from app.models import User, UserRole
+from app.auth import get_current_user, get_session_token, validate_csrf
+from app.models import User, UserRole, Session as UserSession
 from app.schemas import UserResponse, UserPasswordChange, UserPreferencesUpdate
 from app.services import user_service, image_service, activity_service
 from app.models.enums import EntityAction, EntityType
@@ -89,9 +89,6 @@ def change_password(
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A palavra-passe atual está incorreta")
     # Invalidate all other sessions so stolen tokens cannot be reused.
-    from app.models import Session as UserSession
-    from app.auth import get_session_token
-
     current_token = get_session_token(request)
     q = db.query(UserSession).filter(UserSession.user_id == user.id)
     if current_token:

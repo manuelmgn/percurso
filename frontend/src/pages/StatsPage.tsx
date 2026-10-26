@@ -18,8 +18,11 @@ import {
 } from 'recharts'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
+import { useApiResource } from '@/hooks/useApiResource'
 import { useTheme } from '@/components/ThemeProvider'
 import { StatCard } from '@/components/ui/StatCard'
+import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { ActivityItem, StatsResponse, TripListItem } from '@/types'
 
 const PIE_COLORS = ['#C1075D', '#E06F56', '#FFD64E', '#6B21A8', '#8A8177']
@@ -32,26 +35,23 @@ export function StatsPage() {
   const isDark = resolvedTheme === 'dark'
   const tickFill = isDark ? '#A09A92' : '#8A8177'
   const gridStroke = isDark ? '#322A23' : '#F0E9DE'
+  // Chart style objects are memoised so recharts does not re-render on
+  // unrelated page updates just because a fresh object identity arrived.
+  const tooltipStyle = useMemo(
+    () => ({
+      backgroundColor: isDark ? '#221D18' : '#FFFFFF',
+      border: `1px solid ${gridStroke}`,
+      borderRadius: 12,
+      fontSize: 12,
+    }),
+    [isDark, gridStroke],
+  )
 
-  const [stats, setStats] = useState<StatsResponse | null>(null)
+  // Primary data via the shared hook; the two optional extras below keep
+  // their tiny effect because failures there must not block the page.
+  const { data: stats, isLoading, error } = useApiResource<StatsResponse>(() => api.stats.get())
   const [trips, setTrips] = useState<TripListItem[] | null>(null)
   const [activities, setActivities] = useState<ActivityItem[] | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setStats(await api.stats.get())
-      } catch (err: any) {
-        setError(err.message || t('stats.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [t])
 
   // Extra (already existing) endpoints to feed the charts — failures only
   // leave that chart empty, never the whole page.
@@ -102,12 +102,7 @@ export function StatsPage() {
   }, [activities])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   if (!stats) {
@@ -122,12 +117,6 @@ export function StatsPage() {
   }
 
   const maxRegionCount = Math.max(1, ...stats.region_stats.map((r) => r.count))
-  const tooltipStyle = {
-    backgroundColor: isDark ? '#221D18' : '#FFFFFF',
-    border: `1px solid ${gridStroke}`,
-    borderRadius: 12,
-    fontSize: 12,
-  }
 
   return (
     <div className="space-y-6">
@@ -190,8 +179,8 @@ export function StatsPage() {
                     stroke="#FFFFFF"
                     strokeWidth={2}
                   >
-                    {placesByType.map((entry) => (
-                      <Cell key={entry.type} fill={PIE_COLORS[placesByType.indexOf(entry) % PIE_COLORS.length]} />
+                    {placesByType.map((entry, i) => (
+                      <Cell key={entry.type} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} />
@@ -263,19 +252,7 @@ export function StatsPage() {
                   </span>
                 </div>
                 {project.total_places > 0 && (
-                  <div
-                    className="mt-2 h-2.5 w-full overflow-hidden rounded-pill bg-line"
-                    role="progressbar"
-                    aria-label={t('stats.projectProgress')}
-                    aria-valuenow={Math.round(project.progress_percent)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      className="h-full rounded-pill bg-brand transition-[width] duration-500"
-                      style={{ width: `${project.progress_percent}%` }}
-                    />
-                  </div>
+                  <div className="mt-2"><ProgressBar percent={project.progress_percent} label={t('stats.projectProgress')} /></div>
                 )}
               </li>
             ))}

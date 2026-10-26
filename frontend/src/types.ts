@@ -25,6 +25,20 @@ export type PlaceType = (typeof PLACE_TYPES)[number]
 // Types considered "large" — polygon-friendly by default in map mode logic.
 export const BIG_PLACE_TYPES: PlaceType[] = ['país', 'região/comunidade', 'província', 'concelho/município', 'comarca']
 
+/**
+ * Effective point/polygon decision for a place collection: 'polygons' only
+ * when the mode asks for it and every place shares one "big" type; 'auto'
+ * resolves by the single type (used by both the project detail map and the
+ * editor toggle — this logic used to live copy-pasted in both).
+ */
+export function isPolygonMode(mapMode: MapMode, placeTypes: PlaceType[]): boolean {
+  const distinct = new Set(placeTypes)
+  if (mapMode === 'polygons') return distinct.size <= 1
+  if (mapMode !== 'auto') return false
+  const onlyType = distinct.size === 1 ? placeTypes[0] : undefined
+  return Boolean(onlyType && BIG_PLACE_TYPES.includes(onlyType))
+}
+
 export interface User {
   id: number
   username: string

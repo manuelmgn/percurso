@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from sqlalchemy.orm import Session
 
 from app.models import User, Activity, EntityAction, EntityType
@@ -26,13 +24,17 @@ def log_activity(
     db.commit()
     db.refresh(activity)
 
-    # Keep only the last MAX_ACTIVITIES
-    count = db.query(Activity).count()
-    if count > MAX_ACTIVITIES:
-        oldest = db.query(Activity).order_by(Activity.created_at).limit(count - MAX_ACTIVITIES).all()
-        for old in oldest:
-            db.delete(old)
-        db.commit()
+    # Keep only the last MAX_ACTIVITIES: one DELETE with a subquery instead
+    # of counting + loading and deleting rows one by one.
+    prunable = (
+        db.query(Activity.id)
+        .order_by(Activity.created_at.desc(), Activity.id.desc())
+        .offset(MAX_ACTIVITIES)
+    )
+    db.query(Activity).filter(
+        Activity.id.in_(row[0] for row in prunable)
+    ).delete(synchronize_session=False)
+    db.commit()
 
     return activity
 

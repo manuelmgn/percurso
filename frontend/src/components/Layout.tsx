@@ -5,18 +5,15 @@ import { Header } from './Header'
 import { AnimatedOutlet } from './PageTransition'
 import { useAuth } from '@/context/AuthContext'
 import { UnreadCountProvider } from '@/context/UnreadCountContext'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 
 export function Layout() {
   const { isLoading } = useAuth()
   const { t } = useTranslation()
 
+  // Layout-level loading (silent auth bootstrap) — full viewport centring.
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <div className="min-h-screen pt-40"><PageSpinner /></div>
   }
 
   return (

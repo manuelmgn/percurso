@@ -1,5 +1,4 @@
 import secrets
-from datetime import datetime, timezone
 from typing import Optional
 
 from argon2 import PasswordHasher

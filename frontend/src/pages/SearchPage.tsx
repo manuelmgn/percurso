@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '@/api'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/format'
@@ -87,12 +88,7 @@ export function SearchPage() {
           <p className="text-sm text-muted">
             {t('search.resultsFor')} <span className="font-medium text-ink">«{q}»</span>
           </p>
-
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-              {error}
-            </div>
-          )}
+          <ErrorBanner message={error} />
 
           {isLoading && (
             <div className="card py-8 text-center">

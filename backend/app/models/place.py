@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Text, UniqueConstraint, Index, JSON, Enum
+from sqlalchemy import Column, Integer, String, Float, UniqueConstraint, Index, JSON, Enum
 from sqlalchemy.orm import relationship
 
 from app.database import Base

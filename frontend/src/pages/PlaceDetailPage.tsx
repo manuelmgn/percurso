@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import { api } from '@/api'
+import { useApiResource } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import type { PlaceDetail } from '@/types'
@@ -13,23 +15,10 @@ export function PlaceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
 
-  const [place, setPlace] = useState<PlaceDetail | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setPlace(await api.places.get(Number(id)))
-      } catch (err: any) {
-        setError(err.message || t('places.detailLoadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [id, t])
+  const { data: place, isLoading, error } = useApiResource<PlaceDetail>(
+    () => api.places.get(Number(id)),
+    [id],
+  )
 
   // Memoised so unrelated state changes (e.g. user prefs) don't rebuild the
   // map and refit its bounds on every render.
@@ -54,12 +43,7 @@ export function PlaceDetailPage() {
   }, [place])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   if (!place) {

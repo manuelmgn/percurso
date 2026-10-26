@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Pin } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { api, ApiError } from '@/api'
 import type { PinEntityType } from '@/types'
@@ -68,20 +69,7 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
             : 'bg-line/40 text-ink hover:bg-line/50 dark:hover:bg-fill'
         }`}
       >
-        <svg
-          className="h-4 w-4"
-          fill={isPinned ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"
-          />
-        </svg>
+        <Pin size={16} fill={isPinned ? 'currentColor' : 'none'} aria-hidden="true" />
         {showLabel && (isPinned ? t('actions.unpin') : t('actions.pin'))}
       </button>
       {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}

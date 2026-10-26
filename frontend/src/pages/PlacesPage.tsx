@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
+import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { formatHierarchy } from '@/utils/format'
 import { PLACE_TYPES, type PlaceOverviewItem, type PlaceType } from '@/types'
+import { MapPin } from 'lucide-react'
 
 type StatusFilter = 'all' | 'visited' | 'pending'
 type SortOrder = 'alpha' | 'most_visited' | 'recent'
@@ -18,21 +22,6 @@ interface PlacesFilters {
 
 const DEFAULT_FILTERS: PlacesFilters = { query: '', placeType: '', status: 'all', sort: 'alpha' }
 
-// Filters are remembered per user, so they survive sessions without leaking
-// to other users of the same device.
-function storageKey(userId: number | undefined): string {
-  return `lugares:filters:${userId ?? 'anon'}`
-}
-
-function loadFilters(userId: number | undefined): PlacesFilters {
-  try {
-    const raw = localStorage.getItem(storageKey(userId))
-    if (!raw) return DEFAULT_FILTERS
-    return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<PlacesFilters>) }
-  } catch {
-    return DEFAULT_FILTERS
-  }
-}
 
 function placeStatus(place: PlaceOverviewItem): 'visited' | 'pending' | 'both' {
   if (place.visit_count > 0) return place.is_project_target ? 'both' : 'visited'
@@ -47,29 +36,14 @@ function recencyTimestamp(place: PlaceOverviewItem): number {
 export function PlacesPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
-  const [places, setPlaces] = useState<PlaceOverviewItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [filters, setFilters] = useState<PlacesFilters>(() => loadFilters(user?.id))
-
-  // The app remembers the chosen filters and sort order between sessions.
-  useEffect(() => {
-    localStorage.setItem(storageKey(user?.id), JSON.stringify(filters))
-  }, [filters, user?.id])
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setPlaces(await api.places.overview())
-      } catch (err: any) {
-        setError(err.message || t('places.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [t])
+  const { data: places, isLoading, error } = useApiResource<PlaceOverviewItem[]>(
+    () => api.places.overview(),
+    [],
+    [],
+  )
+  // Filters are remembered per user, so they survive sessions without leaking
+  // to other users of the same device (shared hook).
+  const [filters, setFilters] = usePersistentFilters<PlacesFilters>('lugares:filters', user?.id, DEFAULT_FILTERS)
 
   const visiblePlaces = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
@@ -93,30 +67,18 @@ export function PlacesPage() {
   const updateFilters = (patch: Partial<PlacesFilters>) => setFilters((prev) => ({ ...prev, ...patch }))
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl font-bold">{t('places.title')}</h2>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error} />
 
       {places.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">
-          <svg className="h-12 w-12 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+          <MapPin size={48} strokeWidth={1.5} className="text-muted" aria-hidden="true" />
+
           <h3 className="mt-4 font-display text-lg font-semibold">{t('places.empty.title')}</h3>
           <p className="mt-1 max-w-sm text-sm text-muted">
             {t('places.empty.description')}

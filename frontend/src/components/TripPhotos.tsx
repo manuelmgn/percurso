@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { Lightbox } from '@/components/ui/Lightbox'
@@ -31,8 +32,8 @@ export function TripPhotos({ trip }: TripPhotosProps) {
       try {
         const list = await api.photos.list(trip.id)
         if (!cancelled) setPhotos(list)
-      } catch (err: any) {
-        if (!cancelled) setError(err.message || t('trip.photosLoadError'))
+      } catch (err) {
+        if (!cancelled) setError(getErrorMessage(err, t('trip.photosLoadError')))
       }
     }
     load()
@@ -51,8 +52,8 @@ export function TripPhotos({ trip }: TripPhotosProps) {
     try {
       const created = await api.photos.upload(trip.id, Array.from(files))
       setPhotos((current) => [...(current ?? []), ...created])
-    } catch (err: any) {
-      setError(err.message || t('trip.photosUploadError'))
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.photosUploadError')))
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -65,8 +66,8 @@ export function TripPhotos({ trip }: TripPhotosProps) {
       await api.photos.remove(trip.id, photo.id)
       setPhotos((current) => (current ?? []).filter((p) => p.id !== photo.id))
       if (lightboxIndex !== null) setLightboxIndex(null)
-    } catch (err: any) {
-      setError(err.message || t('trip.photoDeleteError'))
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.photoDeleteError')))
     }
   }
 
@@ -74,8 +75,8 @@ export function TripPhotos({ trip }: TripPhotosProps) {
     try {
       const updated = await api.photos.updateCaption(trip.id, photo.id, { caption })
       setPhotos((current) => (current ?? []).map((p) => (p.id === photo.id ? updated : p)))
-    } catch (err: any) {
-      setError(err.message || t('trip.captionSaveError'))
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.captionSaveError')))
       throw err
     }
   }

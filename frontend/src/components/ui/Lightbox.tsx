@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Pencil, X } from 'lucide-react'
 import { useTranslation } from '@/i18n'
+import { useModalA11y } from '@/hooks/useModalA11y'
 import type { Photo } from '@/types'
 
 interface LightboxProps {
@@ -21,6 +22,9 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
 
   const photo = photos[index]
 
+  // Esc + focus trap + scroll lock from the shared hook.
+  const containerRef = useModalA11y<HTMLDivElement>(onClose)
+
   const goTo = useCallback(
     (next: number) => {
       setIndex(((next % photos.length) + photos.length) % photos.length)
@@ -29,21 +33,18 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
     [photos.length]
   )
 
-  // Keyboard navigation + scroll lock while the overlay is open.
+  // Scroll lock and keyboard handling live in useModalA11y (shared with the
+  // settings modal); the arrow-key navigation stays here.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowLeft') goTo(index - 1)
       if (e.key === 'ArrowRight') goTo(index + 1)
     }
     document.addEventListener('keydown', onKeyDown)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
     }
-  }, [index, goTo, onClose])
+  }, [index, goTo])
 
   const startEditing = () => {
     setDraft(photo.caption ?? '')
@@ -64,7 +65,9 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-ink/90 backdrop-blur-sm"
+      ref={containerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col bg-ink/90 backdrop-blur-sm focus:outline-none"
       role="dialog"
       aria-modal="true"
       aria-label={t('lightbox.title')}

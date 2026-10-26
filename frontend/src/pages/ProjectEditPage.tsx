@@ -1,52 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
+import { useUnloadGuard } from '@/hooks/useUnloadGuard'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
+import { PillChecklist } from '@/components/ui/PillChecklist'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
 import type { MapMode, PlaceType, User, Visibility } from '@/types'
-import { BIG_PLACE_TYPES } from '@/types'
-
-function UserChecklist({
-  users,
-  selectedIds,
-  onToggle,
-  emptyMessage,
-}: {
-  users: User[]
-  selectedIds: number[]
-  onToggle: (id: number) => void
-  emptyMessage: string
-}) {
-  if (users.length === 0) {
-    return <p className="text-sm text-muted">{emptyMessage}</p>
-  }
-  return (
-    <div className="flex flex-wrap gap-2">
-      {users.map((u) => {
-        const checked = selectedIds.includes(u.id)
-        return (
-          <label
-            key={u.id}
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
-              checked
-                ? 'border-primary bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                : 'border-line text-ink hover:bg-line/40 dark:hover:bg-fill'
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => onToggle(u.id)}
-              className="h-4 w-4 rounded border-line text-primary-600 focus:ring-primary"
-            />
-            {u.username}
-          </label>
-        )
-      })}
-    </div>
-  )
-}
-
+import { isPolygonMode } from '@/types'
 export function ProjectEditPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
@@ -66,41 +29,54 @@ export function ProjectEditPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // JSON fingerprint of the whole form; frozen once the initial load
+  // finishes. Any later difference arms the "unsaved changes" dialog.
+  const savedFormRef = useRef<string | null>(null)
+  const formFingerprint = JSON.stringify({
+    name, description, visibility, mapMode, participantIds, visibleUserIds,
+  })
+  if (savedFormRef.current === null && !isLoading) {
+    savedFormRef.current = formFingerprint
+  }
+  const isDirty =
+    savedFormRef.current !== null &&
+    !isSubmitting &&
+    formFingerprint !== savedFormRef.current
+  useUnloadGuard(isDirty)
+
   useEffect(() => {
+    // Cancellation guard: a slow response for project A must never
+    // repopulate the form after a fast navigation to project B.
+    let cancelled = false
     const load = async () => {
       try {
-        setIsLoading(true)
         const allUsers = await api.users.list()
+        if (cancelled) return
         setUsers(allUsers.filter((u) => u.id !== user?.id))
 
         if (isEdit) {
           const project = await api.projects.get(Number(id))
+          if (cancelled) return
           setName(project.name)
           setDescription(project.description || '')
           setVisibility(project.visibility)
           const types = project.places.map((p) => p.place_type)
           setPlaceTypes(types)
-          // Resolve 'auto' to a concrete mode for the toggle: polygons when
-          // all places share a single "big" type, points otherwise.
-          const distinct = new Set(types)
-          const onlyType = distinct.size === 1 ? types[0] : undefined
-          setMapMode(
-            project.map_mode === 'auto'
-              ? onlyType && BIG_PLACE_TYPES.includes(onlyType)
-                ? 'polygons'
-                : 'points'
-              : project.map_mode
-          )
+          // Resolve 'auto' to a concrete mode for the toggle; mixed types
+          // stay points (toggle hidden — spec §6.1).
+          setMapMode(isPolygonMode(project.map_mode, types) ? 'polygons' : 'points')
           setParticipantIds(project.participants.map((u) => u.id))
           setVisibleUserIds(project.visible_users.map((u) => u.id))
         }
-      } catch (err: any) {
-        setError(err.message || t('projectEdit.loadError'))
+      } catch (err) {
+        if (!cancelled) setError(getErrorMessage(err, t('projectEdit.loadError')))
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
+    setIsLoading(true)
     load()
+    return () => { cancelled = true }
   }, [id, isEdit, user?.id, t])
 
   const toggleId = (list: number[], idToToggle: number) =>
@@ -124,15 +100,12 @@ export function ProjectEditPage() {
     }
 
     try {
-      if (isEdit) {
-        const project = await api.projects.update(Number(id), data)
-        navigate(`/projetos/${project.id}`)
-      } else {
-        const project = await api.projects.create(data)
-        navigate(`/projetos/${project.id}`)
-      }
-    } catch (err: any) {
-      setError(err.message || t('projects.saveError'))
+      const project = isEdit
+        ? await api.projects.update(Number(id), data)
+        : await api.projects.create(data)
+      navigate(`/projetos/${project.id}`)
+    } catch (err) {
+      setError(getErrorMessage(err, t('projects.saveError')))
       setIsSubmitting(false)
     }
   }
@@ -142,12 +115,7 @@ export function ProjectEditPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   return (
@@ -155,11 +123,7 @@ export function ProjectEditPage() {
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('projectEdit.editTitle') : t('projectEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl">
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {error}
-          </div>
-        )}
+        <ErrorBanner className="mb-4" message={error} />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -226,8 +190,8 @@ export function ProjectEditPage() {
           {visibility === 'specific' && (
             <div>
               <label className="mb-1 block text-sm font-medium">{t('projectEdit.visibleToLabel')}</label>
-              <UserChecklist
-                users={users}
+              <PillChecklist
+                items={users.map((u) => ({ id: u.id, label: u.username }))}
                 selectedIds={visibleUserIds}
                 onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
                 emptyMessage={t('projectEdit.noOtherUsers')}
@@ -237,8 +201,8 @@ export function ProjectEditPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t('projectEdit.participantsLabel')}</label>
-            <UserChecklist
-              users={users}
+            <PillChecklist
+              items={users.map((u) => ({ id: u.id, label: u.username }))}
               selectedIds={participantIds}
               onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
               emptyMessage={t('projectEdit.noOtherUsers')}

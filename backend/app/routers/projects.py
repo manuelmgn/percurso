@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
 from app.models import User, Project, Place
-from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse, BulkImportRequest, BulkImportResponse, BulkImportLine, PlaceSearchResult, TripListResponse, UserResponse
+from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse, BulkImportRequest, BulkImportResponse, BulkImportLine, PlaceSearchResult, UserResponse
+from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
 from app.services import project_service, place_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
 
@@ -18,24 +19,7 @@ def list_projects(
     user: User = Depends(get_current_user),
 ):
     projects = visibility_service.get_visible_projects(db, user)
-    projects = sorted(projects, key=lambda p: p.updated_at, reverse=True)
-    result = []
-    for p in projects:
-        progress = project_service.get_project_progress(db, user, p)
-        result.append(ProjectListResponse(
-            id=p.id,
-            name=p.name,
-            description=p.description,
-            visibility=p.visibility,
-            creator_username=p.creator.username,
-            total_places=progress["total_places"],
-            visited_places=progress["visited_places"],
-            progress_percent=progress["progress_percent"],
-            is_completed=progress["is_completed"],
-            created_at=p.created_at,
-            updated_at=p.updated_at,
-        ))
-    return result
+    return to_project_list_responses(db, user, projects)
 
 
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -128,19 +112,6 @@ def remove_place_from_project(
     return _project_to_response(db, user, project)
 
 
-def _to_search_result(p: Place) -> PlaceSearchResult:
-    return PlaceSearchResult(
-        osm_type=p.osm_type,
-        osm_id=p.osm_id,
-        name=p.name,
-        place_type=p.place_type,
-        hierarchy=p.hierarchy,
-        lat=p.lat,
-        lon=p.lon,
-        is_cached=True,
-    )
-
-
 def _resolve_line(line: str, candidates: list[PlaceSearchResult]) -> BulkImportLine:
     """Decide resolved/ambiguous/not_found for one input line.
 
@@ -171,47 +142,45 @@ async def bulk_import_places(
     if not project or not project_service.can_user_edit_project(user, project):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
+    place_type = payload.place_type
+
     lines = []
     for raw_line in payload.lines:
         line = raw_line.strip()
         if not line:
             continue
 
-        # Exact name match in the local cache resolves without hitting OSM
+        # Exact name match in the local cache resolves without hitting OSM —
+        # even if OSM would return same-named duplicates that would make the
+        # line ambiguous later.
         exact_query = db.query(Place).filter(func.lower(Place.name) == line.lower())
-        if payload.place_type is not None:
-            exact_query = exact_query.filter(Place.place_type == payload.place_type)
+        if place_type is not None:
+            exact_query = exact_query.filter(Place.place_type == place_type)
         exact_cached = exact_query.all()
+
         if len(exact_cached) == 1:
-            result = _to_search_result(exact_cached[0])
+            result = to_search_result(exact_cached[0])
             lines.append(BulkImportLine(line=line, status="resolved", candidates=[result], selected=result))
             continue
 
-        cached_query = db.query(Place).filter(Place.name.ilike(f"%{line}%"))
-        if payload.place_type is not None:
-            cached_query = cached_query.filter(Place.place_type == payload.place_type)
-        cached = [_to_search_result(p) for p in
-                  cached_query.limit(5).all()
-                  if p not in exact_cached]
+        cached_results = [to_search_result(p) for p in exact_cached]
+        cached_results += [
+            to_search_result(p)
+            for p in place_service.find_cached_places(db, line, limit=5)
+            if p not in exact_cached
+        ]
+
         try:
             osm_results = await place_service.search_nominatim(line, limit=5)
         except Exception:
             osm_results = []
+        if place_type is not None:
+            # A type hint restricts resolution to candidates of that type
+            osm_results = [c for c in osm_results if c.place_type == place_type]
 
-        # Merge, deduplicating by OSM identity (cache first)
-        seen = set()
-        candidates = []
-        for r in cached + osm_results:
-            key = (r.osm_type, r.osm_id)
-            if key not in seen:
-                seen.add(key)
-                candidates.append(r)
-
-        # A type hint restricts resolution to candidates of that type
-        if payload.place_type is not None:
-            candidates = [c for c in candidates if c.place_type == payload.place_type]
-
-        lines.append(_resolve_line(line, candidates[:8]))
+        # Merge, deduplicating by OSM identity (cache first), then resolve
+        candidates = place_service.merge_dedup_rank(cached_results + osm_results, limit=8)
+        lines.append(_resolve_line(line, candidates))
 
     return BulkImportResponse(lines=lines)
 
@@ -266,10 +235,13 @@ def toggle_place_unmarked(
 
 
 def _project_to_response(db: Session, user: User, project: Project) -> ProjectResponse:
-    progress = project_service.get_project_progress(db, user, project)
+    # Resolve visited places once for the whole response (progress + per-place
+    # flags) instead of one existence check per place.
+    visited_ids = project_service.get_visited_place_ids_in_project(db, user, project.id)
+    progress = project_service.get_project_progress(db, user, project, visited_ids)
     places = []
     for pp in project.places:
-        is_visited = (not pp.is_unmarked) and project_service.is_place_visited_in_project(db, user, project.id, pp.place_id)
+        is_visited = (not pp.is_unmarked) and pp.place_id in visited_ids
         places.append({
             "id": pp.id,
             "place_id": pp.place.id,
@@ -284,22 +256,10 @@ def _project_to_response(db: Session, user: User, project: Project) -> ProjectRe
             "visited_at": pp.added_at if is_visited else None,
         })
 
-    trips = [
-        TripListResponse(
-            id=tp.trip.id,
-            title=tp.trip.title,
-            start_date=tp.trip.start_date,
-            end_date=tp.trip.end_date,
-            visibility=tp.trip.visibility,
-            creator_username=tp.trip.creator.username,
-            place_count=len(tp.trip.places),
-            project_count=len(tp.trip.projects),
-            created_at=tp.trip.created_at,
-            updated_at=tp.trip.updated_at,
-        )
-        for tp in project.trips
-        if visibility_service.can_user_see_trip(db, user, tp.trip)
-    ]
+    trips = []
+    for tp in project.trips:
+        if visibility_service.can_user_see_trip(db, user, tp.trip):
+            trips.append(to_trip_list_response(tp.trip))
     trips.sort(key=lambda t: t.updated_at, reverse=True)
 
     return ProjectResponse(

@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/api'
+import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
+import { ProgressBar } from '@/components/ui/ProgressBar'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PageSpinner } from '@/components/ui/PageSpinner'
+import { visibilityLabelKey } from '@/utils/format'
 import type { ProjectListItem } from '@/types'
+import { CircleCheck } from 'lucide-react'
 
 type ProjectSort = 'recent' | 'alpha' | 'progress'
 
@@ -14,45 +20,16 @@ interface ProjectFilters {
 
 const DEFAULT_FILTERS: ProjectFilters = { query: '', sort: 'recent' }
 
-function storageKey(userId: number | undefined): string {
-  return `projetos:filters:${userId ?? 'anon'}`
-}
-
-function loadFilters(userId: number | undefined): ProjectFilters {
-  try {
-    const raw = localStorage.getItem(storageKey(userId))
-    if (!raw) return DEFAULT_FILTERS
-    return { ...DEFAULT_FILTERS, ...(JSON.parse(raw) as Partial<ProjectFilters>) }
-  } catch {
-    return DEFAULT_FILTERS
-  }
-}
-
 export function ProjectsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [projects, setProjects] = useState<ProjectListItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [filters, setFilters] = useState<ProjectFilters>(() => loadFilters(user?.id))
-
-  useEffect(() => {
-    localStorage.setItem(storageKey(user?.id), JSON.stringify(filters))
-  }, [filters, user?.id])
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true)
-        setProjects(await api.projects.list())
-      } catch (err: any) {
-        setError(err.message || t('projects.loadError'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [t])
+  const { data: projects, isLoading, error } = useApiResource<ProjectListItem[]>(
+    () => api.projects.list(),
+    [],
+    [],
+  )
+  // Filters survive navigation, scoped per user (shared hook).
+  const [filters, setFilters] = usePersistentFilters<ProjectFilters>('projetos:filters', user?.id, DEFAULT_FILTERS)
 
   const visibleProjects = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
@@ -74,12 +51,7 @@ export function ProjectsPage() {
   }, [projects, filters])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
+    return <PageSpinner />
   }
 
   return (
@@ -90,18 +62,12 @@ export function ProjectsPage() {
           {t('projects.create')}
         </Link>
       </div>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error} />
 
       {projects.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">
-          <svg className="h-12 w-12 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <CircleCheck size={48} strokeWidth={1.5} className="text-muted" aria-hidden="true" />
+
           <h3 className="mt-4 font-display text-lg font-semibold">{t('projects.empty.title')}</h3>
           <p className="mt-1 max-w-sm text-sm text-muted">
             {t('projects.empty.description')}
@@ -174,15 +140,10 @@ export function ProjectsPage() {
                     </p>
                   )}
                   <div className="mt-4">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-line">
-                      <div
-                        className="h-full rounded-full bg-primary-600 transition-all"
-                        style={{ width: `${project.progress_percent}%` }}
-                      />
-                    </div>
+                    <ProgressBar percent={project.progress_percent} heightClass="h-2" roundedClass="rounded-full" fillClass="bg-primary-600" />
                     <p className="mt-2 text-xs text-muted">
                       {t('projects.progressText', { visited: project.visited_places, total: project.total_places })} · {Math.round(project.progress_percent)}% ·{' '}
-                      {t(`visibility.option${project.visibility.charAt(0).toUpperCase() + project.visibility.slice(1)}`)}
+                      {t(visibilityLabelKey(project.visibility))}
                     </p>
                   </div>
                 </Link>

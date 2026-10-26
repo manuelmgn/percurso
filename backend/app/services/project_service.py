@@ -1,10 +1,9 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Collection, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, exists
 
-from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, Visibility
+from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace
 from app.schemas import ProjectCreate, ProjectUpdate
 from app.services import visibility_service, notification_service
 
@@ -92,19 +91,32 @@ def delete_project(db: Session, user: User, project: Project) -> None:
     db.commit()
 
 
-def get_project_progress(db: Session, user: User, project: Project) -> dict:
+def get_project_progress(
+    db: Session,
+    user: User,
+    project: Project,
+    visited_place_ids: set[int] | None = None,
+) -> dict:
+    """Progress summary. Pass `visited_place_ids` (from
+    `get_visited_place_ids_in_project`) to reuse a single computation.
+
+    ``pp.is_unmarked`` deliberately excludes a place from progress even
+    when a trip visits it (manual unvisit — see `toggle_place_unmarked`)."""
+    if visited_place_ids is None:
+        visited_place_ids = get_visited_place_ids_in_project(db, user, project.id)
+    return _compute_progress(project, visited_place_ids)
+
+
+def _compute_progress(project: Project, visited_place_ids: set[int]) -> dict:
+    """Shared progress arithmetic, fed by the single- and batched paths."""
     total_places = len(project.places)
-    visited_places = 0
-
-    for project_place in project.places:
-        if project_place.is_unmarked:
-            continue
-        if is_place_visited_in_project(db, user, project.id, project_place.place_id):
-            visited_places += 1
-
+    visited_places = sum(
+        1
+        for pp in project.places
+        if not pp.is_unmarked and pp.place_id in visited_place_ids
+    )
     progress_percent = (visited_places / total_places * 100) if total_places > 0 else 0
     is_completed = total_places > 0 and visited_places == total_places
-
     return {
         "total_places": total_places,
         "visited_places": visited_places,
@@ -113,20 +125,50 @@ def get_project_progress(db: Session, user: User, project: Project) -> dict:
     }
 
 
-def is_place_visited_in_project(db: Session, user: User, project_id: int, place_id: int) -> bool:
-    visible_trips = visibility_service.get_visible_trips(db, user)
-    visible_trip_ids = {t.id for t in visible_trips}
+def get_visited_place_ids_in_project(db: Session, user: User, project_id: int) -> set[int]:
+    """Place IDs of the project that appear in any trip the user can see.
 
-    return db.query(
-        exists().where(
-            and_(
-                TripPlace.place_id == place_id,
-                TripPlace.trip_id.in_(visible_trip_ids),
-                TripProject.project_id == project_id,
+    One aggregate query for the whole project instead of one existence check
+    per place (the old code also re-resolved visible trips per place)."""
+    if not (visible_trip_ids := visibility_service.get_visible_trip_ids(db, user)):
+        return set()
+    visited = db.query(TripPlace.place_id).filter(
+        TripPlace.trip_id.in_(visible_trip_ids),
+        TripProject.project_id == project_id,
+        TripProject.trip_id == TripPlace.trip_id,
+    )
+    return {row[0] for row in visited}
+
+
+def get_progress_by_project(
+    db: Session,
+    user: User,
+    projects: Collection["Project"],
+) -> dict[int, dict]:
+    """Progress for many projects at once.
+
+    The visible-trip set is resolved once, then one query fetches every
+    (project, place) visit pair — the per-project path ran 2 queries plus a
+    lazy `project.places` load each, which multiplied fast on the stats page
+    and project listings."""
+    projects = list(projects)
+    visited_map: dict[int, set[int]] = {p.id: set() for p in projects}
+    project_ids = [p.id for p in projects]
+    if project_ids:
+        visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
+        if visible_trip_ids:
+            rows = db.query(TripProject.project_id, TripPlace.place_id).filter(
+                TripProject.project_id.in_(project_ids),
                 TripProject.trip_id == TripPlace.trip_id,
+                TripProject.trip_id.in_(visible_trip_ids),
             )
-        )
-    ).scalar()
+            for project_id, place_id in rows:
+                visited_map[project_id].add(place_id)
+    return {p.id: _compute_progress(p, visited_map[p.id]) for p in projects}
+
+
+def is_place_visited_in_project(db: Session, user: User, project_id: int, place_id: int) -> bool:
+    return place_id in get_visited_place_ids_in_project(db, user, project_id)
 
 
 def add_place_to_project(db: Session, user: User, project: Project, place: Place) -> ProjectPlace:

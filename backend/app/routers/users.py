@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, require_admin, require_admin_csrf
-from app.models import User
+from app.models import User, Session as UserSession
 from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
 from app.services import user_service, visibility_service
 
@@ -16,22 +16,19 @@ def get_public_profile(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Profile card visible to any logged-in user. Only counts trips the
-    requester is allowed to see."""
+    """Profile card visible to any logged-in user. Aggregated in SQL: only
+    trips the requester is allowed to see count, both for trips and places."""
     target = user_service.get_user_by_username(db, username)
     if not target or not target.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
 
-    visible_trips = [
-        t for t in visibility_service.get_visible_trips(db, user) if t.creator_id == target.id
-    ]
-    place_ids = {tp.place_id for t in visible_trips for tp in t.places}
+    trip_count, place_count = visibility_service.get_creator_profile_stats(db, user, target.id)
     return PublicProfileResponse(
         username=target.username,
         avatar_url=target.avatar_url,
         created_at=target.created_at,
-        trip_count=len(visible_trips),
-        place_count=len(place_ids),
+        trip_count=trip_count,
+        place_count=place_count,
     )
 
 
@@ -76,8 +73,7 @@ def reset_password(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
     user_service.reset_password(db, user, payload.new_password)
-    from app.models import Session as UserSession
-
+    # Password rotation revokes every live session of that user.
     db.query(UserSession).filter(UserSession.user_id == user.id).delete(synchronize_session=False)
     db.commit()
     return {"message": "Palavra-passe redefinida"}

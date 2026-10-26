@@ -1,112 +1,122 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '@/api'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
 import { useTranslation } from '@/i18n'
 import type { User, UserCreate } from '@/types'
 
 export function AdminPage() {
   const { t } = useTranslation()
-  const [users, setUsers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  // User list via the shared hook; mutations call `refetch`.
+  const { data: users, error, refetch } = useApiResource<User[]>(
+    () => api.users.list(),
+    [],
+    [],
+  )
+  const [actionError, setActionError] = useState('')
+  const [successNotice, setSuccessNotice] = useState('')
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<UserCreate['role']>('user')
-  const [backupState, setBackupState] = useState<{ status: 'idle' | 'running' | 'ok' | 'error'; message: string }>({
+  // Inline (non-native) flows: arming rows and the reset-password panel.
+  const [deleteUserId, setDeleteUserId] = useState<number | null>(null)
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [isBusy, setIsBusy] = useState(false)
+  const [backupState, setBackupState] = useState<{ status: 'idle' | 'running' | 'ok' | 'error' | 'confirm'; message: string }>({
     status: 'idle',
     message: '',
   })
 
   const handleBackup = async () => {
-    if (!confirm(t('admin.backupConfirm'))) return
+    // Two-step inline confirmation replaces the native confirm() used before.
+    if (backupState.status !== 'confirm') {
+      setBackupState({ status: 'confirm', message: t('admin.backupConfirm') })
+      return
+    }
     setBackupState({ status: 'running', message: '' })
     try {
       const result = await api.admin.backup()
       setBackupState({ status: 'ok', message: t('admin.backupCreated', { name: result.backup }) })
-    } catch (err: any) {
-      setBackupState({ status: 'error', message: err.message || t('admin.backupError') })
+    } catch (err) {
+      setBackupState({ status: 'error', message: getErrorMessage(err, t('admin.backupError')) })
     }
   }
-
-  const loadUsers = async () => {
-    try {
-      setIsLoading(true)
-      const data = await api.users.list()
-      setUsers(data)
-    } catch (err: any) {
-      setError(err.message || t('admin.loadError'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadUsers()
-  }, [t])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setActionError('')
+    setIsBusy(true)
     try {
       await api.users.create({ username: newUsername, password: newPassword, role: newRole })
       setNewUsername('')
       setNewPassword('')
       setNewRole('user')
-      await loadUsers()
-    } catch (err: any) {
-      setError(err.message || t('admin.createError'))
+      refetch()
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('admin.createError')))
+    } finally {
+      setIsBusy(false)
     }
   }
 
   const handleToggleActive = async (user: User) => {
+    setActionError('')
+    setIsBusy(true)
     try {
       await api.users.update(user.id, { is_active: !user.is_active })
-      await loadUsers()
-    } catch (err: any) {
-      setError(err.message || t('admin.updateError'))
+      refetch()
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('admin.updateError')))
+    } finally {
+      setIsBusy(false)
     }
   }
 
-  const handleResetPassword = async (user: User) => {
-    const password = prompt(t('admin.resetPasswordPrompt', { username: user.username }))
-    if (!password) return
-    if (password.length < 8) {
-      setError(t('errors.minLength', { min: 8 }))
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser) return
+    if (resetPasswordValue.length < 8) {
+      setActionError(t('errors.minLength', { min: 8 }))
       return
     }
+    setActionError('')
+    setIsBusy(true)
     try {
-      await api.users.resetPassword(user.id, password)
-      alert(t('admin.resetPasswordSuccess'))
-    } catch (err: any) {
-      setError(err.message || t('admin.resetPasswordError'))
+      await api.users.resetPassword(resetPasswordUser.id, resetPasswordValue)
+      // Session revoke on the backend also invalidates that user's logins.
+      setResetPasswordUser(null)
+      setResetPasswordValue('')
+      setSuccessNotice(t('admin.resetPasswordSuccess'))
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('admin.resetPasswordError')))
+    } finally {
+      setIsBusy(false)
     }
   }
 
   const handleDelete = async (user: User) => {
-    if (!confirm(t('admin.deleteConfirm', { username: user.username }))) return
+    setActionError('')
+    setIsBusy(true)
     try {
       await api.users.delete(user.id)
-      await loadUsers()
-    } catch (err: any) {
-      setError(err.message || t('admin.deleteError'))
+      setDeleteUserId(null)
+      refetch()
+    } catch (err) {
+      setActionError(getErrorMessage(err, t('admin.deleteError')))
+      setDeleteUserId(null)
+    } finally {
+      setIsBusy(false)
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12" role="status" aria-label={t('loading')}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="sr-only">{t('loadingGeneric')}</span>
-      </div>
-    )
   }
 
   return (
     <div className="space-y-6">
       <h2 className="font-display text-2xl font-bold">{t('admin.title')}</h2>
+      <ErrorBanner message={error || actionError} />
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
+      {successNotice && (
+        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300" role="status">
+          {successNotice}
         </div>
       )}
 
@@ -161,6 +171,7 @@ export function AdminPage() {
           <div className="flex items-end">
             <button
               type="submit"
+              disabled={isBusy}
               className="btn-primary w-full justify-center"
             >
               {t('admin.createButton')}
@@ -168,6 +179,38 @@ export function AdminPage() {
           </div>
         </form>
       </div>
+
+      {resetPasswordUser && (
+        <div className="card border-primary-300 dark:border-primary-700">
+          <h3 className="font-display text-lg font-semibold">
+            {t('admin.resetPasswordPrompt', { username: resetPasswordUser.username })}
+          </h3>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder={t('admin.passwordPlaceholder')}
+              aria-label={t('admin.passwordPlaceholder')}
+              value={resetPasswordValue}
+              onChange={(e) => setResetPasswordValue(e.target.value)}
+              className="input max-w-xs"
+              autoFocus
+            />
+            <button onClick={handleResetPassword} disabled={isBusy} className="btn-primary">
+              {t('admin.actionResetPassword')}
+            </button>
+            <button
+              onClick={() => { setResetPasswordUser(null); setResetPasswordValue('') }}
+              disabled={isBusy}
+              className="btn-outline"
+            >
+              {t('actions.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.userListTitle')}</h3>
@@ -201,22 +244,44 @@ export function AdminPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleToggleActive(user)}
+                        disabled={isBusy}
                         className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line/70 dark:hover:bg-fill"
                       >
                         {user.is_active ? t('admin.actionDeactivate') : t('admin.actionActivate')}
                       </button>
                       <button
-                        onClick={() => handleResetPassword(user)}
+                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue('') }}
+                        disabled={isBusy}
                         className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line/70 dark:hover:bg-fill"
                       >
                         {t('admin.actionResetPassword')}
                       </button>
-                      <button
-                        onClick={() => handleDelete(user)}
-                        className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
-                      >
-                        {t('admin.actionDelete')}
-                      </button>
+                      {deleteUserId === user.id ? (
+                        <>
+                          <button
+                            onClick={() => handleDelete(user)}
+                            disabled={isBusy}
+                            className="rounded-lg bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                          >
+                            {t('admin.deleteConfirm', { username: user.username })}
+                          </button>
+                          <button
+                            onClick={() => setDeleteUserId(null)}
+                            disabled={isBusy}
+                            className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line/70 dark:hover:bg-fill"
+                          >
+                            {t('actions.cancel')}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteUserId(user.id)}
+                          disabled={isBusy}
+                          className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                        >
+                          {t('admin.actionDelete')}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -231,17 +296,27 @@ export function AdminPage() {
         <p className="mb-4 text-sm text-muted">
           {t('admin.backupDescription')}
         </p>
-        <button
-          onClick={handleBackup}
-          disabled={backupState.status === 'running'}
-          className="btn-primary"
-        >
-          {backupState.status === 'running' ? t('admin.backupRunning') : t('admin.backupButton')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleBackup}
+            disabled={backupState.status === 'running'}
+            className="btn-primary"
+          >
+            {backupState.status === 'running' ? t('admin.backupRunning') : t('admin.backupButton')}
+          </button>
+          {backupState.status === 'confirm' && (
+            <button
+              onClick={() => setBackupState({ status: 'idle', message: '' })}
+              className="btn-outline"
+            >
+              {t('actions.cancel')}
+            </button>
+          )}
+        </div>
         {backupState.message && (
           <p
             className={`mt-3 text-sm ${
-              backupState.status === 'ok'
+              backupState.status === 'ok' || backupState.status === 'confirm'
                 ? 'text-green-700 dark:text-green-300'
                 : 'text-red-700 dark:text-red-300'
             }`}

@@ -4,9 +4,12 @@ import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
+import { getErrorMessage } from '@/hooks/useApiResource'
+import { useModalA11y } from '@/hooks/useModalA11y'
 import { formatDate, formatDateTime } from '@/utils/format'
 import { isPushEnabled, subscribePush, unsubscribePush } from '@/utils/push'
 import type { ActivityItem, ThemePreference } from '@/types'
+import { Sun, Moon, Monitor, CircleUser, ArrowRight, Camera, LogOut, Trash2 } from 'lucide-react'
 
 const activityActionKeys: Record<ActivityItem['action'], string> = {
   created: 'dashboard.activityCreated',
@@ -65,6 +68,72 @@ const DATE_FORMATS = [
   { value: '%m/%d/%Y', label: 'mm/dd/aaaa' },
   { value: '%Y-%m-%d', label: 'aaaa-mm-dd' },
 ]
+
+function DeleteAccountModal({
+  error,
+  isDeleting,
+  onClose,
+  onConfirm,
+}: {
+  error: string
+  isDeleting: boolean
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  const { t } = useTranslation()
+  // Esc, focus trap, scroll lock and focus restore are all in the hook.
+  const containerRef = useModalA11y<HTMLDivElement>(onClose)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="card w-full max-w-md p-6 shadow-pop focus:outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="delete-modal-title" className="font-display text-lg font-bold text-red-600 dark:text-red-400">
+          {t('settings.deleteModalTitle')}
+        </h3>
+        <p className="mt-2 text-sm text-muted">
+          {t('settings.deleteModalWarning')}
+        </p>
+
+        {error && (
+          <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="btn-outline"
+          >
+            {t('actions.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="btn-danger"
+          >
+            {isDeleting ? t('settings.deleting') : t('settings.deleteConfirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -153,8 +222,8 @@ export function SettingsPage() {
     try {
       await api.me.uploadAvatar(file)
       await refreshUser()
-    } catch (err: any) {
-      setAvatarError(err.message || t('profile.avatarError'))
+    } catch (err) {
+      setAvatarError(getErrorMessage(err, t('profile.avatarError')))
     } finally {
       setIsUploadingAvatar(false)
     }
@@ -174,8 +243,8 @@ export function SettingsPage() {
       await refreshUser()
       setUsernameMessage(t('settings.usernameUpdated'))
       setTimeout(() => setUsernameMessage(''), 3000)
-    } catch (err: any) {
-      setUsernameError(err.message || t('settings.usernameError'))
+    } catch (err) {
+      setUsernameError(getErrorMessage(err, t('settings.usernameError')))
     } finally {
       setIsSavingUsername(false)
     }
@@ -199,9 +268,29 @@ export function SettingsPage() {
       await refreshUser()
       setPrefsSuccess(t('settings.preferencesSaved'))
       setTimeout(() => setPrefsSuccess(''), 2500)
-    } catch (err: any) {
-      setPrefsError(err.message || t('profile.preferencesError'))
+    } catch (err) {
+      setPrefsError(getErrorMessage(err))
     }
+  }
+
+  // The yearly goal commits on blur/Enter, not per keystroke: typing 500 used
+  // to fire a PATCH + full refreshUser for every digit.
+  const [goalDraft, setGoalDraft] = useState(user?.yearly_trip_goal?.toString() ?? '')
+  useEffect(() => {
+    setGoalDraft(user?.yearly_trip_goal?.toString() ?? '')
+  }, [user?.yearly_trip_goal])
+  const commitGoalDraft = () => {
+    if (!user) return
+    const raw = goalDraft.trim()
+    const value = raw === '' ? 0 : Number(raw)
+    const invalid = !Number.isFinite(value) || value < 0 || value > 1000
+    if (invalid) {
+      // Restore the currently saved value; empty means "no goal" (0).
+      setGoalDraft((user.yearly_trip_goal ?? '').toString())
+      return
+    }
+    if (value === (user.yearly_trip_goal ?? 0)) return // unchanged → no request
+    handlePreferenceChange({ yearly_trip_goal: value })
   }
 
   const handlePushToggle = async () => {
@@ -234,8 +323,8 @@ export function SettingsPage() {
       setCurrentPassword('')
       setNewPassword('')
       setTimeout(() => setPasswordMessage(''), 3000)
-    } catch (err: any) {
-      setPasswordError(err.message || t('profile.passwordError'))
+    } catch (err) {
+      setPasswordError(getErrorMessage(err, t('profile.passwordError')))
     } finally {
       setIsChangingPassword(false)
     }
@@ -249,8 +338,8 @@ export function SettingsPage() {
       setShowDeleteModal(false)
       await logout()
       navigate('/login')
-    } catch (err: any) {
-      setDeleteError(err.message || t('settings.deleteError'))
+    } catch (err) {
+      setDeleteError(getErrorMessage(err, t('settings.deleteError')))
       setIsDeletingAccount(false)
     }
   }
@@ -260,27 +349,21 @@ export function SettingsPage() {
       value: 'light',
       label: t('profile.themeLight'),
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
+        <Sun size={20} />
       ),
     },
     {
       value: 'dark',
       label: t('profile.themeDark'),
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
+        <Moon size={20} />
       ),
     },
     {
       value: 'system',
       label: t('profile.themeSystem'),
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
+        <Monitor size={20} />
       ),
     },
   ]
@@ -299,9 +382,7 @@ export function SettingsPage() {
           <div className="card flex flex-col justify-between">
             <div>
               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                <CircleUser size={24} />
               </div>
               <h3 className="font-display text-lg font-semibold text-ink">
                 {t('settings.profilePublicTitle')}
@@ -317,9 +398,7 @@ export function SettingsPage() {
                 className="btn-primary inline-flex w-full items-center justify-center gap-2 sm:w-auto"
               >
                 <span>{t('settings.viewProfile')}</span>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
+                <ArrowRight size={16} />
               </Link>
             </div>
           </div>
@@ -355,10 +434,7 @@ export function SettingsPage() {
 
                 {/* Overlay shown on hover */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-2 text-white opacity-0 backdrop-blur-xs transition-opacity duration-200 group-hover:opacity-100">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+                  <Camera size={24} />
                   <span className="mt-1 text-xs font-semibold">
                     {isUploadingAvatar ? t('profile.avatarUploading') : t('settings.changePhoto')}
                   </span>
@@ -523,14 +599,11 @@ export function SettingsPage() {
                   type="number"
                   min={0}
                   max={1000}
-                  value={user?.yearly_trip_goal ?? ''}
+                  value={goalDraft}
                   placeholder={t('settings.yearlyGoalPlaceholder')}
-                  onChange={(e) => {
-                    const value = e.target.value === '' ? 0 : Number(e.target.value)
-                    if (Number.isFinite(value) && value >= 0 && value <= 1000) {
-                      handlePreferenceChange({ yearly_trip_goal: value })
-                    }
-                  }}
+                  onChange={(e) => setGoalDraft(e.target.value)}
+                  onBlur={commitGoalDraft}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                   className="input"
                 />
                 <p className="mt-1 text-xs text-muted">
@@ -706,9 +779,7 @@ export function SettingsPage() {
                 onClick={logout}
                 className="btn-outline inline-flex items-center justify-center gap-2"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogOut size={16} />
                 <span>{t('settings.logoutButton')}</span>
               </button>
 
@@ -720,9 +791,7 @@ export function SettingsPage() {
                 }}
                 className="btn-danger"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <Trash2 size={16} />
                 <span>{t('settings.deleteAccount')}</span>
               </button>
             </div>
@@ -732,46 +801,12 @@ export function SettingsPage() {
 
       {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-modal-title"
-        >
-          <div className="card w-full max-w-md p-6 shadow-pop">
-            <h3 id="delete-modal-title" className="font-display text-lg font-bold text-red-600 dark:text-red-400">
-              {t('settings.deleteModalTitle')}
-            </h3>
-            <p className="mt-2 text-sm text-muted">
-              {t('settings.deleteModalWarning')}
-            </p>
-
-            {deleteError && (
-              <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeletingAccount}
-                className="btn-outline"
-              >
-                {t('actions.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={isDeletingAccount}
-                className="btn-danger"
-              >
-                {isDeletingAccount ? t('settings.deleting') : t('settings.deleteConfirm')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteAccountModal
+          error={deleteError}
+          isDeleting={isDeletingAccount}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteAccount}
+        />
       )}
     </div>
   )

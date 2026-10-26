@@ -1,10 +1,8 @@
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
 from app.auth import get_current_user
 from app.models import User
 
@@ -23,7 +21,6 @@ async def get_tile(
     z: int,
     x: int,
     y: int,
-    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     tile_url_template = TILE_SOURCES.get(style)

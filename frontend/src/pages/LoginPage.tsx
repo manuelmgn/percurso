@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
+import { getErrorMessage } from '@/hooks/useApiResource'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -17,8 +19,8 @@ export function LoginPage() {
 
     try {
       await login(username, password)
-    } catch (err: any) {
-      setError(err.message || t('login.error'))
+    } catch (err) {
+      setError(getErrorMessage(err, t('login.error')))
     } finally {
       setIsSubmitting(false)
     }
@@ -39,11 +41,7 @@ export function LoginPage() {
       </div>
 
       <div className="card w-full max-w-sm p-8">
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {error}
-          </div>
-        )}
+        <ErrorBanner className="mb-4" message={error} />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
