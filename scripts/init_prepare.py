@@ -19,15 +19,14 @@ for d in [data_dir, uploads_dir, tiles_dir, backups_dir, Path("/var/log")]:
 # Run DB schema + migrations
 sys.path.insert(0, "/app")
 from app.main import _apply_lightweight_migrations
-from app.core.db import engine, Base
+from app.database import engine, Base, SessionLocal
 from app import models  # ensure models imported
 
 Base.metadata.create_all(bind=engine)
-_apply_lightweight_migrations(engine)
+_apply_lightweight_migrations()
 
 # Seed admin if needed
 try:
-    from app.core.db import SessionLocal
     from app.services import user_service
     db = SessionLocal()
     try:
