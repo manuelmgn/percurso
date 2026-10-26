@@ -39,28 +39,14 @@ def to_trip_list_response(trip: Trip) -> TripListResponse:
     )
 
 
-def to_project_list_response(db: Session, user: User, project: "Project") -> ProjectListResponse:
-    """Compact row used by every listing of projects (progress included)."""
-    return ProjectListResponse(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        visibility=project.visibility,
-        creator_username=project.creator.username,
-        **project_service.get_project_progress(db, user, project),
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-    )
-
-
 def to_project_list_responses(
     db: Session, user: User, projects: list["Project"]
 ) -> list[ProjectListResponse]:
-    """Batched version of `to_project_list_response` for whole listings.
+    """Compact rows used by every listing of projects (progress included).
 
     Creators and place links are eagerly loaded in one query, then progress
     is computed for every project in two aggregate queries — a 25-project
-    list used to fire ~75 queries under the per-row builder."""
+    list used to fire ~75 queries when each row loaded lazily."""
     if not projects:
         return []
     progress_by_project = project_service.get_progress_by_project(db, user, projects)

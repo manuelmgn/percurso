@@ -1,21 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, FolderOpen, Globe, MapPin } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -23,9 +8,8 @@ import { useTheme } from '@/components/ThemeProvider'
 import { StatCard } from '@/components/ui/StatCard'
 import { PageSpinner } from '@/components/ui/PageSpinner'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { AreaChart, BarChart, DonutChart } from '@/components/ui/Charts'
 import type { ActivityItem, StatsResponse, TripListItem } from '@/types'
-
-const PIE_COLORS = ['#C1075D', '#E06F56', '#FFD64E', '#6B21A8', '#8A8177']
 
 const monthFormatter = new Intl.DateTimeFormat('pt-PT', { month: 'short' })
 
@@ -35,17 +19,6 @@ export function StatsPage() {
   const isDark = resolvedTheme === 'dark'
   const tickFill = isDark ? '#A09A92' : '#8A8177'
   const gridStroke = isDark ? '#322A23' : '#F0E9DE'
-  // Chart style objects are memoised so recharts does not re-render on
-  // unrelated page updates just because a fresh object identity arrived.
-  const tooltipStyle = useMemo(
-    () => ({
-      backgroundColor: isDark ? '#221D18' : '#FFFFFF',
-      border: `1px solid ${gridStroke}`,
-      borderRadius: 12,
-      fontSize: 12,
-    }),
-    [isDark, gridStroke],
-  )
 
   // Primary data via the shared hook; the two optional extras below keep
   // their tiny effect because failures there must not block the page.
@@ -70,7 +43,7 @@ export function StatsPage() {
     }
     return [...counts.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([year, count]) => ({ year, count }))
+      .map(([year, count]) => ({ label: year, value: count }))
   }, [trips])
 
   // Visited places grouped by administrative place type.
@@ -80,7 +53,7 @@ export function StatsPage() {
     for (const place of stats.most_visited) {
       counts.set(place.place_type, (counts.get(place.place_type) ?? 0) + place.visit_count)
     }
-    return [...counts.entries()].map(([type, count]) => ({ type, count }))
+    return [...counts.entries()].map(([type, count]) => ({ label: type, value: count }))
   }, [stats])
 
   // Activities grouped by month of creation, chronological.
@@ -97,7 +70,7 @@ export function StatsPage() {
       .map(([key, count]) => {
         const [year, month] = key.split('-')
         const label = `${monthFormatter.format(new Date(Number(year), Number(month) - 1))}${years.size > 1 ? ` ${year}` : ''}`
-        return { label, count }
+        return { label, value: count }
       })
   }, [activities])
 
@@ -143,21 +116,7 @@ export function StatsPage() {
             <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
           ) : (
             <div className="mt-4">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={tripsPerYear} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="barGrad" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="#C1075D" />
-                      <stop offset="100%" stopColor="#EC3D80" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                  <XAxis dataKey="year" tick={{ fill: tickFill, fontSize: 11 }} tickLine={false} axisLine={{ stroke: gridStroke }} />
-                  <YAxis allowDecimals={false} tick={{ fill: tickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: gridStroke, fillOpacity: 0.3 }} />
-                  <Bar dataKey="count" fill="url(#barGrad)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <BarChart data={tripsPerYear} height={220} tick={tickFill} grid={gridStroke} />
             </div>
           )}
         </section>
@@ -168,31 +127,7 @@ export function StatsPage() {
             <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
           ) : (
             <div className="mt-4">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={placesByType}
-                    dataKey="count"
-                    nameKey="type"
-                    innerRadius="68%"
-                    paddingAngle={2}
-                    stroke="#FFFFFF"
-                    strokeWidth={2}
-                  >
-                    {placesByType.map((entry, i) => (
-                      <Cell key={entry.type} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
-                    iconSize={10}
-                    wrapperStyle={{ color: tickFill, fontSize: 12 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <DonutChart data={placesByType} />
             </div>
           )}
         </section>
@@ -205,29 +140,7 @@ export function StatsPage() {
           <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
         ) : (
           <div className="mt-4">
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={activitiesPerMonth} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#C1075D" stopOpacity={0.22} />
-                    <stop offset="100%" stopColor="#C1075D" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                <XAxis dataKey="label" tick={{ fill: tickFill, fontSize: 11 }} tickLine={false} axisLine={{ stroke: gridStroke }} />
-                <YAxis allowDecimals={false} tick={{ fill: tickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#C1075D"
-                  strokeWidth={3}
-                  fill="url(#areaGrad)"
-                  dot={{ r: 3, fill: '#FFFFFF', stroke: '#C1075D', strokeWidth: 2 }}
-                  activeDot={{ r: 4, fill: '#FFFFFF', stroke: '#C1075D', strokeWidth: 2 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <AreaChart data={activitiesPerMonth} height={220} tick={tickFill} grid={gridStroke} />
           </div>
         )}
       </section>

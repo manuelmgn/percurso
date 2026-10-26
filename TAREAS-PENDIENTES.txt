@@ -5,7 +5,4 @@
 # No se borran comentarios (líneas que comienzan por #)
 # -----------------------------------------------
 
-- Quedan ~110 overrides dark: con hex hardcodeado (dark:bg-[#322A23] etc.) pendientes de centralizar en tokens de Tailwind cableados a las variables CSS. Con ello se podría eliminar todo el modo oscuro duplicado elemento a elemento.
-- StatsPage pesa 430 kB (recharts). Valorar gráficos SVG a mano o endpoint de agregación en backend.
-
 
