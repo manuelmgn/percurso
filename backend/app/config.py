@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path(__file__).resolve().parent.parent / "data"
     uploads_dir: Path = Path(__file__).resolve().parent.parent / "uploads"
     tile_cache_dir: Path = Path(__file__).resolve().parent.parent / "tile-cache"
+    # CARTO basemaps (dark style tiles) key: free tier, requested at
+    # https://carto.com/basemaps/ with just an e-mail. Empty = keyless legacy
+    # URLs (they stop working as CARTO phases them out).
+    carto_tiles_key: str = ""
     backups_dir: Path = Path(__file__).resolve().parent.parent / "backups"
     backup_retention_days: int = 30
     session_cookie_name: str = "session"

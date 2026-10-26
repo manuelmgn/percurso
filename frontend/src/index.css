@@ -168,7 +168,7 @@
     @apply relative ml-2 border-l-2 border-line pl-7;
   }
   .timeline-node {
-    @apply absolute -left-[9px] top-0.5 h-4 w-4 rounded-full border-[3px] border-surface shadow-pop;
+    @apply absolute -left-[37px] top-0.5 h-4 w-4 rounded-full border-[3px] border-surface shadow-pop;
   }
 
   /* Dashed animated route for map overlays (<path> SVG) */
