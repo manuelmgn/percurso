@@ -3,7 +3,7 @@ from typing import Collection, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace
+from app.models import User, Project, ProjectPlace, Place, TripProject, TripPlace
 from app.schemas import ProjectCreate, ProjectUpdate
 from app.services import visibility_service, notification_service
 

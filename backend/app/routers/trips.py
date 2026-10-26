@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
 from app.models import User, Trip
-from app.schemas import TripCreate, TripUpdate, TripResponse, TripListResponse, TripDeleteWarning, ProjectListResponse
+from app.models.enums import EntityAction, EntityType
+from app.schemas import TripCreate, TripUpdate, TripResponse, TripListResponse, TripDeleteWarning, ProjectListResponse, UserResponse
 from app.serializers import to_trip_list_response
 from app.services import trip_service, project_service, activity_service, visibility_service
 from app.services.trip_service import trip_display_name
-from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
 

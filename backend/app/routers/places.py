@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
-from app.models import User, Place
+from app.models import User, Place, TripPlace
+from app.models.enums import EntityAction, EntityType
 from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse
 from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
 from app.services import place_service, activity_service, visibility_service
-from app.models.enums import EntityAction, EntityType
 
 router = APIRouter(prefix="/api/places", tags=["places"])
 
