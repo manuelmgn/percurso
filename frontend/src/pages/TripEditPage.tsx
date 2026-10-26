@@ -12,7 +12,8 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { PageSpinner } from '@/components/ui/PageSpinner'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { formatTripDateRange } from '@/utils/format'
-import type { ProjectListItem, User, Visibility } from '@/types'
+import type { ProjectListItem, Trip, User, Visibility } from '@/types'
+import { TripPhotos } from '@/components/TripPhotos'
 
 export function TripEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,6 +34,7 @@ export function TripEditPage() {
   const [participantIds, setParticipantIds] = useState<number[]>([])
   const [visibleUserIds, setVisibleUserIds] = useState<number[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [trip, setTrip] = useState<Trip | null>(null)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [projectIds, setProjectIds] = useState<number[]>(presetProjectId ? [presetProjectId] : [])
   const [isLoading, setIsLoading] = useState(true)
@@ -70,6 +72,7 @@ export function TripEditPage() {
         if (isEdit) {
           const trip = await api.trips.get(Number(id))
           if (cancelled) return
+          setTrip(trip)
           setTitle(trip.title || '')
           setStartDate(trip.start_date)
           setEndDate(trip.end_date)
@@ -221,9 +224,11 @@ export function TripEditPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.galleryLabel')}</label>
-            <div className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-muted">
-              {t('tripEdit.galleryComingSoon')}
-            </div>
+            {isEdit && trip ? (
+              <TripPhotos trip={trip} embedded />
+            ) : (
+              <p className="text-sm text-muted">{t('tripEdit.galleryAfterSave')}</p>
+            )}
           </div>
 
           <div>

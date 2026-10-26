@@ -9,9 +9,11 @@ import type { Photo, Trip } from '@/types'
 
 interface TripPhotosProps {
   trip: Trip
+  /** When true, renders bare (no card frame or heading) for embedding in forms. */
+  embedded?: boolean
 }
 
-export function TripPhotos({ trip }: TripPhotosProps) {
+export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   const { user } = useAuth()
   const { t } = useTranslation()
 
@@ -81,12 +83,17 @@ export function TripPhotos({ trip }: TripPhotosProps) {
     }
   }
 
+  const Wrapper = embedded ? 'div' : 'section'
+  const frameClass = embedded ? '' : 'card'
+
   return (
-    <section className="card">
+    <Wrapper className={frameClass}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-display text-xl font-bold">
-          <ImageIcon size={16} className="text-primary" aria-hidden="true" /> {t('trip.photosTitle')}
-        </h2>
+        {!embedded && (
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+            <ImageIcon size={16} className="text-primary" aria-hidden="true" /> {t('trip.photosTitle')}
+          </h2>
+        )}
         {canEditTrip && (
           <>
             <input
@@ -159,6 +166,6 @@ export function TripPhotos({ trip }: TripPhotosProps) {
           onSaveCaption={handleSaveCaption}
         />
       )}
-    </section>
+    </Wrapper>
   )
 }

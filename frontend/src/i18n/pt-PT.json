@@ -181,7 +181,7 @@
   "tripEdit.visibilityLabel": "Visibilidade",
   "tripEdit.visibleToLabel": "Visível para",
   "tripEdit.galleryLabel": "Galeria",
-  "tripEdit.galleryComingSoon": "Em breve.",
+  "tripEdit.galleryAfterSave": "Guarda a viagem para poderes adicionar fotografias.",
   "tripEdit.externalLinkLabel": "Ligação externa",
   "tripEdit.externalLinkHint": "Em breve: detetar Immich, iCloud ou Google Fotos.",
   "tripEdit.saving": "A guardar...",
