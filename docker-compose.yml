@@ -36,12 +36,6 @@ services:
       retries: 3
       start_period: 10s
 
-volumes:
-  percursos-data:
-  percursos-uploads:
-  percursos-tiles:
-  percursos-backups:
-
   init:
     build:
       context: .
@@ -63,4 +57,9 @@ volumes:
       - PERCURSOS_ENV=${PERCURSOS_ENV:-production}
       - PERCURSOS_DEFAULT_ADMIN_USERNAME=${PERCURSOS_DEFAULT_ADMIN_USERNAME:-admin}
       - PERCURSOS_DEFAULT_ADMIN_PASSWORD=${PERCURSOS_DEFAULT_ADMIN_PASSWORD:-pass}
-    depends_on: []
+
+volumes:
+  percursos-data:
+  percursos-uploads:
+  percursos-tiles:
+  percursos-backups:
