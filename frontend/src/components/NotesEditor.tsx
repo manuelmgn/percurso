@@ -14,15 +14,6 @@ const toolbarButtonClass =
 
 const toolbarIconButtonClass = `${toolbarButtonClass} w-8 px-0`
 
-// Keep in sync with ALLOWED_FONT_FACES in backend/app/sanitize.py.
-const FONT_OPTIONS = [
-  { label: 'Arial', value: 'Arial' },
-  { label: 'Georgia', value: 'Georgia' },
-  { label: 'Times New Roman', value: 'Times New Roman' },
-  { label: 'Courier New', value: 'Courier New' },
-  { label: 'Verdana', value: 'Verdana' },
-]
-
 // Extracts the video ID from the usual YouTube URL shapes.
 function youtubeVideoId(url: string): string | null {
   const match = url.match(
@@ -62,13 +53,6 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
     const url = window.prompt(t('notesEditor.linkUrl'))
     if (!url) return
     exec('createLink', url)
-  }
-
-  const handleFontChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const font = e.target.value
-    e.target.value = ''
-    if (!font) return
-    exec('fontName', font)
   }
 
   const handleVideo = () => {
@@ -131,22 +115,6 @@ export function NotesEditor({ value, onChange, placeholder }: NotesEditorProps) 
         <button type="button" onClick={() => exec('formatBlock', 'p')} className={toolbarButtonClass} title={t('notesEditor.paragraph')} aria-label={t('notesEditor.paragraph')}>
           ¶
         </button>
-        <select
-          onChange={handleFontChange}
-          defaultValue=""
-          className="input ml-1 h-8 w-auto py-0 pl-3 pr-8 text-xs"
-          title={t('notesEditor.font')}
-          aria-label={t('notesEditor.font')}
-        >
-          <option value="" disabled>
-            {t('notesEditor.fontPlaceholder')}
-          </option>
-          {FONT_OPTIONS.map((font) => (
-            <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-              {font.label}
-            </option>
-          ))}
-        </select>
         <button
           type="button"
           onClick={() => exec('formatBlock', 'blockquote')}

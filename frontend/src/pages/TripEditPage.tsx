@@ -12,8 +12,7 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { PageSpinner } from '@/components/ui/PageSpinner'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { formatTripDateRange } from '@/utils/format'
-import type { ProjectListItem, Trip, User, Visibility } from '@/types'
-import { TripPhotos } from '@/components/TripPhotos'
+import type { ProjectListItem, User, Visibility } from '@/types'
 
 export function TripEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,7 +33,8 @@ export function TripEditPage() {
   const [participantIds, setParticipantIds] = useState<number[]>([])
   const [visibleUserIds, setVisibleUserIds] = useState<number[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [trip, setTrip] = useState<Trip | null>(null)
+  const [companionHighlight, setCompanionHighlight] = useState(0)
+  const [companionsOpen, setCompanionsOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [projectIds, setProjectIds] = useState<number[]>(presetProjectId ? [presetProjectId] : [])
   const [isLoading, setIsLoading] = useState(true)
@@ -72,7 +72,6 @@ export function TripEditPage() {
         if (isEdit) {
           const trip = await api.trips.get(Number(id))
           if (cancelled) return
-          setTrip(trip)
           setTitle(trip.title || '')
           setStartDate(trip.start_date)
           setEndDate(trip.end_date)
@@ -105,6 +104,38 @@ export function TripEditPage() {
   const toggleId = (list: number[], idToToggle: number) =>
     list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
 
+  // Unified "Companhia" field: while the user types, matching users are
+  // suggested. Picking one turns them into a user companion (chip); text
+  // left unpicked stays in the input as free-text company.
+  const companions = users.filter((u) => participantIds.includes(u.id))
+  const companionQuery = companionsText.trim().toLowerCase()
+  const suggestions = companionQuery
+    ? users
+        .filter(
+          (u) =>
+            !participantIds.includes(u.id) &&
+            u.username.toLowerCase().includes(companionQuery)
+        )
+        .slice(0, 6)
+    : []
+
+  const addCompanion = (u: User | undefined) => {
+    if (!u) return
+    setParticipantIds((prev) => (prev.includes(u.id) ? prev : [...prev, u.id]))
+    setCompanionsText('')
+    setCompanionHighlight(0)
+    setCompanionsOpen(false)
+  }
+
+  // Free-text notes (create mode) become simple HTML so the trip page renders
+  // them like editor content; kept minimal so sanitisation is trivial.
+  const notesToHtml = (text: string): string | undefined => {
+    const trimmed = text.trim()
+    if (!trimmed) return undefined
+    const escaped = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return escaped.split('\n').join('<br>')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -114,7 +145,7 @@ export function TripEditPage() {
       title: title.trim() || undefined,
       start_date: startDate,
       end_date: endDate || startDate,
-      notes: notes || undefined,
+      notes: isEdit ? notes || undefined : notesToHtml(notes),
       companions_text: companionsText || undefined,
       visibility,
       place_ids: places.map((p) => p.id),
@@ -219,15 +250,16 @@ export function TripEditPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.notesLabel')}</label>
-            <NotesEditor value={notes} onChange={setNotes} />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t('tripEdit.galleryLabel')}</label>
-            {isEdit && trip ? (
-              <TripPhotos trip={trip} embedded />
+            {isEdit ? (
+              <NotesEditor value={notes} onChange={setNotes} />
             ) : (
-              <p className="text-sm text-muted">{t('tripEdit.galleryAfterSave')}</p>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={t('notesEditor.placeholder')}
+                rows={5}
+                className="w-full min-h-[120px] resize-y rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:outline-none"
+              />
             )}
           </div>
 
@@ -245,27 +277,91 @@ export function TripEditPage() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t('tripEdit.participantsLabel')}</label>
-              <PillChecklist
-                items={users.map((u) => ({ id: u.id, label: u.username }))}
-                selectedIds={participantIds}
-                onToggle={(uid) => setParticipantIds((prev) => toggleId(prev, uid))}
-                emptyMessage={t('tripEdit.noOtherUsers')}
-              />
+          <div>
+            <label className="mb-1 block text-sm font-medium">{t('tripEdit.companionsLabel')}</label>
+            <div className="relative">
+              <div
+                className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:focus-within:ring-offset-bg"
+                onBlur={suggestions.length > 0 ? (e) => {
+                  // Close the dropdown unless focus moved to one of its
+                  // options (option mousedown keeps focus inside).
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setCompanionHighlight(0)
+                    setCompanionsOpen(false)
+                  }
+                } : undefined}
+              >
+                {companions.map((u) => (
+                  <span
+                    key={u.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-100 py-1 pl-3 pr-1.5 text-sm text-primary-800 dark:border-primary/40 dark:bg-primary-900/30 dark:text-primary-200"
+                  >
+                    {u.username}
+                    <button
+                      type="button"
+                      onClick={() => setParticipantIds((prev) => prev.filter((x) => x !== u.id))}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full text-primary-700/70 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-300/70 dark:hover:bg-primary-900/50 dark:hover:text-primary-100"
+                      aria-label={t('tripEdit.removeCompanion', { name: u.username })}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="companions"
+                  type="text"
+                  className="min-w-[10rem] flex-1 bg-transparent py-1 text-sm text-ink outline-none placeholder:text-muted"
+                  value={companionsText}
+                  onChange={(e) => {
+                    setCompanionsText(e.target.value)
+                    setCompanionHighlight(0)
+                    setCompanionsOpen(true)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown' && suggestions.length > 0) {
+                      e.preventDefault()
+                      setCompanionsOpen(true)
+                      setCompanionHighlight((i) => Math.min(i + 1, suggestions.length - 1))
+                    } else if (e.key === 'ArrowUp' && suggestions.length > 0) {
+                      e.preventDefault()
+                      setCompanionHighlight((i) => Math.max(i - 1, 0))
+                    } else if (e.key === 'Enter' && companionsOpen && suggestions.length > 0) {
+                      // Choosing the highlighted user beats submitting.
+                      e.preventDefault()
+                      addCompanion(suggestions[Math.min(companionHighlight, suggestions.length - 1)])
+                    } else if (e.key === 'Escape') {
+                      setCompanionsOpen(false)
+                    } else if (e.key === 'Backspace' && companionsText === '' && companions.length > 0) {
+                      setParticipantIds((prev) => prev.slice(0, -1))
+                    }
+                  }}
+                  placeholder={t('tripEdit.companionsPlaceholder')}
+                  autoComplete="off"
+                />
+              </div>
+              {companionsOpen && suggestions.length > 0 && (
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
+                  {suggestions.map((u, i) => (
+                    <li key={u.id}>
+                      <button
+                        type="button"
+                        // Keep focus in the input while picking a suggestion.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => addCompanion(u)}
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors ${
+                          i === Math.min(companionHighlight, suggestions.length - 1)
+                            ? 'bg-primary-tint text-ink dark:bg-primary-900/30'
+                            : 'text-ink hover:bg-line/50 dark:hover:bg-fill'
+                        }`}
+                      >
+                        {u.username}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="companions">{t('tripEdit.companionsLabel')}</label>
-              <input
-                id="companions"
-                type="text"
-                value={companionsText}
-                onChange={(e) => setCompanionsText(e.target.value)}
-                placeholder={t('tripEdit.companionsPlaceholder')}
-                className="input"
-              />
-            </div>
+            <p className="mt-1 text-xs text-muted">{t('tripEdit.companionsHint')}</p>
           </div>
 
           <div>

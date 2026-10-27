@@ -14,7 +14,8 @@ ALLOWED_ATTRIBUTES = {
     "iframe": {"src", "title", "loading", "allow", "allowfullscreen", "frameborder"},
 }
 
-# Font families selectable in the editor toolbar — anything else is dropped.
+# Legacy: font face is no longer offered in the editor toolbar, but the
+# allowlist is kept so existing notes keep their formatting on re-save.
 ALLOWED_FONT_FACES = {
     "arial",
     "georgia",
