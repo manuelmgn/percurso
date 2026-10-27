@@ -86,7 +86,7 @@ function popupHtml(title: string, subtitle: string | undefined, href: string | u
 export default function MapViewInner({
   markers = EMPTY_MARKERS,
   polygons = EMPTY_POLYGONS,
-  variant,
+  variant: _variant,
   height = '350px',
   connectMarkers = false,
 }: MapViewInnerProps) {
@@ -108,8 +108,7 @@ export default function MapViewInner({
       boxZoom: false,
       keyboard: false,
       dragging: true,
-      tap: false,
-    })
+    } as L.MapOptions)
 
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
