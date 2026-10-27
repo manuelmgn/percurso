@@ -4,7 +4,6 @@ import { useTranslation } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/context/AuthContext'
-import { PageSpinner } from '@/components/ui/PageSpinner'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
@@ -24,9 +23,15 @@ const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then((m) =>
 const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 
-// Cheap suspense placeholder for lazy chunks.
+// Cheap suspense placeholder for lazy chunks: skeleton-like, small enough
+// not to shift layout when the real page arrives.
 function PageFallback() {
-  return <PageSpinner />
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className="h-9 w-56 animate-pulse rounded-lg bg-line/60" />
+      <div className="card h-48 animate-pulse bg-surface" />
+    </div>
+  )
 }
 
 function FullscreenLoading() {
