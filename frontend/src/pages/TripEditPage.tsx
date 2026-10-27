@@ -143,10 +143,10 @@ export function TripEditPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('tripEdit.editTitle') : t('tripEdit.newTitle')}</h2>
 
-      <div className="card max-w-2xl">
+      <div className="card max-w-2xl w-full">
         <ErrorBanner className="mb-4" message={error} />
 
         <form onSubmit={handleSubmit} className="space-y-4">

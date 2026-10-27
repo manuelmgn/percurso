@@ -24,7 +24,7 @@ export function Layout() {
         <Sidebar />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <main id="main-content" className="flex-1 px-4 pb-28 pt-6 md:px-8 md:pt-8 lg:pb-10">
+          <main id="main-content" className="flex-1 px-4 pb-32 pt-6 md:px-8 md:pt-8 lg:pb-10">
             <div className="mx-auto flex max-w-[1120px] flex-col gap-10">
               <Header />
               <AnimatedOutlet />
