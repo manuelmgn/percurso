@@ -34,6 +34,7 @@ def to_trip_list_response(trip: Trip) -> TripListResponse:
         creator_username=trip.creator.username,
         place_count=len(trip.places),
         project_count=len(trip.projects),
+        cover_photo_url=trip.cover_photo.url if trip.cover_photo else None,
         created_at=trip.created_at,
         updated_at=trip.updated_at,
     )

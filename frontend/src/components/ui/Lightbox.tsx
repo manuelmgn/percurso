@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Pencil, X } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useModalA11y } from '@/hooks/useModalA11y'
+import { formatDateTime } from '@/utils/format'
 import type { Photo } from '@/types'
+
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+/** Double-click toggles between this level and fit-to-view. */
+const TOGGLE_ZOOM = 2.5
 
 interface LightboxProps {
   photos: Photo[]
@@ -19,18 +25,27 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [zoom, setZoom] = useState(MIN_ZOOM)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number } | null>(null)
 
   const photo = photos[index]
 
   // Esc + focus trap + scroll lock from the shared hook.
   const containerRef = useModalA11y<HTMLDivElement>(onClose)
 
+  const resetView = useCallback(() => {
+    setZoom(MIN_ZOOM)
+    setPan({ x: 0, y: 0 })
+  }, [])
+
   const goTo = useCallback(
     (next: number) => {
       setIndex(((next % photos.length) + photos.length) % photos.length)
       setEditing(false)
+      resetView()
     },
-    [photos.length]
+    [photos.length, resetView]
   )
 
   // Scroll lock and keyboard handling live in useModalA11y (shared with the
@@ -45,6 +60,56 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [index, goTo])
+
+  // Wheel zoom needs a non-passive listener to stop the page from zooming
+  // or scrolling behind the lightbox.
+  const figureRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = figureRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current - e.deltaY * 0.002)))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [])
+
+  // Pointer-event panning covers mouse drag and single-finger touch drag
+  // alike; pinch zooming is intentionally not implemented (no libraries).
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (zoom <= MIN_ZOOM) return
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: pan.x,
+      baseY: pan.y,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    setPan({ x: drag.baseX + e.clientX - drag.startX, y: drag.baseY + e.clientY - drag.startY })
+  }
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null
+  }
+
+  // Double-click zooms in; a second double-click (or the wheel back to 1x)
+  // returns to fit-to-view.
+  const onImageClick = () => {
+    if (zoom === MIN_ZOOM) {
+      setZoom(TOGGLE_ZOOM)
+    } else {
+      resetView()
+    }
+  }
 
   const startEditing = () => {
     setDraft(photo.caption ?? '')
@@ -91,11 +156,23 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
 
-        <figure className="flex max-h-full min-w-0 flex-col items-center">
+        <figure ref={figureRef} className="flex max-h-full min-w-0 flex-col items-center overflow-hidden">
           <img
             src={photo.url}
             alt={photo.caption ?? t('lightbox.title')}
-            className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-pop"
+            onClick={(e) => {
+              // Keep the backdrop's close-on-click working everywhere else.
+              e.stopPropagation()
+              onImageClick()
+            }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            className={`max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-pop transition-transform duration-200 ${
+              zoom > MIN_ZOOM ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'
+            }`}
+            style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` }}
           />
           <figcaption className="mt-3 max-w-lg text-center">
             {editing ? (
@@ -146,8 +223,18 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
                 )}
               </span>
             )}
+            {(photo.taken_at || photo.lat !== null) && (
+              <span className="mt-1 block text-xs text-white/50">
+                {photo.taken_at ? formatDateTime(photo.taken_at) : ''}
+                {photo.taken_at && photo.lat !== null && ' · '}
+                {photo.lat !== null && photo.lon !== null
+                  ? `${photo.lat.toFixed(5)}, ${photo.lon.toFixed(5)}`
+                  : ''}
+              </span>
+            )}
             <span className="mt-1 block text-xs text-white/50">
               {index + 1} / {photos.length}
+              {zoom > MIN_ZOOM && ` · ${Math.round(zoom * 100)}%`}
             </span>
           </figcaption>
         </figure>

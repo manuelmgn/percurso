@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
 from app.config import settings
 from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo
@@ -58,6 +59,20 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
         trip.visibility = data.visibility
     if data.companions_text is not None:
         trip.companions_text = data.companions_text
+
+    if data.clear_cover:
+        trip.cover_photo_id = None
+    elif data.cover_photo_id is not None:
+        # Deliberate 404 (not 403/422) so ids of other trips' photos cannot
+        # even be probed, matching the photos router.
+        photo = (
+            db.query(Photo)
+            .filter(Photo.id == data.cover_photo_id, Photo.trip_id == trip.id)
+            .first()
+        )
+        if not photo:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
+        trip.cover_photo_id = photo.id
 
     _update_relations(db, trip, data)
     trip.updated_at = datetime.now(timezone.utc)

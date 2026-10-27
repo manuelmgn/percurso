@@ -2,12 +2,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.auth import get_current_user, validate_csrf
 from app.config import settings
 from app.database import get_db
 from app.models import User, Photo
-from app.schemas import PhotoResponse, PhotoCaptionUpdate
+from app.schemas import PhotoResponse, PhotoCaptionUpdate, PhotoOrderUpdate
 from app.services import trip_service, visibility_service, image_service
 
 router = APIRouter(prefix="/api/trips/{trip_id}/photos", tags=["photos"])
@@ -21,6 +22,10 @@ def _photo_to_response(photo: Photo) -> PhotoResponse:
         width=photo.width,
         height=photo.height,
         caption=photo.caption,
+        position=photo.position,
+        taken_at=photo.taken_at,
+        lat=photo.lat,
+        lon=photo.lon,
         uploader_id=photo.uploader_id,
         uploader_username=photo.uploader.username,
         created_at=photo.created_at,
@@ -66,7 +71,7 @@ def list_photos(
     photos = (
         db.query(Photo)
         .filter(Photo.trip_id == trip.id)
-        .order_by(Photo.created_at.asc(), Photo.id.asc())
+        .order_by(Photo.position.asc(), Photo.created_at.asc(), Photo.id.asc())
         .all()
     )
     return [_photo_to_response(p) for p in photos]
@@ -99,16 +104,25 @@ async def upload_photos(
         contents.append((f, content))
 
     photos: list[Photo] = []
+    # New photos append to the end of the manual order.
+    max_position = db.query(func.max(Photo.position)).filter(Photo.trip_id == trip.id).scalar()
+    next_position = (max_position + 1) if max_position is not None else 0
     try:
         for f, content in contents:
             url, width, height = image_service.process_and_save(content, f.content_type or "")
+            taken_at, lat, lon = image_service.extract_exif(content, f.content_type or "")
             photo = Photo(
                 trip_id=trip.id,
                 uploader_id=user.id,
                 url=url,
                 width=width,
                 height=height,
+                position=next_position,
+                taken_at=taken_at,
+                lat=lat,
+                lon=lon,
             )
+            next_position += 1
             db.add(photo)
             photos.append(photo)
         db.commit()
@@ -125,6 +139,37 @@ async def upload_photos(
     for photo in photos:
         db.refresh(photo)
     return [_photo_to_response(p) for p in photos]
+
+
+@router.put("/order", response_model=list[PhotoResponse])
+def reorder_photos(
+    trip_id: int,
+    payload: PhotoOrderUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(validate_csrf),
+):
+    """Reassign manual positions. The payload is the FULL desired order and
+    must list exactly the trip's photo ids (same set, no extras, no dupes)."""
+    trip = _get_editable_trip(db, trip_id, user)
+
+    current_ids = {row[0] for row in db.query(Photo.id).filter(Photo.trip_id == trip.id).all()}
+    requested_ids = payload.photo_ids
+    if len(set(requested_ids)) != len(requested_ids) or set(requested_ids) != current_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A ordem tem de incluir exatamente as fotografias da viagem",
+        )
+
+    photos = db.query(Photo).filter(Photo.trip_id == trip.id).all()
+    by_id = {p.id: p for p in photos}
+    for position, photo_id in enumerate(requested_ids):
+        by_id[photo_id].position = position
+    db.commit()
+
+    ordered = [by_id[photo_id] for photo_id in requested_ids]
+    for photo in ordered:
+        db.refresh(photo)
+    return [_photo_to_response(p) for p in ordered]
 
 
 @router.patch("/{photo_id}", response_model=PhotoResponse)
@@ -153,6 +198,13 @@ def delete_photo(
     photo = _get_editable_photo(db, trip_id, user, photo_id)
 
     file_path = _uploads_path(photo.url)
+    # Clear the trip cover if it pointed at this photo. Needed on databases
+    # where the cover FK could not be added (SQLite ALTER limitation); on
+    # fresh databases ON DELETE SET NULL also does it, and this write is
+    # then a harmless no-op.
+    trip = photo.trip
+    if trip.cover_photo_id == photo.id:
+        trip.cover_photo_id = None
     db.delete(photo)
     db.commit()
     # Best effort: the file may already be gone from a previous partial cleanup.

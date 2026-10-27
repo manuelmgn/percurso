@@ -146,7 +146,7 @@ export function TripsPage() {
                   className="animate-fade-up"
                   style={{ animationDelay: `${i * 40}ms` }}
                 >
-                  <TripCard trip={trip} prefs={user} />
+                  <TripCard trip={trip} prefs={user} coverUrl={trip.cover_photo_url ?? undefined} />
                 </div>
               ))}
             </div>

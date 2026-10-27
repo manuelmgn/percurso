@@ -286,7 +286,7 @@ export function DashboardPage() {
                 className="group relative animate-fade-up"
                 style={{ animationDelay: `${i * 40}ms` }}
               >
-                <TripCard trip={trip} prefs={user} />
+                <TripCard trip={trip} prefs={user} coverUrl={trip.cover_photo_url ?? undefined} />
                 {pinButton('trip', trip.id, t('units.trip.one'), 'left-4 top-4')}
               </div>
             ))}

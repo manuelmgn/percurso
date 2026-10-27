@@ -27,7 +27,19 @@ def _apply_lightweight_migrations():
 
     _ADDED_COLUMNS = {
         "project_places": {"is_unmarked": "BOOLEAN NOT NULL DEFAULT 0"},
-        "trips": {"title": "VARCHAR(255)"},
+        "trips": {
+            "title": "VARCHAR(255)",
+            # Plain INTEGER on purpose: SQLite cannot attach the FK to an
+            # ALTER-added column, so the service layer clears dangling
+            # covers (see the photos router and the Trip model comment).
+            "cover_photo_id": "INTEGER",
+        },
+        "photos": {
+            "position": "INTEGER",
+            "taken_at": "DATETIME",
+            "lat": "FLOAT",
+            "lon": "FLOAT",
+        },
         "users": {
             "theme": "VARCHAR(6) NOT NULL DEFAULT 'system'",
             "yearly_trip_goal": "INTEGER",
@@ -50,6 +62,33 @@ def _apply_lightweight_migrations():
             for column, ddl in columns.items():
                 if column not in existing:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+    # Backfill photos.position for rows predating the column, preserving the
+    # order the gallery used to show (created_at, id) per trip. Idempotent:
+    # only NULL positions are touched, and new uploads always get an explicit
+    # position, so a second run is a no-op.
+    inspector = inspect(engine)
+    if inspector.has_table("photos") and "position" in {c["name"] for c in inspector.get_columns("photos")}:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT id, trip_id FROM photos WHERE position IS NULL "
+                    "ORDER BY trip_id, created_at, id"
+                )
+            ).fetchall()
+            next_by_trip: dict[int, int] = {}
+            for photo_id, trip_id in rows:
+                if trip_id not in next_by_trip:
+                    max_pos = conn.execute(
+                        text("SELECT COALESCE(MAX(position), -1) FROM photos WHERE trip_id = :t"),
+                        {"t": trip_id},
+                    ).scalar()
+                    next_by_trip[trip_id] = int(max_pos) + 1
+                conn.execute(
+                    text("UPDATE photos SET position = :p WHERE id = :id"),
+                    {"p": next_by_trip[trip_id], "id": photo_id},
+                )
+                next_by_trip[trip_id] += 1
 
     # A fresh inspector: the one above may have cached column info from
     # before the ALTER statements ran.

@@ -248,6 +248,9 @@ class TripUpdate(BaseModel):
     project_ids: Optional[list[int]] = None
     participant_ids: Optional[list[int]] = None
     visible_user_ids: Optional[list[int]] = None
+    # Cover photo: set to a photo id of this trip, or clear with clear_cover.
+    cover_photo_id: Optional[int] = None
+    clear_cover: bool = False
 
     @model_validator(mode="after")
     def check_date_range(self):
@@ -278,6 +281,8 @@ class TripResponse(TripBase):
     visible_users: list[UserResponse] = Field(default_factory=list)
     places: list[TripPlaceResponse] = Field(default_factory=list)
     projects: list[ProjectListResponse] = Field(default_factory=list)
+    cover_photo_id: Optional[int] = None
+    cover_photo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -293,6 +298,7 @@ class TripListResponse(BaseModel):
     creator_username: str
     place_count: int
     project_count: int
+    cover_photo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -346,6 +352,10 @@ class PhotoResponse(BaseModel):
     width: int
     height: int
     caption: Optional[str] = None
+    position: Optional[int] = None
+    taken_at: Optional[datetime] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
     uploader_id: int
     uploader_username: str
     created_at: datetime
@@ -353,6 +363,12 @@ class PhotoResponse(BaseModel):
 
 class PhotoCaptionUpdate(BaseModel):
     caption: Optional[str] = Field(None, max_length=512)
+
+
+class PhotoOrderUpdate(BaseModel):
+    """Full desired gallery order: every photo id of the trip, in order."""
+
+    photo_ids: list[int] = Field(..., min_length=0)
 
 
 # --- Search schemas ---

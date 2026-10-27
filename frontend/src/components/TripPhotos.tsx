@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Image as ImageIcon, Loader2, Plus, Star, Trash2 } from 'lucide-react'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
@@ -21,6 +21,9 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   const [error, setError] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  // Local mirror of the trip cover: the parent page refetches on its own
+  // schedule, so the gallery tracks the marker itself after a change.
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(trip.cover_photo_id)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canEditTrip =
@@ -80,6 +83,49 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
     } catch (err) {
       setError(getErrorMessage(err, t('trip.captionSaveError')))
       throw err
+    }
+  }
+
+  // Swap a photo with its neighbour and persist the full order. Optimistic
+  // local update; on failure the server copy is reloaded.
+  const handleMove = async (index: number, delta: number) => {
+    const list = photos ?? []
+    const target = index + delta
+    if (target < 0 || target >= list.length) return
+    const next = [...list]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setPhotos(next)
+    setError('')
+    try {
+      const ordered = await api.photos.reorder(trip.id, next.map((p) => p.id))
+      setPhotos(ordered)
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.photosOrderError')))
+      try {
+        setPhotos(await api.photos.list(trip.id))
+      } catch {
+        // Keep the optimistic order; the next page load reconciles.
+      }
+    }
+  }
+
+  const handleSetCover = async (photo: Photo) => {
+    setError('')
+    try {
+      await api.trips.update(trip.id, { cover_photo_id: photo.id })
+      setCoverPhotoId(photo.id)
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.coverSetError')))
+    }
+  }
+
+  const handleClearCover = async () => {
+    setError('')
+    try {
+      await api.trips.update(trip.id, { clear_cover: true })
+      setCoverPhotoId(null)
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.coverSetError')))
     }
   }
 
@@ -143,6 +189,24 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
                   className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.85]"
                 />
               </button>
+              {coverPhotoId === photo.id &&
+                (canEditTrip ? (
+                  <button
+                    onClick={() => handleClearCover()}
+                    aria-label={t('trip.clearCover')}
+                    title={t('trip.coverPhoto')}
+                    className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-primary text-white shadow-pop"
+                  >
+                    <Star size={14} fill="currentColor" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <span
+                    className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-primary text-white shadow-pop"
+                    title={t('trip.coverPhoto')}
+                  >
+                    <Star size={14} fill="currentColor" aria-hidden="true" />
+                  </span>
+                ))}
               {canManage(photo) && (
                 <button
                   onClick={() => handleDelete(photo)}
@@ -151,6 +215,35 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
                 >
                   <Trash2 size={14} aria-hidden="true" />
                 </button>
+              )}
+              {canEditTrip && coverPhotoId !== photo.id && (
+                <button
+                  onClick={() => handleSetCover(photo)}
+                  aria-label={t('trip.setAsCover')}
+                  className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white opacity-0 shadow-pop transition-opacity hover:bg-primary group-hover:opacity-100 focus:opacity-100"
+                >
+                  <Star size={14} aria-hidden="true" />
+                </button>
+              )}
+              {canEditTrip && (photos ?? []).length > 1 && (
+                <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <button
+                    onClick={() => handleMove(index, -1)}
+                    disabled={index === 0}
+                    aria-label={t('trip.movePhotoLeft')}
+                    className="grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white transition-colors hover:bg-primary disabled:opacity-40"
+                  >
+                    <ChevronLeft size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => handleMove(index, 1)}
+                    disabled={index === (photos ?? []).length - 1}
+                    aria-label={t('trip.movePhotoRight')}
+                    className="grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white transition-colors hover:bg-primary disabled:opacity-40"
+                  >
+                    <ChevronRight size={14} aria-hidden="true" />
+                  </button>
+                </span>
               )}
             </div>
           ))}

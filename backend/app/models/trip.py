@@ -38,6 +38,18 @@ class Trip(Base, TimestampMixin):
     visibility = Column(Enum(Visibility), nullable=False, default=Visibility.ALL)
     creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     companions_text = Column(String(512), nullable=True)
+    # Manual cover chosen from the trip's gallery. SQLite cannot add this
+    # FK to an existing table (ALTER ADD COLUMN drops FK constraints), so on
+    # legacy databases referential integrity is enforced in the service
+    # layer instead: the photos router clears the cover when its photo is
+    # deleted. Fresh databases get the real FK with ON DELETE SET NULL.
+    cover_photo_id = Column(
+        Integer,
+        ForeignKey("photos.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+    )
+
+    cover_photo = relationship("Photo", foreign_keys=[cover_photo_id])
 
     creator = relationship("User", back_populates="trips")
     participants = relationship("User", secondary=trip_participants, backref="participating_trips")

@@ -246,6 +246,8 @@ export interface Trip {
   visible_users: User[]
   places: TripPlace[]
   projects: ProjectListItem[]
+  cover_photo_id: number | null
+  cover_photo_url: string | null
   created_at: string
   updated_at: string
 }
@@ -259,6 +261,7 @@ export interface TripListItem {
   creator_username: string
   place_count: number
   project_count: number
+  cover_photo_url: string | null
   created_at: string
   updated_at: string
 }
@@ -287,6 +290,9 @@ export interface TripUpdate {
   project_ids?: number[]
   participant_ids?: number[]
   visible_user_ids?: number[]
+  /** Photo id of this trip to use as cover; send clear_cover to unset. */
+  cover_photo_id?: number
+  clear_cover?: boolean
 }
 
 export interface TripDeleteWarning {
@@ -302,6 +308,11 @@ export interface Photo {
   width: number
   height: number
   caption: string | null
+  position: number | null
+  /** EXIF capture time (ISO 8601, UTC) and GPS coords, when present. */
+  taken_at: string | null
+  lat: number | null
+  lon: number | null
   uploader_id: number
   uploader_username: string
   created_at: string

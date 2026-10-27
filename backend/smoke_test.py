@@ -20,6 +20,27 @@ def make_image():
     return buf
 
 
+def make_image_with_exif():
+    """JPEG carrying DateTimeOriginal and GPS coords for the EXIF round-trip."""
+    img = Image.new('RGB', (100, 100), color='blue')
+    exif = Image.Exif()
+    exif_ifd = exif.get_ifd(0x8769)
+    exif_ifd[36867] = '2023:05:14 10:30:00'
+    # The modified IFD must be reassigned onto the Exif object or Pillow
+    # silently drops it when serialising.
+    exif[0x8769] = exif_ifd
+    gps_ifd = exif.get_ifd(0x8825)
+    gps_ifd[1] = 'N'
+    gps_ifd[2] = (42.88, 0, 0)
+    gps_ifd[3] = 'W'
+    gps_ifd[4] = (8.54, 0, 0)
+    exif[0x8825] = gps_ifd
+    buf = BytesIO()
+    img.save(buf, format='JPEG', exif=exif)
+    buf.seek(0)
+    return buf
+
+
 def login(client, username, password):
     """Logs in and stores the CSRF header. The backend uses a separate CSRF
     token (session cookie stays http-only), returned by login/auth/me."""
@@ -62,6 +83,10 @@ def main():
     from app.database import engine, Base
     from app import models as _models  # noqa: F401 — register all models with the metadata
     Base.metadata.create_all(bind=engine)
+    # Column additions for pre-existing DB files; also runs before the first
+    # TestClient request would trigger the same thing via the app lifespan.
+    from app.main import _apply_lightweight_migrations
+    _apply_lightweight_migrations()
 
     db = SessionLocal()
     try:
@@ -266,6 +291,59 @@ def main():
     r = client1.get(f'/api/trips/{trip_id}/photos/')
     check('photo deleted from list', r.status_code == 200 and len(r.json()) == 1)
     check('photo file removed from disk', not deleted_file.exists())
+
+    # Photo reorder (manual gallery order)
+    r = client1.post(f'/api/trips/{trip_id}/photos/', files=[
+        ('files', ('photo3.png', make_image(), 'image/png')),
+        ('files', ('photo4.png', make_image(), 'image/png')),
+    ])
+    check('upload 2 more photos', r.status_code == 201 and len(r.json()) == 2, r.text[:200])
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('photos have positions', all(p['position'] is not None for p in r.json()))
+    current_ids = [p['id'] for p in r.json()]
+    reversed_ids = list(reversed(current_ids))
+
+    r = client1.put(f'/api/trips/{trip_id}/photos/order', json={'photo_ids': reversed_ids})
+    check('reorder photos', r.status_code == 200 and [p['id'] for p in r.json()] == reversed_ids, r.text[:200])
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('order persists', [p['id'] for p in r.json()] == reversed_ids)
+    check('positions sequential', [p['position'] for p in r.json()] == list(range(len(reversed_ids))))
+
+    r = client1.put(f'/api/trips/{trip_id}/photos/order', json={'photo_ids': reversed_ids[1:]})
+    check('reorder rejects missing id', r.status_code == 422)
+    r = client1.put(f'/api/trips/{trip_id}/photos/order', json={'photo_ids': reversed_ids + [reversed_ids[0]]})
+    check('reorder rejects duplicate id', r.status_code == 422)
+    r = client2.put(f'/api/trips/{trip_id}/photos/order', json={'photo_ids': reversed_ids})
+    check('user2 cannot reorder', r.status_code == 404)
+
+    # Trip cover photo
+    cover_id = reversed_ids[0]
+    r = client1.patch(f'/api/trips/{trip_id}', json={'cover_photo_id': cover_id})
+    check('set cover', r.status_code == 200 and r.json()['cover_photo_id'] == cover_id, r.text[:200])
+    check('cover url in trip response', r.json()['cover_photo_url'].startswith('/uploads/'))
+    r = client1.get('/api/trips/')
+    trip_row = [t for t in r.json() if t['id'] == trip_id][0]
+    check('cover url in trip list', trip_row['cover_photo_url'].startswith('/uploads/'))
+    r = client1.patch(f'/api/trips/{trip_id}', json={'cover_photo_id': 999999})
+    check('unknown cover photo id 404', r.status_code == 404)
+    r = client1.patch(f'/api/trips/{trip_id}', json={'clear_cover': True})
+    check('clear cover', r.status_code == 200 and r.json()['cover_photo_id'] is None and r.json()['cover_photo_url'] is None)
+
+    r = client1.patch(f'/api/trips/{trip_id}', json={'cover_photo_id': cover_id})
+    check('set cover again', r.status_code == 200)
+    r = client1.delete(f'/api/trips/{trip_id}/photos/{cover_id}')
+    check('delete cover photo', r.status_code == 204)
+    r = client1.get(f'/api/trips/{trip_id}')
+    check('cover auto-cleared on photo delete', r.json()['cover_photo_id'] is None and r.json()['cover_photo_url'] is None)
+
+    # EXIF round-trip: capture date + GPS read from the original JPEG bytes
+    r = client1.post(f'/api/trips/{trip_id}/photos/', files=[('files', ('exif.jpg', make_image_with_exif(), 'image/jpeg'))])
+    check('upload exif photo', r.status_code == 201, r.text[:200])
+    exif_photo = r.json()[0]
+    check('exif taken_at', exif_photo['taken_at'] is not None and '2023-05-14T10:30:00' in exif_photo['taken_at'], str(exif_photo['taken_at']))
+    check('exif gps', abs(exif_photo['lat'] - 42.88) < 0.001 and abs(exif_photo['lon'] + 8.54) < 0.001, str((exif_photo['lat'], exif_photo['lon'])))
+    plain_photo = [p for p in client1.get(f'/api/trips/{trip_id}/photos/').json() if p['id'] != exif_photo['id']][0]
+    check('no exif on plain photo', plain_photo['taken_at'] is None and plain_photo['lat'] is None)
 
     # Manual unmark a place in project
     place_to_unmark = place_ids_in_project[0]

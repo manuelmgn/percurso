@@ -295,6 +295,11 @@ export const api = {
       }),
     remove: (tripId: number, photoId: number) =>
       fetchJson<void>(`/api/trips/${tripId}/photos/${photoId}`, { method: 'DELETE' }),
+    reorder: (tripId: number, photoIds: number[]) =>
+      fetchJson<Photo[]>(`/api/trips/${tripId}/photos/order`, {
+        method: 'PUT',
+        body: JSON.stringify({ photo_ids: photoIds }),
+      }),
   },
 
   projects: {
