@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import User, Trip, TripPlace, TripProject, Place, Project
+from app.config import settings
+from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate
 from app.services import visibility_service, project_service, notification_service
@@ -109,9 +111,15 @@ def _update_relations(db: Session, trip: Trip, data) -> None:
 
 
 def delete_trip(db: Session, trip: Trip) -> None:
-    """Deletes the trip; relation rows cascade, associated photos and the
-    caller handles deleting their files if necessary (not done here: photos
-    are removed with the trip in the DB cascade)."""
+    """Deletes the trip and associated photos/files."""
+    photos = db.query(Photo).filter(Photo.trip_id == trip.id).all()
+    for photo in photos:
+        try:
+            filename = photo.url.rsplit("/", 1)[-1]
+            file_path = settings.uploads_dir / filename
+            file_path.unlink(missing_ok=True)
+        except OSError:
+            pass
     db.delete(trip)
     db.commit()
 

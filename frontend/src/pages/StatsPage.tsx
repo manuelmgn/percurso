@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, FolderOpen, Globe, MapPin } from 'lucide-react'
+import { Compass, FolderKanban, Globe, MapPin, Users } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -96,16 +96,18 @@ export function StatsPage() {
       <h1 className="font-display text-[28px] font-bold tracking-tight md:text-[40px]">{t('stats.title')}</h1>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard icon={Briefcase} value={String(stats.summary.trip_count)} label={t('stats.trips')} tone="primary" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <StatCard icon={Compass} value={String(stats.summary.trip_count)} label={t('stats.trips')} tone="primary" />
         <StatCard icon={MapPin} value={String(stats.summary.place_count)} label={t('stats.places')} tone="coral" />
+        <StatCard icon={Globe} value={String(stats.region_stats.length)} label={t('stats.regions')} tone="plum" />
+        <StatCard icon={Users} value={String(stats.summary.companion_count)} label={t('stats.companions')} tone="amber" />
+        <StatCard icon={FolderKanban} value={String(stats.summary.active_projects)} label={t('stats.activeProjects')} tone="primary" />
         <StatCard
-          icon={FolderOpen}
+          icon={FolderKanban}
           value={String(stats.summary.completed_projects)}
           label={t('stats.completedProjects')}
-          tone="plum"
+          tone="coral"
         />
-        <StatCard icon={Globe} value={String(stats.region_stats.length)} label={t('stats.regions')} tone="amber" />
       </div>
 
       {/* Charts row: trips per year + places by type */}

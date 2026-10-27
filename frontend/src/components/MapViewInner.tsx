@@ -101,8 +101,14 @@ export default function MapViewInner({
     if (!containerRef.current || mapRef.current) return
 
     const map = L.map(containerRef.current, {
-      zoomControl: true,
-      scrollWheelZoom: variant === 'detailed',
+      zoomControl: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      dragging: true,
+      tap: false,
     })
 
     layerRef.current = L.layerGroup().addTo(map)
