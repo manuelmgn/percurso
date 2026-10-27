@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '@/api'
@@ -17,6 +17,13 @@ export function SearchPage() {
   const [results, setResults] = useState<SearchResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // React's autoFocus is unreliable after client-side navigation on mobile,
+  // so focus the input explicitly when the page mounts.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true })
+  }, [])
 
   useEffect(() => {
     if (q.length < 2) {
@@ -61,6 +68,7 @@ export function SearchPage() {
       <div className="search-pill w-full">
         <Search size={18} className="shrink-0 text-muted" aria-hidden="true" />
         <input
+          ref={inputRef}
           type="search"
           value={q}
           onChange={(e) =>
@@ -68,7 +76,6 @@ export function SearchPage() {
           }
           placeholder={t('search.placeholder')}
           aria-label={t('search.title')}
-          autoFocus
           inputMode="search"
           enterKeyHint="search"
           className="w-full bg-transparent text-base text-ink outline-none placeholder:text-muted focus-visible:ring-0 focus-visible:ring-offset-0 dark:placeholder:text-muted"

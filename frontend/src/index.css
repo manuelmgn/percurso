@@ -106,7 +106,15 @@
   }
 
   .input {
-    @apply w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20;
+    @apply w-full min-w-0 rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-muted transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20;
+  }
+
+  /* Date pickers: iOS Safari gives them a large intrinsic min-width that
+     overflows the pill on narrow screens; a moderate radius + shrink let
+     them fit inside the form card. */
+  input[type='date'].input {
+    border-radius: 14px;
+    min-width: 0;
   }
 
   /* Dropdowns using .input drop the native arrow and get a chevron that

@@ -170,7 +170,7 @@ export function TripEditPage() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="start_date">{t('tripEdit.startDateLabel')}</label>
               <input
