@@ -9,7 +9,7 @@ import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { FormPageSkeleton } from '@/components/ui/Skeleton'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { formatTripDateRange } from '@/utils/format'
 import type { ProjectListItem, User, Visibility } from '@/types'
@@ -170,7 +170,7 @@ export function TripEditPage() {
   }
 
   if (isLoading) {
-    return <PageSpinner />
+    return <FormPageSkeleton />
   }
 
   return (

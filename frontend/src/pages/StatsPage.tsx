@@ -6,7 +6,7 @@ import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useTheme } from '@/components/ThemeProvider'
 import { StatCard } from '@/components/ui/StatCard'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { StatsPageSkeleton } from '@/components/ui/Skeleton'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { AreaChart, BarChart, DonutChart } from '@/components/ui/Charts'
 import type { ActivityItem, StatsResponse, TripListItem } from '@/types'
@@ -77,7 +77,7 @@ export function StatsPage() {
   }, [activities])
 
   if (isLoading) {
-    return <PageSpinner />
+    return <StatsPageSkeleton />
   }
 
   if (!stats) {

@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { FormPageSkeleton } from '@/components/ui/Skeleton'
 import type { MapMode, PlaceType, User, Visibility } from '@/types'
 import { isPolygonMode } from '@/types'
 export function ProjectEditPage() {
@@ -115,7 +115,7 @@ export function ProjectEditPage() {
   }
 
   if (isLoading) {
-    return <PageSpinner />
+    return <FormPageSkeleton />
   }
 
   return (

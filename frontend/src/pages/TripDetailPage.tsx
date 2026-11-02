@@ -8,7 +8,7 @@ import { useTranslation } from '@/i18n'
 import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import { TripPhotos } from '@/components/TripPhotos'
 import { getTripStatus } from '@/utils/tripStatus'
 import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
@@ -102,7 +102,7 @@ export function TripDetailPage() {
   }
 
   if (isLoading) {
-    return <PageSpinner />
+    return <DetailPageSkeleton />
   }
 
   if (!trip) {

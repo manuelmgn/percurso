@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ListPageSkeleton } from '@/components/ui/Skeleton'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
@@ -67,7 +67,7 @@ export function PlacesPage() {
   const updateFilters = (patch: Partial<PlacesFilters>) => setFilters((prev) => ({ ...prev, ...patch }))
 
   if (isLoading) {
-    return <PageSpinner />
+    return <ListPageSkeleton />
   }
 
   return (

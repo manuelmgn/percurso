@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
@@ -43,7 +43,7 @@ export function PlaceDetailPage() {
   }, [place])
 
   if (isLoading) {
-    return <PageSpinner />
+    return <DetailPageSkeleton />
   }
 
   if (!place) {

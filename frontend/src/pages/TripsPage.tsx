@@ -7,7 +7,7 @@ import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { TripCard } from '@/components/ui/TripCard'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ListPageSkeleton } from '@/components/ui/Skeleton'
 import { formatTripTitle } from '@/utils/format'
 import { getTripStatus, type TripStatus } from '@/utils/tripStatus'
 import type { TripListItem } from '@/types'
@@ -60,7 +60,7 @@ export function TripsPage() {
   }, [trips, filters, user])
 
   if (isLoading) {
-    return <PageSpinner />
+    return <ListPageSkeleton />
   }
 
   return (

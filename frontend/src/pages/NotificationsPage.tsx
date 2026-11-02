@@ -6,6 +6,7 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
 import { entityDetailPath } from '@/utils/format'
+import { RowListSkeleton } from '@/components/ui/Skeleton'
 import type { Notification } from '@/types'
 
 function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
@@ -80,7 +81,10 @@ export function NotificationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="card p-6 text-sm text-muted" role="status">{t('loadingGeneric')}</div>
+        <div role="status" aria-label={t('loading')}>
+          <span className="sr-only">{t('loadingGeneric')}</span>
+          <RowListSkeleton />
+        </div>
       ) : error ? (
         <div className="card p-6 text-sm text-primary" role="alert">{error}</div>
       ) : notifications.length === 0 ? (

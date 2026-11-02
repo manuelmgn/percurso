@@ -7,7 +7,7 @@ import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import type { BulkImportLine, PlaceSearchResult, PlaceType, Project } from '@/types'
 import { PLACE_TYPES, isPolygonMode } from '@/types'
 import { formatHierarchy, formatTripTitle, formatDate as formatUserDate, visibilityLabelKey } from '@/utils/format'
@@ -251,7 +251,7 @@ export function ProjectDetailPage() {
 
 
   if (isLoading) {
-    return <PageSpinner />
+    return <DetailPageSkeleton />
   }
 
   if (!project) {

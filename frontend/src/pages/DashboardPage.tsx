@@ -8,7 +8,7 @@ import { MapView, type MapMarker } from '@/components/MapView'
 import { RouteOverlay } from '@/components/map/RouteOverlay'
 import { TripCard } from '@/components/ui/TripCard'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { DashboardSkeleton } from '@/components/ui/Skeleton'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressGoal } from '@/components/ui/ProgressGoal'
 import { entityDetailPath, formatTripDateRange, formatTripTitle } from '@/utils/format'
@@ -175,7 +175,7 @@ export function DashboardPage() {
   }, [projects, trips, t, user])
 
   if (isLoading) {
-    return <PageSpinner />
+    return <DashboardSkeleton />
   }
 
   return (

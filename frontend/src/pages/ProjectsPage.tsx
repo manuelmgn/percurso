@@ -6,7 +6,7 @@ import { api } from '@/api'
 import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { PageSpinner } from '@/components/ui/PageSpinner'
+import { ListPageSkeleton } from '@/components/ui/Skeleton'
 import { visibilityLabelKey } from '@/utils/format'
 import type { ProjectListItem } from '@/types'
 import { CircleCheck } from 'lucide-react'
@@ -51,7 +51,7 @@ export function ProjectsPage() {
   }, [projects, filters])
 
   if (isLoading) {
-    return <PageSpinner />
+    return <ListPageSkeleton />
   }
 
   return (
