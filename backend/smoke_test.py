@@ -491,6 +491,42 @@ def main():
         check('last admin cannot be demoted', True, 'skipped: default admin is not the sole active admin')
         check('last admin cannot be deactivated', True, 'skipped: default admin is not the sole active admin')
 
+    # Security headers on API responses (HSTS only when session cookies are
+    # Secure, i.e. production).
+    r = client1.get('/api/health')
+    check('security headers present',
+          r.headers.get('x-content-type-options') == 'nosniff'
+          and r.headers.get('x-frame-options') == 'DENY'
+          and r.headers.get('referrer-policy') == 'strict-origin-when-cross-origin',
+          str({k: v for k, v in r.headers.items() if k.startswith('x-') or k in ('referrer-policy', 'strict-transport-security')}))
+    check('HSTS matches secure-cookie setting',
+          ('strict-transport-security' in r.headers) == settings.session_cookie_secure_resolved)
+
+    # Login rate limiting: max 5 failed attempts per IP in a rolling 5-minute
+    # window, then 429; a successful login resets the failure counter.
+    rl_client = TestClient(app)
+    wrong3 = [
+        rl_client.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'wrong'}).status_code
+        for _ in range(3)
+    ]
+    check('wrong passwords rejected', wrong3 == [401] * 3, str(wrong3))
+    r = rl_client.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'newpass123'})
+    check('login ok before limit', r.status_code == 200, r.text[:200])
+    # Without the reset above, failure #3 below would already trigger 429
+    # (3 pre-existing + 2 new); getting 401s proves the counter was reset.
+    reset_proof = [
+        rl_client.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'wrong'}).status_code
+        for _ in range(3)
+    ]
+    check('counter reset after success', reset_proof == [401] * 3, str(reset_proof))
+    wrong2 = [
+        rl_client.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'wrong'}).status_code
+        for _ in range(2)
+    ]
+    check('5 failures allowed', wrong2 == [401] * 2, str(wrong2))
+    r = rl_client.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'wrong'})
+    check('6th failed attempt rate limited', r.status_code == 429, r.text[:200])
+
     # Persistence check via fresh DB session
     db = SessionLocal()
     try:

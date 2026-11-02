@@ -11,6 +11,19 @@ from app.models import PushSubscription, User
 
 logger = logging.getLogger(__name__)
 
+_subject_warning_logged = False
+
+
+def _push_subject_valid() -> bool:
+    """A usable VAPID subject must look like a real contact, not a placeholder
+    (the config default mailto:admin@percurso.local or anything without a
+    proper domain)."""
+    subject = (settings.vapid_subject or "").strip()
+    if "@" not in subject:
+        return False
+    domain = subject.rsplit("@", 1)[1]
+    return bool(domain) and not domain.lower().endswith(".local")
+
 
 def _load_vapid() -> Vapid | None:
     """Build a Vapid instance from the configured PEM, or None if not configured."""
@@ -48,8 +61,21 @@ def send_to_user(db: Session, user: User, payload: dict) -> None:
     """Send a push notification to every subscription of the user.
 
     Subscriptions rejected by the push service (404/410) are removed.
-    No-op when VAPID keys are not configured.
+    No-op when VAPID keys are not configured or the VAPID subject is missing
+    or a placeholder (push is then disabled rather than sent with a bogus
+    contact address).
     """
+    global _subject_warning_logged
+    if not _push_subject_valid():
+        if not _subject_warning_logged:
+            _subject_warning_logged = True
+            logger.warning(
+                "PERCURSOS_VAPID_SUBJECT is missing or a placeholder; "
+                "push notifications are disabled. Set a real contact address "
+                "(e.g. mailto:you@example.com)."
+            )
+        return
+
     vapid = _load_vapid()
     if vapid is None:
         return

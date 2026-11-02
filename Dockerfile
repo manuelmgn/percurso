@@ -23,9 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     sqlite3 \
     wget \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /data /app/uploads /app/tile-cache /app/backups /backups
+# Non-root runtime user (the entrypoint drops privileges via gosu).
+RUN groupadd -r app && useradd -r -g app -d /app app
+
+RUN mkdir -p /data /app/uploads /app/tile-cache /app/backups /backups /var/log
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
@@ -36,15 +40,19 @@ RUN wget -q -O /usr/local/bin/supercronic "$SUPERCRONIC_URL" \
     && echo "${SUPERCRONIC_SHA1SUM}  /usr/local/bin/supercronic" | sha1sum -c - \
     && chmod +x /usr/local/bin/supercronic
 
-COPY backend/app /app/app
-COPY --from=frontend-builder /build/dist /app/frontend/dist
+COPY --chown=app:app backend/app /app/app
+COPY --from=frontend-builder --chown=app:app /build/dist /app/frontend/dist
 
 # Supercronic expects crontab lines without a user field.
-COPY crontab /app/crontab
+COPY --chown=app:app crontab /app/crontab
+
+COPY scripts/init_prepare.py /app/init_prepare.py
+RUN chmod +x /app/init_prepare.py
+
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "mkdir -p /var/log && touch /var/log/percursos-backup.log && supercronic /app/crontab >> /var/log/percursos-backup.log 2>&1 & uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
-# Init script
-COPY scripts/init_prepare.py /app/init_prepare.py
-RUN chmod +x /app/init_prepare.py
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

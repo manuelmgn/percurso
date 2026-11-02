@@ -34,8 +34,13 @@ class Settings(BaseSettings):
     session_cookie_name: str = "session"
     session_max_age_days: int = 30
     # Set to True when serving over HTTPS so the session cookie is only sent
-    # over encrypted connections.
-    session_cookie_secure: bool = False
+    # over encrypted connections. None = automatic: Secure is on when
+    # PERCURSOS_ENV is "production"; an explicit PERCURSOS_SESSION_COOKIE_SECURE
+    # value overrides the automatic behaviour in either direction.
+    session_cookie_secure: bool | None = None
+    # Comma-separated hostnames the app answers to (TrustedHostMiddleware);
+    # "*" accepts any Host header (current behaviour).
+    allowed_hosts: str = "*"
     # Maximum accepted size for an uploaded image (avatar, notes, etc.).
     max_upload_bytes: int = 15 * 1024 * 1024
     # Seeded automatically on first launch when the database has no users
@@ -46,6 +51,16 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_public_key: str | None = None
     vapid_subject: str = "mailto:admin@percurso.local"
+
+    @property
+    def session_cookie_secure_resolved(self) -> bool:
+        if self.session_cookie_secure is not None:
+            return self.session_cookie_secure
+        return self.env == "production"
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        return [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
 
     @property
     def database_url(self) -> str:

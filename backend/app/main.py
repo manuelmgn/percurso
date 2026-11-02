@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.database import engine, Base, db_session
@@ -119,6 +120,7 @@ app = FastAPI(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts_list)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -126,6 +128,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # HSTS only makes sense once session cookies are Secure (i.e. production).
+    if settings.session_cookie_secure_resolved:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 app.include_router(auth.router)
 app.include_router(me.router)
