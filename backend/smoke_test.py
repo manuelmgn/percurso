@@ -345,6 +345,33 @@ def main():
     plain_photo = [p for p in client1.get(f'/api/trips/{trip_id}/photos/').json() if p['id'] != exif_photo['id']][0]
     check('no exif on plain photo', plain_photo['taken_at'] is None and plain_photo['lat'] is None)
 
+    # Deleting a trip must delete its photos (rows + files on disk)
+    r = client1.post('/api/trips/', json={
+        'title': 'Viaje con fotos',
+        'start_date': '2026-10-01',
+        'end_date': '2026-10-03',
+        'place_ids': [coruna_id],
+    })
+    check('create trip for photo-delete test', r.status_code == 201)
+    photo_trip_id = r.json()['id']
+    r = client1.post(f'/api/trips/{photo_trip_id}/photos/', files=[
+        ('files', ('p1.png', make_image(), 'image/png')),
+        ('files', ('p2.png', make_image(), 'image/png')),
+    ])
+    check('upload photos to doomed trip', r.status_code == 201 and len(r.json()) == 2, r.text[:200])
+    doomed_photos = r.json()
+    doomed_files = [settings.uploads_dir / p['url'].rsplit('/', 1)[-1] for p in doomed_photos]
+    r = client1.patch(f'/api/trips/{photo_trip_id}', json={'cover_photo_id': doomed_photos[0]['id']})
+    check('set cover on doomed trip', r.status_code == 200)
+
+    r = client1.delete(f'/api/trips/{photo_trip_id}')
+    check('delete trip with photos', r.status_code == 204, r.text[:200])
+    r = client1.get(f'/api/trips/{photo_trip_id}')
+    check('doomed trip gone', r.status_code == 404)
+    r = client1.get(f'/api/trips/{photo_trip_id}/photos/')
+    check('photos gone with trip', r.status_code == 404)
+    check('photo files removed with trip', all(not f.exists() for f in doomed_files))
+
     # Manual unmark a place in project
     place_to_unmark = place_ids_in_project[0]
     r = client1.post(f'/api/projects/{project_id}/places/{place_to_unmark}/unmark')

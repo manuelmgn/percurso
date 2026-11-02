@@ -126,7 +126,7 @@ def _update_relations(db: Session, trip: Trip, data) -> None:
 
 
 def delete_trip(db: Session, trip: Trip) -> None:
-    """Deletes the trip and associated photos/files."""
+    """Deletes the trip, its photo rows and the photo files on disk."""
     photos = db.query(Photo).filter(Photo.trip_id == trip.id).all()
     for photo in photos:
         try:
@@ -135,6 +135,15 @@ def delete_trip(db: Session, trip: Trip) -> None:
             file_path.unlink(missing_ok=True)
         except OSError:
             pass
+    # Detach the cover first: with cover_photo_id still set, Trip and Photo
+    # reference each other and the flush cannot order the deletes.
+    trip.cover_photo_id = None
+    db.flush()
+    # The Photo relationship has no delete cascade, so the rows must be
+    # removed explicitly; otherwise the ORM would nullify their
+    # non-nullable trip_id and the delete would fail.
+    for photo in photos:
+        db.delete(photo)
     db.delete(trip)
     db.commit()
 

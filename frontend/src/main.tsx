@@ -24,6 +24,18 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   })
 }
 
+// The viewport meta (user-scalable=no) plus the global touch-action CSS rule
+// already block page zoom; these two guards cover the paths they miss:
+// pinch on iOS Safari (gesturestart) and ctrl+wheel on desktop browsers.
+document.addEventListener('gesturestart', (e) => e.preventDefault())
+window.addEventListener(
+  'wheel',
+  (e) => {
+    if (e.ctrlKey) e.preventDefault()
+  },
+  { passive: false },
+)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

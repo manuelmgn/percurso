@@ -149,6 +149,10 @@ export function DashboardPage() {
         : new Set(visitedPlaces.map((p) => p.hierarchy?.['concelho'] ?? p.name)).size,
     [stats, visitedPlaces],
   )
+  const completedProjectsCount = useMemo(
+    () => projects.filter((p) => p.progress_percent === 100).length,
+    [projects],
+  )
 
   // "Conquistas recentes": completed projects + most recent trips (up to 5 items total)
   const recentHighlights = useMemo<Array<{ type: 'project' | 'trip'; id: number; label: string; sub: string }>>(() => {
@@ -244,12 +248,13 @@ export function DashboardPage() {
         <aside className={`flex flex-col gap-5 ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
           <div className="card flex flex-1 flex-col">
             <h2 className="font-display text-[22px] font-bold">{t('stats.yearInNumbers')}</h2>
-            <div className={`mt-5 grid grid-cols-2 gap-5 ${hasMap ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
+            <div className="mt-5 grid grid-cols-2 gap-5">
               <Stat value={stats?.summary.trip_count ?? trips.length} label={t('stats.trips')} className="text-primary" />
               <Stat value={stats?.summary.place_count ?? visitedPlaces.length} label={t('stats.places')} className="text-coral" />
-              <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
               <Stat value={regionCount} label={t('stats.regions')} className="text-ink" />
               <Stat value={stats?.summary.companion_count ?? 0} label={t('stats.companions')} className="text-plum" />
+              <Stat value={stats?.summary.active_projects ?? activeProjects} label={t('stats.activeProjects')} className="text-plum" />
+              <Stat value={stats?.summary.completed_projects ?? completedProjectsCount} label={t('stats.completedProjects')} className="text-coral" />
             </div>
             {user?.yearly_trip_goal != null && (
               <>

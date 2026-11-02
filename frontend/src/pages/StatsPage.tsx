@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass, FolderKanban, Globe, MapPin, Users } from 'lucide-react'
+import { Briefcase, Compass, Globe, MapPin, Users } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -101,9 +101,9 @@ export function StatsPage() {
         <StatCard icon={MapPin} value={String(stats.summary.place_count)} label={t('stats.places')} tone="coral" />
         <StatCard icon={Globe} value={String(stats.region_stats.length)} label={t('stats.regions')} tone="plum" />
         <StatCard icon={Users} value={String(stats.summary.companion_count)} label={t('stats.companions')} tone="amber" />
-        <StatCard icon={FolderKanban} value={String(stats.summary.active_projects)} label={t('stats.activeProjects')} tone="primary" />
+        <StatCard icon={Briefcase} value={String(stats.summary.active_projects)} label={t('stats.activeProjects')} tone="primary" />
         <StatCard
-          icon={FolderKanban}
+          icon={Briefcase}
           value={String(stats.summary.completed_projects)}
           label={t('stats.completedProjects')}
           tone="coral"
