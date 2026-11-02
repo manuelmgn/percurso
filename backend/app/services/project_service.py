@@ -167,10 +167,6 @@ def get_progress_by_project(
     return {p.id: _compute_progress(p, visited_map[p.id]) for p in projects}
 
 
-def is_place_visited_in_project(db: Session, user: User, project_id: int, place_id: int) -> bool:
-    return place_id in get_visited_place_ids_in_project(db, user, project_id)
-
-
 def add_place_to_project(db: Session, user: User, project: Project, place: Place) -> ProjectPlace:
     existing = (
         db.query(ProjectPlace)

@@ -86,11 +86,27 @@ export function formatTripTitle(
   return trip.title?.trim() || `${t('trips.fallbackTitle')} ${formatTripDateRange(trip.start_date, trip.end_date, prefs)}`
 }
 
-// Number of days a trip spans, inclusive of both ends ("Sàb 3 → Lun 5" = 3).
+// Number of days a trip spans, inclusive of both ends ("Sáb 3 → Seg 5" = 3).
 export function tripDayCount(startDate: string, endDate: string): number {
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T00:00:00`)
   return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+}
+
+// Detail-page route for an entity type/id pair (`trip` | `project` | `place`)
+// → `/viagens/1` etc., null for anything else. Callers add their own
+// fallback: notifications navigate to '/', activity items render plain text.
+export function entityDetailPath(entityType: string, entityId: number): string | null {
+  switch (entityType) {
+    case 'trip':
+      return `/viagens/${entityId}`
+    case 'project':
+      return `/projetos/${entityId}`
+    case 'place':
+      return `/lugares/${entityId}`
+    default:
+      return null
+  }
 }
 
 // i18n key for a visibility value (`all` | `specific` | `private`) →

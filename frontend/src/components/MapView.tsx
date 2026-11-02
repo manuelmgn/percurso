@@ -9,7 +9,6 @@ export type { MapMarker, MapPolygon }
 interface MapViewProps {
   markers?: MapMarker[]
   polygons?: MapPolygon[]
-  variant: 'minimal' | 'detailed'
   height?: string
   connectMarkers?: boolean
 }

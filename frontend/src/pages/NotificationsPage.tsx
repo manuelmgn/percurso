@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
+import { entityDetailPath } from '@/utils/format'
 import type { Notification } from '@/types'
 
 function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
@@ -18,9 +19,7 @@ function timeAgo(iso: string, t: (key: string, params?: Record<string, string | 
 }
 
 function entityPath(notification: Notification): string {
-  if (notification.entity_type === 'trip') return `/viagens/${notification.entity_id}`
-  if (notification.entity_type === 'project') return `/projetos/${notification.entity_id}`
-  return '/'
+  return entityDetailPath(notification.entity_type, notification.entity_id) ?? '/'
 }
 
 function messageKey(type: string): string {

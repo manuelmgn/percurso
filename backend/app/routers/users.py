@@ -1,13 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, require_admin, require_admin_csrf
-from app.models import User, Session as UserSession
+from app.models import User, UserRole, Session as UserSession, Photo
 from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
 from app.services import user_service, visibility_service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+def _unlink_upload(url: str | None) -> None:
+    """Best-effort removal of a file stored in the uploads volume."""
+    if not url or not url.startswith("/uploads/"):
+        return
+    try:
+        (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 @router.get("/public/{username}", response_model=PublicProfileResponse)
@@ -59,6 +71,23 @@ def update_user(
         existing = user_service.get_user_by_username(db, payload.username)
         if existing and existing.id != user_id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O nome de utilizador já existe")
+    if user.role == UserRole.ADMIN:
+        # The last active admin can neither be demoted nor deactivated.
+        demoting = payload.role is not None and payload.role != UserRole.ADMIN
+        deactivating = payload.is_active is False
+        if demoting or deactivating:
+            other_admins = (
+                db.query(User)
+                .filter(User.role == UserRole.ADMIN, User.is_active == True, User.id != user.id)
+                .count()
+            )
+            if other_admins == 0:
+                detail = (
+                    "Não é possível remover o papel de administrador ao último administrador do sistema"
+                    if demoting
+                    else "Não é possível desativar o último administrador do sistema"
+                )
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
     return user_service.update_user(db, user, payload)
 
 
@@ -90,6 +119,18 @@ def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
     if user.id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Não te podes eliminar a ti próprio")
+    # FK cascades remove the photo rows but not the files on disk; collect
+    # the URLs first (uploaded by the user, or on trips they created) and
+    # unlink them after the delete has committed.
+    trip_ids = [t.id for t in user.trips]
+    photo_filter = Photo.uploader_id == user.id
+    if trip_ids:
+        photo_filter = or_(photo_filter, Photo.trip_id.in_(trip_ids))
+    photo_urls = [url for (url,) in db.query(Photo.url).filter(photo_filter).all()]
+    avatar_url = user.avatar_url
     db.delete(user)
     db.commit()
+    for url in photo_urls:
+        _unlink_upload(url)
+    _unlink_upload(avatar_url)
     return None

@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from app.models import Notification, User
 from app.services import push_service
 
+# SPA route prefixes (see NotificationsPage); the raw entity type is English.
+_ROUTE_PREFIXES = {"trip": "/viagens", "project": "/projetos"}
+
 # pt-PT push bodies; the in-app list renders its own text via i18n.
 _PUSH_BODIES = {
     "trip_created": "{actor} adicionou-te a uma viagem",
@@ -23,7 +26,7 @@ def notify_participants(
     participant_ids: list[int],
 ) -> None:
     """Create an in-app notification (and push) for each participant except the actor."""
-    url = f"/{entity_type}s/{entity_id}"
+    url = f"{_ROUTE_PREFIXES.get(entity_type, '/' + entity_type + 's')}/{entity_id}"
     body_template = _PUSH_BODIES.get(notif_type, "{actor} fez uma alteração")
     for user_id in set(participant_ids):
         if user_id == actor.id:
@@ -51,6 +54,10 @@ def notify_participants(
                 "url": url,
             },
         )
+    # Self-contained: commit the rows here instead of relying on every
+    # caller to commit afterwards (a later db.rollback() would otherwise
+    # silently discard the notifications).
+    db.commit()
 
 
 def list_notifications(db: Session, user: User, limit: int = 50) -> dict:

@@ -6,7 +6,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { useModalA11y } from '@/hooks/useModalA11y'
-import { formatDate, formatDateTime } from '@/utils/format'
+import { formatDate, formatDateTime, entityDetailPath } from '@/utils/format'
 import { isPushEnabled, subscribePush, unsubscribePush } from '@/utils/push'
 import type { ActivityItem, ThemePreference } from '@/types'
 import { Sun, Moon, Monitor, CircleUser, ArrowRight, Camera, LogOut, Trash2 } from 'lucide-react'
@@ -26,16 +26,7 @@ const activityEntityKeys: Record<ActivityItem['entity_type'], string> = {
 
 function activityEntityPath(activity: ActivityItem): string | null {
   if (activity.action === 'deleted') return null
-  switch (activity.entity_type) {
-    case 'trip':
-      return `/viagens/${activity.entity_id}`
-    case 'project':
-      return `/projetos/${activity.entity_id}`
-    case 'place':
-      return `/lugares/${activity.entity_id}`
-    default:
-      return null
-  }
+  return entityDetailPath(activity.entity_type, activity.entity_id)
 }
 
 // Curated IANA timezones offered in the preferences selector

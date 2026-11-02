@@ -82,8 +82,6 @@ def get_current_user(
     if session.needs_extension():
         session.extend()
         db.commit()
-    else:
-        db.commit()
 
     return user
 

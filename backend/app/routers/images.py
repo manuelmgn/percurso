@@ -14,7 +14,9 @@ async def upload_image(
     file: UploadFile = File(...),
     user: User = Depends(validate_csrf),
 ):
-    content = await file.read()
+    # Read at most max + 1 bytes so an oversized body is rejected without
+    # buffering the whole upload into memory.
+    content = await file.read(settings.max_upload_bytes + 1)
     if len(content) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail="Ficheiro demasiado grande (máx. 15 MB)")
     url, width, height = image_service.process_and_save(content, file.content_type or "")

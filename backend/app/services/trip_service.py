@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -47,6 +46,17 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
 
 
 def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
+    # Validate the resulting pair, not just the payload: a PATCH carrying a
+    # single date can otherwise leave start_date > end_date (the schema
+    # validator only fires when both dates arrive together).
+    new_start = data.start_date if data.start_date is not None else trip.start_date
+    new_end = data.end_date if data.end_date is not None else trip.end_date
+    if new_end < new_start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A data de fim não pode ser anterior à data de início",
+        )
+
     if data.title is not None:
         trip.title = data.title.strip() or None
     if data.start_date is not None:
@@ -126,15 +136,10 @@ def _update_relations(db: Session, trip: Trip, data) -> None:
 
 
 def delete_trip(db: Session, trip: Trip) -> None:
-    """Deletes the trip, its photo rows and the photo files on disk."""
+    """Deletes the trip and its photo rows; the photo files are removed from
+    disk only after the transaction has committed (a failed commit must not
+    leave rows pointing at deleted files)."""
     photos = db.query(Photo).filter(Photo.trip_id == trip.id).all()
-    for photo in photos:
-        try:
-            filename = photo.url.rsplit("/", 1)[-1]
-            file_path = settings.uploads_dir / filename
-            file_path.unlink(missing_ok=True)
-        except OSError:
-            pass
     # Detach the cover first: with cover_photo_id still set, Trip and Photo
     # reference each other and the flush cannot order the deletes.
     trip.cover_photo_id = None
@@ -146,6 +151,13 @@ def delete_trip(db: Session, trip: Trip) -> None:
         db.delete(photo)
     db.delete(trip)
     db.commit()
+    for photo in photos:
+        try:
+            filename = photo.url.rsplit("/", 1)[-1]
+            file_path = settings.uploads_dir / filename
+            file_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def get_affected_projects(db: Session, user: User, trip: Trip) -> list[Project]:

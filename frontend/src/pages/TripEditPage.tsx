@@ -264,20 +264,6 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <div className="mb-1 flex items-center gap-1.5">
-              <label className="block text-sm font-medium" htmlFor="external-link">{t('tripEdit.externalLinkLabel')}</label>
-              <InfoTooltip text={t('tripEdit.externalLinkHint')} />
-            </div>
-            <input
-              id="external-link"
-              type="url"
-              className="input"
-              placeholder="https://"
-              disabled
-            />
-          </div>
-
-          <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.companionsLabel')}</label>
             <div className="relative">
               <div

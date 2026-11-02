@@ -40,7 +40,6 @@ export interface MapPolygon {
 interface MapViewInnerProps {
   markers?: MapMarker[]
   polygons?: MapPolygon[]
-  variant: 'minimal' | 'detailed'
   height?: string
   /** Draw a dashed animated route connecting the markers in order (trip maps). */
   connectMarkers?: boolean
@@ -86,7 +85,6 @@ function popupHtml(title: string, subtitle: string | undefined, href: string | u
 export default function MapViewInner({
   markers = EMPTY_MARKERS,
   polygons = EMPTY_POLYGONS,
-  variant: _variant,
   height = '350px',
   connectMarkers = false,
 }: MapViewInnerProps) {

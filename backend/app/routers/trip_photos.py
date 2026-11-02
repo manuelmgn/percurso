@@ -90,7 +90,9 @@ async def upload_photos(
     # created or none are.
     contents: list[tuple[UploadFile, bytes]] = []
     for f in files:
-        content = await f.read()
+        # Read at most max + 1 bytes so an oversized body is rejected without
+        # buffering the whole upload into memory.
+        content = await f.read(settings.max_upload_bytes + 1)
         if len(content) > settings.max_upload_bytes:
             raise HTTPException(
                 status_code=413,

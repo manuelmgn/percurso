@@ -21,9 +21,11 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   const [error, setError] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  // Local mirror of the trip cover: the parent page refetches on its own
-  // schedule, so the gallery tracks the marker itself after a change.
-  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(trip.cover_photo_id)
+  // Local override of the trip cover: the parent refetches on its own
+  // schedule, so a plain useState(init) could go stale. Until the user
+  // changes the cover here, the prop stays the source of truth.
+  const [coverOverride, setCoverOverride] = useState<number | null | undefined>(undefined)
+  const coverPhotoId = coverOverride ?? trip.cover_photo_id
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canEditTrip =
@@ -113,7 +115,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
     setError('')
     try {
       await api.trips.update(trip.id, { cover_photo_id: photo.id })
-      setCoverPhotoId(photo.id)
+      setCoverOverride(photo.id)
     } catch (err) {
       setError(getErrorMessage(err, t('trip.coverSetError')))
     }
@@ -123,7 +125,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
     setError('')
     try {
       await api.trips.update(trip.id, { clear_cover: true })
-      setCoverPhotoId(null)
+      setCoverOverride(null)
     } catch (err) {
       setError(getErrorMessage(err, t('trip.coverSetError')))
     }

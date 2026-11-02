@@ -77,7 +77,7 @@ export function PlaceDetailPage() {
       </div>
 
       <div className="card">
-        <MapView variant="detailed" height="250px" markers={markers} polygons={polygons} />
+        <MapView height="250px" markers={markers} polygons={polygons} />
       </div>
 
       <div className="card">

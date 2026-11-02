@@ -360,7 +360,7 @@ export function ProjectDetailPage() {
       {project.places.length > 0 && (
         <div className="card">
           <h3 className="mb-3 font-display text-lg font-semibold">{t('projects.mapTitle')}</h3>
-          <MapView variant="detailed" markers={mapMarkers} polygons={mapPolygons} />
+          <MapView markers={mapMarkers} polygons={mapPolygons} />
         </div>
       )}
 

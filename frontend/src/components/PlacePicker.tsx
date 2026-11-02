@@ -39,23 +39,29 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
     }
 
     setIsSearching(true)
+    // Guards against a slow earlier fetch overwriting newer results once
+    // the debounce timer has already fired (same pattern as SearchPage).
+    let cancelled = false
     const timer = setTimeout(async () => {
       try {
         const data = await api.places.search(trimmed)
+        if (cancelled) return
         setResults(data)
         // Reset the selection to the first candidate on every search.
         setHighlighted(data.length > 0 ? 0 : -1)
         setIsOpen(true)
         setError('')
       } catch (err) {
+        if (cancelled) return
         setError(getErrorMessage(err, t('placePicker.searchError')))
         setResults([])
       } finally {
-        setIsSearching(false)
+        if (!cancelled) setIsSearching(false)
       }
     }, 450)
 
     return () => {
+      cancelled = true
       clearTimeout(timer)
       setIsSearching(false)
     }

@@ -130,7 +130,7 @@ export function TripDetailPage() {
       <div className="relative h-56 overflow-hidden rounded-card shadow-card md:h-72">
         {trip.places.length > 0 ? (
           <div className="absolute inset-0 dark:brightness-[0.85]">
-            <MapView variant="minimal" markers={tripMarkers} height="100%" />
+            <MapView markers={tripMarkers} height="100%" />
           </div>
         ) : (
           <div className="absolute inset-0 bg-brand" />
@@ -257,7 +257,7 @@ export function TripDetailPage() {
           {trip.places.length > 0 && (
             <div ref={detailMapRef} className="relative h-[232px] overflow-hidden rounded-card shadow-card">
               {showDetailMap ? (
-                <MapView variant="detailed" markers={tripMarkers} height="232px" connectMarkers />
+                <MapView markers={tripMarkers} height="232px" connectMarkers />
               ) : (
                 <div className="h-full w-full bg-fill" />
               )}

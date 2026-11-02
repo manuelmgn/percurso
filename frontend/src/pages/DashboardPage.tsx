@@ -11,7 +11,7 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { PageSpinner } from '@/components/ui/PageSpinner'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressGoal } from '@/components/ui/ProgressGoal'
-import { formatTripDateRange, formatTripTitle } from '@/utils/format'
+import { entityDetailPath, formatTripDateRange, formatTripTitle } from '@/utils/format'
 import { getTripStatus } from '@/utils/tripStatus'
 import type { Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -214,7 +214,6 @@ export function DashboardPage() {
         {hasMap && (
           <div className="relative h-[300px] overflow-hidden rounded-card shadow-card md:h-[390px] lg:col-span-8 dark:border dark:border-line dark:shadow-none">
             <MapView
-              variant="minimal"
               height="100%"
               markers={visitedMarkers}
             />
@@ -349,7 +348,7 @@ export function DashboardPage() {
                     aria-hidden="true"
                   />
                   <Link
-                    to={item.type === 'project' ? `/projetos/${item.id}` : `/viagens/${item.id}`}
+                    to={entityDetailPath(item.type, item.id) ?? '/'}
                     className="-mt-0.5 block rounded-xl px-1 py-0.5 transition-colors hover:bg-line/40 dark:hover:bg-fill/40"
                   >
                     <p className="truncate font-medium text-ink">{item.label}</p>

@@ -58,7 +58,13 @@ interface HoverState {
 
 const BAR_MARGIN = { top: 8, right: 8, bottom: 22, left: 30 }
 
-export function BarChart({ data, height, tick, grid }: { data: ChartDatum[]; height: number } & ThemeStrokes) {
+export function BarChart({
+  data,
+  height,
+  tick,
+  grid,
+  label,
+}: { data: ChartDatum[]; height: number; label?: string } & ThemeStrokes) {
   const [wrapRef, width] = useElementWidth<HTMLDivElement>()
   const gradId = useId()
   const [hover, setHover] = useState<HoverState | null>(null)
@@ -77,7 +83,7 @@ export function BarChart({ data, height, tick, grid }: { data: ChartDatum[]; hei
   return (
     <div ref={wrapRef} className="relative">
       {width > 0 && (
-        <svg width={width} height={height} role="img">
+        <svg width={width} height={height} role="img" aria-label={label}>
           <defs>
             <linearGradient id={gradId} x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor="#C1075D" />
@@ -151,7 +157,7 @@ const DONUT_R = 80
 const DONUT_STROKE = 26
 const DONUT_PAD_DEG = 2
 
-export function DonutChart({ data }: { data: ChartDatum[] }) {
+export function DonutChart({ data, label }: { data: ChartDatum[]; label?: string }) {
   const [hover, setHover] = useState<number | null>(null)
   const total = data.reduce((sum, d) => d.value + sum, 0)
   const C = 2 * Math.PI * DONUT_R
@@ -161,7 +167,7 @@ export function DonutChart({ data }: { data: ChartDatum[] }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-6">
       <div className="relative">
-        <svg width={DONUT_R * 2 + DONUT_STROKE} height={DONUT_R * 2 + DONUT_STROKE} role="img">
+        <svg width={DONUT_R * 2 + DONUT_STROKE} height={DONUT_R * 2 + DONUT_STROKE} role="img" aria-label={label}>
           <g transform={`translate(${(DONUT_R * 2 + DONUT_STROKE) / 2}, ${(DONUT_R * 2 + DONUT_STROKE) / 2}) rotate(-90)`}>
             {total > 0 &&
               data.map((d, i) => {
@@ -230,7 +236,13 @@ function smoothPath(points: { x: number; y: number }[]) {
   return d
 }
 
-export function AreaChart({ data, height, tick, grid }: { data: ChartDatum[]; height: number } & ThemeStrokes) {
+export function AreaChart({
+  data,
+  height,
+  tick,
+  grid,
+  label,
+}: { data: ChartDatum[]; height: number; label?: string } & ThemeStrokes) {
   const [wrapRef, width] = useElementWidth<HTMLDivElement>()
   const gradId = useId()
   const [hover, setHover] = useState<HoverState | null>(null)
@@ -265,7 +277,7 @@ export function AreaChart({ data, height, tick, grid }: { data: ChartDatum[]; he
   return (
     <div ref={wrapRef} className="relative">
       {width > 0 && (
-        <svg width={width} height={height} role="img">
+        <svg width={width} height={height} role="img" aria-label={label}>
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#C1075D" stopOpacity={0.22} />

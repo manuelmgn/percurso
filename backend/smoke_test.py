@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.main import app
 from app.database import SessionLocal
-from app.models import User, Place, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType, Photo
+from app.models import User, Place, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType, Photo, UserRole
 from app.auth import hash_password
 
 
@@ -60,14 +60,22 @@ def create_user(db, username, password):
 
 
 def reset_test_data(db):
+    orphan_files = []
     for username in ['smoke_user1', 'smoke_user2']:
         u = db.query(User).filter(User.username == username).first()
         if u:
             db.query(Activity).filter(Activity.user_id == u.id).delete()
             db.query(Milestone).filter(Milestone.user_id == u.id).delete()
+            # Collect the photo files before the rows go away (FK cascades
+            # delete the rows, never the files) and unlink them after commit.
+            photo_urls = [url for (url,) in db.query(Photo.url).filter(Photo.uploader_id == u.id).all()]
+            trip_ids = [t.id for t in u.trips]
+            if trip_ids:
+                photo_urls += [url for (url,) in db.query(Photo.url).filter(Photo.trip_id.in_(trip_ids)).all()]
+            orphan_files += photo_urls
             db.query(Photo).filter(Photo.uploader_id == u.id).delete()
-            db.query(TripProject).filter(TripProject.trip_id.in_([t.id for t in u.trips])).delete()
-            db.query(TripPlace).filter(TripPlace.trip_id.in_([t.id for t in u.trips])).delete()
+            db.query(TripProject).filter(TripProject.trip_id.in_(trip_ids)).delete()
+            db.query(TripPlace).filter(TripPlace.trip_id.in_(trip_ids)).delete()
             db.query(Trip).filter(Trip.creator_id == u.id).delete()
             db.query(ProjectPlace).filter(ProjectPlace.project_id.in_([p.id for p in u.projects])).delete()
             db.query(Project).filter(Project.creator_id == u.id).delete()
@@ -75,6 +83,11 @@ def reset_test_data(db):
     for name in ['Santiago de Compostela', 'Lugo', 'Lugo Sur', 'A Coruña']:
         db.query(Place).filter(Place.name == name).delete()
     db.commit()
+    for url in orphan_files:
+        try:
+            (settings.uploads_dir / url.rsplit('/', 1)[-1]).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def main():
@@ -251,6 +264,47 @@ def main():
     r = client2.get('/api/search/?q=privado')
     check('user2 search no private trip', r.status_code == 200 and private_trip_id not in [t['id'] for t in r.json()['trips']])
 
+    # Trip date validation: a PATCH carrying a single date must still keep
+    # the pair valid (the schema validator only fires when both are sent).
+    r = client1.patch(f'/api/trips/{trip_id}', json={'start_date': '2026-07-09'})
+    check('patch start after end rejected', r.status_code == 422, r.text[:200])
+    r = client1.patch(f'/api/trips/{trip_id}', json={'end_date': '2026-06-01'})
+    check('patch end before start rejected', r.status_code == 422, r.text[:200])
+    r = client1.get(f'/api/trips/{trip_id}')
+    check('trip dates unchanged after rejected patches',
+          r.json()['start_date'] == '2026-07-01' and r.json()['end_date'] == '2026-07-05')
+    r = client1.patch(f'/api/trips/{trip_id}', json={'start_date': '2026-07-02'})
+    check('valid single-date patch accepted', r.status_code == 200 and r.json()['start_date'] == '2026-07-02', r.text[:200])
+    r = client1.patch(f'/api/trips/{trip_id}', json={'start_date': '2026-07-01'})
+    check('restore trip start date', r.status_code == 200 and r.json()['start_date'] == '2026-07-01')
+
+    # Notification push URLs must use the SPA routes (/viagens, /projetos),
+    # not the raw English entity type.
+    from app.services import notification_service, push_service
+    captured_urls = []
+    original_send = push_service.send_to_user
+
+    def _capture_push(_db, _user, payload):
+        captured_urls.append(payload.get('url'))
+
+    push_service.send_to_user = _capture_push
+    db = SessionLocal()
+    try:
+        u1 = db.query(User).filter(User.username == 'smoke_user1').one()
+        u2 = db.query(User).filter(User.username == 'smoke_user2').one()
+        notification_service.notify_participants(
+            db, u1, notif_type='trip_created', entity_type='trip', entity_id=4242,
+            entity_name='Viagem de teste', participant_ids=[u2.id],
+        )
+        notification_service.notify_participants(
+            db, u1, notif_type='project_created', entity_type='project', entity_id=2424,
+            entity_name='Projeto de teste', participant_ids=[u2.id],
+        )
+    finally:
+        push_service.send_to_user = original_send
+        db.close()
+    check('notification push url uses spa routes', captured_urls == ['/viagens/4242', '/projetos/2424'], str(captured_urls))
+
     # Trip photos: upload, list, caption, delete, permissions
     r = client1.post(f'/api/trips/{trip_id}/photos/', files=[
         ('files', ('photo1.png', make_image(), 'image/png')),
@@ -395,6 +449,11 @@ def main():
     r = client1.post('/api/me/avatar', files={'file': ('avatar.png', img, 'image/png')})
     check('upload avatar', r.status_code == 200)
     check('avatar url', r.json()['avatar_url'].startswith('/uploads/'))
+    first_avatar_file = settings.uploads_dir / r.json()['avatar_url'].rsplit('/', 1)[-1]
+    img = make_image()
+    r = client1.post('/api/me/avatar', files={'file': ('avatar2.png', img, 'image/png')})
+    check('replace avatar', r.status_code == 200)
+    check('old avatar file removed', not first_avatar_file.exists())
 
     # Password change
     r = client1.post('/api/me/password', json={'current_password': 'pass12345', 'new_password': 'newpass123'})
@@ -403,6 +462,34 @@ def main():
     client3 = TestClient(app)
     r = client3.post('/api/auth/login', json={'username': 'smoke_user1', 'password': 'newpass123'})
     check('login with new password', r.status_code == 200)
+
+    # Last-admin protection: the sole active admin can neither be demoted
+    # nor deactivated. Only exercised when the seeded default admin is the
+    # only active one (skipped otherwise, never mutating a real account).
+    db = SessionLocal()
+    try:
+        sole_admin_id = next(
+            (u.id for u in db.query(User).filter(User.role == UserRole.ADMIN, User.is_active == True).all() if u.username == settings.default_admin_username),
+            None,
+        )
+        other_admins = db.query(User).filter(User.role == UserRole.ADMIN, User.is_active == True, User.username != settings.default_admin_username).count()
+    finally:
+        db.close()
+    if sole_admin_id is not None and other_admins == 0:
+        client_admin = TestClient(app)
+        r = client_admin.post('/api/auth/login', json={'username': settings.default_admin_username, 'password': settings.default_admin_password})
+        if r.status_code == 200:
+            client_admin.headers.update({'x-csrf-token': r.json()['csrf_token']})
+            r = client_admin.patch(f'/api/users/{sole_admin_id}', json={'role': 'user'})
+            check('last admin cannot be demoted', r.status_code == 422, r.text[:200])
+            r = client_admin.patch(f'/api/users/{sole_admin_id}', json={'is_active': False})
+            check('last admin cannot be deactivated', r.status_code == 422, r.text[:200])
+        else:
+            check('last admin cannot be demoted', True, 'skipped: default admin password changed')
+            check('last admin cannot be deactivated', True, 'skipped: default admin password changed')
+    else:
+        check('last admin cannot be demoted', True, 'skipped: default admin is not the sole active admin')
+        check('last admin cannot be deactivated', True, 'skipped: default admin is not the sole active admin')
 
     # Persistence check via fresh DB session
     db = SessionLocal()

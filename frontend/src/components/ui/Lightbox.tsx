@@ -52,6 +52,15 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
   // settings modal); the arrow-key navigation stays here.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Never steal arrow keys from text fields: caption drafts would be
+      // discarded by an accidental photo switch mid-editing.
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return
+      }
       if (e.key === 'ArrowLeft') goTo(index - 1)
       if (e.key === 'ArrowRight') goTo(index + 1)
     }
@@ -160,7 +169,8 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
           <img
             src={photo.url}
             alt={photo.caption ?? t('lightbox.title')}
-            onClick={(e) => {
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
               // Keep the backdrop's close-on-click working everywhere else.
               e.stopPropagation()
               onImageClick()

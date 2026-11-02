@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime, timezone
 
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, get_session_token, validate_csrf
-from app.models import User, UserRole, Session as UserSession
+from app.models import User, UserRole, Session as UserSession, Photo
 from app.schemas import UserResponse, UserPasswordChange, UserPreferencesUpdate
 from app.services import user_service, image_service, activity_service
 from app.models.enums import EntityAction, EntityType
@@ -15,6 +16,16 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 
 # Accepted date formats (strftime-style), applied across the whole UI
 ALLOWED_DATE_FORMATS = {"%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d"}
+
+
+def _unlink_upload(url: str | None) -> None:
+    """Best-effort removal of a file stored in the uploads volume."""
+    if not url or not url.startswith("/uploads/"):
+        return
+    try:
+        (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 @router.get("/", response_model=UserResponse)
@@ -72,9 +83,21 @@ def delete_account(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Não é possível eliminar a conta do único administrador do sistema",
             )
+    # FK cascades remove the photo rows but not the files on disk; collect
+    # the URLs first (uploaded by the user, or on trips they created) and
+    # unlink them after the delete has committed.
+    trip_ids = [t.id for t in user.trips]
+    photo_filter = Photo.uploader_id == user.id
+    if trip_ids:
+        photo_filter = or_(photo_filter, Photo.trip_id.in_(trip_ids))
+    photo_urls = [url for (url,) in db.query(Photo.url).filter(photo_filter).all()]
+    avatar_url = user.avatar_url
     db.delete(user)
     db.commit()
     response.delete_cookie(key=settings.session_cookie_name)
+    for url in photo_urls:
+        _unlink_upload(url)
+    _unlink_upload(avatar_url)
     return None
 
 
@@ -104,12 +127,15 @@ async def upload_avatar(
     db: Session = Depends(get_db),
     user=Depends(validate_csrf),
 ):
-    content = await file.read()
+    content = await file.read(settings.max_upload_bytes + 1)
     if len(content) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail="Ficheiro demasiado grande (máx. 15 MB)")
+    previous_avatar = user.avatar_url
     url, _, _ = image_service.process_and_save(content, file.content_type or "")
     user.avatar_url = url
     db.commit()
     db.refresh(user)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.USER, user.id, user.username)
+    # The replaced avatar file is no longer referenced by anyone.
+    _unlink_upload(previous_avatar)
     return user

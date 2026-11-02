@@ -132,24 +132,9 @@ def rank_results(results: list[PlaceSearchResult], query: str) -> list[PlaceSear
     return sorted(results, key=score)
 
 
-def find_cached_places(db: Session, query: str, limit: int = 5, exclude: set[tuple[str, int]] | None = None) -> list[Place]:
-    """Local places whose name contains the query (ILIKE), ordered best
-    match first. `exclude` removes already-known OSM identities (used when
-    merging cache results with OSM results)."""
-    exclude = exclude or set()
-    candidates = (
-        db.query(Place)
-        .filter(Place.name.ilike(f"%{query}%"))
-        .limit(limit + len(exclude))
-        .all()
-    )
-    result = []
-    for p in candidates:
-        if (p.osm_type, p.osm_id) not in exclude:
-            result.append(p)
-            if len(result) >= limit:
-                break
-    return result
+def find_cached_places(db: Session, query: str, limit: int = 5) -> list[Place]:
+    """Local places whose name contains the query (ILIKE), best match first."""
+    return db.query(Place).filter(Place.name.ilike(f"%{query}%")).limit(limit).all()
 
 
 def merge_dedup_rank(candidates: list[PlaceSearchResult], limit: int | None = None) -> list[PlaceSearchResult]:
@@ -256,10 +241,6 @@ def get_places_overview(db: Session, user) -> list[dict]:
         }
         for place in sorted(places, key=lambda p: p.name)
     ]
-
-
-def list_places(db: Session, limit: int = 100, offset: int = 0) -> list[Place]:
-    return db.query(Place).order_by(Place.name).limit(limit).offset(offset).all()
 
 
 def get_visible_place_ids(db: Session, user) -> set[int]:

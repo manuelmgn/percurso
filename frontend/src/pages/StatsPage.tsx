@@ -29,8 +29,10 @@ export function StatsPage() {
   // Extra (already existing) endpoints to feed the charts — failures only
   // leave that chart empty, never the whole page.
   useEffect(() => {
-    api.trips.list().then(setTrips).catch(() => setTrips([]))
-    api.activities.list().then(setActivities).catch(() => setActivities([]))
+    let cancelled = false
+    api.trips.list().then((data) => { if (!cancelled) setTrips(data) }).catch(() => { if (!cancelled) setTrips([]) })
+    api.activities.list().then((data) => { if (!cancelled) setActivities(data) }).catch(() => { if (!cancelled) setActivities([]) })
+    return () => { cancelled = true }
   }, [])
 
   // Trips grouped by start year, ascending.
@@ -118,7 +120,7 @@ export function StatsPage() {
             <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
           ) : (
             <div className="mt-4">
-              <BarChart data={tripsPerYear} height={220} tick={tickFill} grid={gridStroke} />
+              <BarChart data={tripsPerYear} height={220} tick={tickFill} grid={gridStroke} label={t('stats.tripsByYear')} />
             </div>
           )}
         </section>
@@ -129,7 +131,7 @@ export function StatsPage() {
             <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
           ) : (
             <div className="mt-4">
-              <DonutChart data={placesByType} />
+              <DonutChart data={placesByType} label={t('stats.placesByType')} />
             </div>
           )}
         </section>
@@ -142,7 +144,7 @@ export function StatsPage() {
           <p className="mt-4 text-sm text-muted">{t('stats.chartNoData')}</p>
         ) : (
           <div className="mt-4">
-            <AreaChart data={activitiesPerMonth} height={220} tick={tickFill} grid={gridStroke} />
+            <AreaChart data={activitiesPerMonth} height={220} tick={tickFill} grid={gridStroke} label={t('stats.activityByMonth')} />
           </div>
         )}
       </section>
