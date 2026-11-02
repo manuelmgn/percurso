@@ -34,3 +34,4 @@ backups/
 percurso-icono.svg
 TAREAS-PENDIENTES.txt
 2026_percurso.code-workspace
+.env.production
