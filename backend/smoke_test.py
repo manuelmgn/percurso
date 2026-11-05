@@ -212,6 +212,19 @@ def main():
     if trip['projects']:
         check('trip detail project progress', trip['projects'][0]['visited_places'] == 2 and trip['projects'][0]['total_places'] == 2)
 
+    # IDOR: a private project owned by user2 must not be linkable to user1's
+    # trip, nor leak through the trip detail of anyone who can see the trip.
+    r = client2.post('/api/projects/', json={'name': 'Secreto do user2', 'visibility': 'private', 'map_mode': 'auto'})
+    check('user2 private project', r.status_code == 201)
+    private_project_id = r.json()['id']
+    r = client1.patch(f'/api/trips/{trip_id}', json={'project_ids': [project_id, private_project_id]})
+    check('trip update with hidden project id', r.status_code == 200)
+    linked = [p['id'] for p in client1.get(f'/api/trips/{trip_id}').json()['projects']]
+    check('hidden project not linked', private_project_id not in linked, str(linked))
+    check('visible project still linked', project_id in linked)
+    r = client1.patch(f'/api/trips/{trip_id}', json={'project_ids': [project_id]})
+    check('restore trip projects', r.status_code == 200)
+
     # Milestone triggered once after completion
     r = client1.post('/api/milestones/check')
     check('milestone check ok', r.status_code == 200)
@@ -399,6 +412,28 @@ def main():
     plain_photo = [p for p in client1.get(f'/api/trips/{trip_id}/photos/').json() if p['id'] != exif_photo['id']][0]
     check('no exif on plain photo', plain_photo['taken_at'] is None and plain_photo['lat'] is None)
 
+    # External links (Google Photos / Immich / generic), type auto-detected
+    links = [
+        {'url': 'https://photos.app.goo.gl/abc123'},
+        {'url': 'http://192.168.0.133:2283/album/xyz'},
+        {'url': 'https://example.com/gallery'},
+    ]
+    r = client1.patch(f'/api/trips/{trip_id}', json={'external_links': links})
+    check('set external links', r.status_code == 200 and len(r.json()['external_links']) == 3, r.text[:200])
+    check('link types detected', [l['type'] for l in r.json()['external_links']] == ['google_photos', 'immich', 'link'], str(r.json()['external_links']))
+    r = client1.get(f'/api/trips/{trip_id}')
+    check('links in trip detail', [l['url'] for l in r.json()['external_links']] == [l['url'] for l in links])
+    r = client1.patch(f'/api/trips/{trip_id}', json={'external_links': links + [{'url': 'https://example.com/one-more'}]})
+    check('reject 4th link', r.status_code == 422)
+    r = client1.patch(f'/api/trips/{trip_id}', json={'external_links': [{'url': 'not-a-url'}]})
+    check('reject invalid link url', r.status_code == 422)
+    r = client1.patch(f'/api/trips/{trip_id}', json={'external_links': [links[0], links[0]]})
+    check('reject duplicate links', r.status_code == 422)
+    r = client2.patch(f'/api/trips/{trip_id}', json={'external_links': links})
+    check('user2 cannot set links', r.status_code == 404)
+    r = client1.patch(f'/api/trips/{trip_id}', json={'external_links': []})
+    check('clear links', r.status_code == 200 and r.json()['external_links'] == [])
+
     # Deleting a trip must delete its photos (rows + files on disk)
     r = client1.post('/api/trips/', json={
         'title': 'Viaje con fotos',
@@ -484,6 +519,11 @@ def main():
             check('last admin cannot be demoted', r.status_code == 422, r.text[:200])
             r = client_admin.patch(f'/api/users/{sole_admin_id}', json={'is_active': False})
             check('last admin cannot be deactivated', r.status_code == 422, r.text[:200])
+            # Invalid username charset must surface as 400, not a 500.
+            r = client_admin.patch(f'/api/users/{sole_admin_id}', json={'username': 'bad name!'})
+            check('invalid username returns 400', r.status_code == 400, r.text[:200])
+            r = client_admin.post('/api/users/', json={'username': 'also bad!', 'password': 'pass12345'})
+            check('invalid username create returns 400', r.status_code == 400, r.text[:200])
         else:
             check('last admin cannot be demoted', True, 'skipped: default admin password changed')
             check('last admin cannot be deactivated', True, 'skipped: default admin password changed')

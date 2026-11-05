@@ -150,10 +150,15 @@ def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
                 "created_at": tp.project.created_at,
                 "updated_at": tp.project.updated_at,
             }
+            # A trip may be linked to a project the requester cannot see
+            # (the link predates an edit, or visibility was narrowed later);
+            # hide those rows instead of leaking them.
             for tp in trip.projects
+            if visibility_service.can_user_see_project(db, user, tp.project)
         ],
         cover_photo_id=trip.cover_photo_id,
         cover_photo_url=trip.cover_photo.url if trip.cover_photo else None,
+        external_links=trip.external_links or [],
         created_at=trip.created_at,
         updated_at=trip.updated_at,
     )

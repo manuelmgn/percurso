@@ -92,7 +92,9 @@ export function ProjectEditPage() {
 
     const data = {
       name,
-      description: description || undefined,
+      // Send the raw value: `|| undefined` would drop the key and make
+      // clearing the description impossible.
+      description,
       visibility,
       map_mode: (mixedTypes ? 'points' : mapMode) as MapMode,
       participant_ids: participantIds,

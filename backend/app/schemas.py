@@ -1,7 +1,8 @@
 from datetime import datetime, date
-from typing import Optional
+from typing import Literal, Optional
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from app.models import UserRole, ThemePreference, PlaceType, EntityType, Visibility, MapMode
 
@@ -215,6 +216,26 @@ class BulkImportResponse(BaseModel):
 
 # --- Trip schemas ---
 
+ExternalLinkType = Literal["google_photos", "immich", "link"]
+
+
+class ExternalLinkInput(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_http(cls, value: str) -> str:
+        value = value.strip()
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("URL inválida")
+        return value
+
+
+class ExternalLink(ExternalLinkInput):
+    type: ExternalLinkType
+
+
 class TripBase(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
     start_date: date
@@ -222,6 +243,7 @@ class TripBase(BaseModel):
     notes: Optional[str] = None
     visibility: Visibility = Visibility.ALL
     companions_text: Optional[str] = None
+    external_links: list[ExternalLinkInput] = Field(default_factory=list, max_length=3)
 
 
 class TripCreate(TripBase):
@@ -244,6 +266,8 @@ class TripUpdate(BaseModel):
     notes: Optional[str] = None
     visibility: Optional[Visibility] = None
     companions_text: Optional[str] = None
+    # Replace the full list (1-3 links) or clear it with an empty list.
+    external_links: Optional[list[ExternalLinkInput]] = Field(default=None, max_length=3)
     place_ids: Optional[list[int]] = None
     project_ids: Optional[list[int]] = None
     participant_ids: Optional[list[int]] = None
@@ -283,6 +307,7 @@ class TripResponse(TripBase):
     projects: list[ProjectListResponse] = Field(default_factory=list)
     cover_photo_id: Optional[int] = None
     cover_photo_url: Optional[str] = None
+    external_links: list[ExternalLink] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

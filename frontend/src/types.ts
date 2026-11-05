@@ -232,6 +232,13 @@ export interface TripPlace {
   place_lon: number
 }
 
+// An external link attached to a trip (album on Google Photos / Immich or a
+// generic URL). The type is detected server-side when the trip is saved.
+export interface ExternalLink {
+  url: string
+  type: 'google_photos' | 'immich' | 'link'
+}
+
 export interface Trip {
   id: number
   title: string | null
@@ -240,6 +247,7 @@ export interface Trip {
   notes: string | null
   visibility: Visibility
   companions_text: string | null
+  external_links: ExternalLink[]
   creator_id: number
   creator_username: string
   participants: User[]
@@ -273,6 +281,7 @@ export interface TripCreate {
   notes?: string
   visibility?: Visibility
   companions_text?: string
+  external_links?: { url: string }[]
   place_ids?: number[]
   project_ids?: number[]
   participant_ids?: number[]
@@ -286,6 +295,8 @@ export interface TripUpdate {
   notes?: string
   visibility?: Visibility
   companions_text?: string
+  /** Replaces the full list (1-3 links); send an empty list to clear. */
+  external_links?: { url: string }[]
   place_ids?: number[]
   project_ids?: number[]
   participant_ids?: number[]

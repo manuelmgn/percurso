@@ -9,6 +9,7 @@ import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
 import { DetailPageSkeleton } from '@/components/ui/Skeleton'
+import { TripLinks } from '@/components/TripLinks'
 import { TripPhotos } from '@/components/TripPhotos'
 import { getTripStatus } from '@/utils/tripStatus'
 import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
@@ -123,6 +124,11 @@ export function TripDetailPage() {
 
   const status = getTripStatus(trip.start_date, trip.end_date)
   const dayCount = tripDayCount(trip.start_date, trip.end_date)
+  // Mirrors the backend edit rule (can_user_edit_trip: creator or
+  // participant). Users who can only *see* the trip get no mutation
+  // actions — every one of them would fail with a 404.
+  const canEdit =
+    !!user && (trip.creator_id === user.id || trip.participants.some((p) => p.id === user.id))
 
   return (
     <div className="space-y-6">
@@ -169,15 +175,19 @@ export function TripDetailPage() {
         </p>
         <div className="flex flex-wrap gap-2">
           <PinButton entityType="trip" entityId={trip.id} label={t('units.trip.one')} showLabel />
-          <Link to={`/viagens/${trip.id}/editar`} className="btn-primary">
-            {t('actions.edit')}
-          </Link>
-          <button
-            onClick={handleDeleteClick}
-            className="btn-danger-quiet"
-          >
-            {t('actions.delete')}
-          </button>
+          {canEdit && (
+            <>
+              <Link to={`/viagens/${trip.id}/editar`} className="btn-primary">
+                {t('actions.edit')}
+              </Link>
+              <button
+                onClick={handleDeleteClick}
+                className="btn-danger-quiet"
+              >
+                {t('actions.delete')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -334,6 +344,8 @@ export function TripDetailPage() {
               </ul>
             )}
           </section>
+
+          <TripLinks trip={trip} />
         </div>
       </div>
 

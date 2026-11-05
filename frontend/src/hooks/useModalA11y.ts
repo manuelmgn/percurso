@@ -7,6 +7,11 @@ import { useEffect, useRef } from 'react'
  */
 export function useModalA11y<T extends HTMLElement>(onClose: () => void) {
   const containerRef = useRef<T | null>(null)
+  // Callers pass a fresh arrow each render; keeping the latest one in a ref
+  // (instead of depending on it) stops the effect re-running on every parent
+  // re-render, which would yank focus back to the container mid-edit.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
@@ -24,7 +29,7 @@ export function useModalA11y<T extends HTMLElement>(onClose: () => void) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !containerRef.current) return
@@ -54,7 +59,9 @@ export function useModalA11y<T extends HTMLElement>(onClose: () => void) {
       // Hand focus back to whatever opened the overlay.
       previouslyFocused?.focus?.()
     }
-  }, [onClose])
+    // Run once per mount: the onClose ref above keeps the callback fresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return containerRef
 }

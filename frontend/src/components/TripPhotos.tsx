@@ -20,6 +20,10 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   const [photos, setPhotos] = useState<Photo[] | null>(null)
   const [error, setError] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  // Reorder arrows stay disabled while a PUT is in flight: two quick clicks
+  // would send concurrent PUTs whose responses can arrive out of order,
+  // leaving the grid showing an order the server does not have.
+  const [isReordering, setIsReordering] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Local override of the trip cover: the parent refetches on its own
   // schedule, so a plain useState(init) could go stale. Until the user
@@ -91,6 +95,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   // Swap a photo with its neighbour and persist the full order. Optimistic
   // local update; on failure the server copy is reloaded.
   const handleMove = async (index: number, delta: number) => {
+    if (isReordering) return
     const list = photos ?? []
     const target = index + delta
     if (target < 0 || target >= list.length) return
@@ -98,6 +103,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
     ;[next[index], next[target]] = [next[target], next[index]]
     setPhotos(next)
     setError('')
+    setIsReordering(true)
     try {
       const ordered = await api.photos.reorder(trip.id, next.map((p) => p.id))
       setPhotos(ordered)
@@ -108,6 +114,8 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
       } catch {
         // Keep the optimistic order; the next page load reconciles.
       }
+    } finally {
+      setIsReordering(false)
     }
   }
 
@@ -231,7 +239,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
                 <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                   <button
                     onClick={() => handleMove(index, -1)}
-                    disabled={index === 0}
+                    disabled={index === 0 || isReordering}
                     aria-label={t('trip.movePhotoLeft')}
                     className="grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white transition-colors hover:bg-primary disabled:opacity-40"
                   >
@@ -239,7 +247,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
                   </button>
                   <button
                     onClick={() => handleMove(index, 1)}
-                    disabled={index === (photos ?? []).length - 1}
+                    disabled={index === (photos ?? []).length - 1 || isReordering}
                     aria-label={t('trip.movePhotoRight')}
                     className="grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white transition-colors hover:bg-primary disabled:opacity-40"
                   >

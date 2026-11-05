@@ -54,7 +54,12 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), admin=Depend
     existing = user_service.get_user_by_username(db, payload.username)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O nome de utilizador já existe")
-    return user_service.create_user(db, payload)
+    try:
+        return user_service.create_user(db, payload)
+    except ValueError as e:
+        # The model validator rejects spaces/symbols in usernames; surface
+        # that as 400 instead of an unhandled 500 (same pattern as /api/me).
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{user_id}", response_model=UserResponse)
@@ -88,7 +93,10 @@ def update_user(
                     else "Não é possível desativar o último administrador do sistema"
                 )
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
-    return user_service.update_user(db, user, payload)
+    try:
+        return user_service.update_user(db, user, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/{user_id}/reset-password")

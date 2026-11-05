@@ -34,6 +34,7 @@ def _apply_lightweight_migrations():
             # ALTER-added column, so the service layer clears dangling
             # covers (see the photos router and the Trip model comment).
             "cover_photo_id": "INTEGER",
+            "external_links": "JSON",
         },
         "photos": {
             "position": "INTEGER",

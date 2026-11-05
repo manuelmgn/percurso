@@ -145,8 +145,10 @@ export function TripEditPage() {
       title: title.trim() || undefined,
       start_date: startDate,
       end_date: endDate || startDate,
-      notes: isEdit ? notes || undefined : notesToHtml(notes),
-      companions_text: companionsText || undefined,
+      // In edit mode send the raw value: `|| undefined` would drop the key
+      // and make clearing notes/companions impossible.
+      notes: isEdit ? notes : notesToHtml(notes),
+      companions_text: companionsText,
       visibility,
       place_ids: places.map((p) => p.id),
       project_ids: projectIds,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum, Table, Date, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum, JSON, Table, Date, DateTime
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -38,6 +38,9 @@ class Trip(Base, TimestampMixin):
     visibility = Column(Enum(Visibility), nullable=False, default=Visibility.ALL)
     creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     companions_text = Column(String(512), nullable=True)
+    # Up to 3 external links (Google Photos / Immich albums or generic URLs),
+    # stored as [{url, type}]; the type is detected when the trip is saved.
+    external_links = Column(JSON, nullable=True)
     # Manual cover chosen from the trip's gallery. SQLite cannot add this
     # FK to an existing table (ALTER ADD COLUMN drops FK constraints), so on
     # legacy databases referential integrity is enforced in the service

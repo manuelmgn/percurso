@@ -273,16 +273,14 @@
   color: #f470a3;
 }
 
-/* Prevent zoom gestures on mobile and touch devices */
+/* Prevent zoom gestures on mobile and touch devices. Scope the touch-action
+   rule to the root only: a universal selector plus overscroll-behavior:none
+   on the root scroller froze wheel scrolling in Safari. Pinch zoom on
+   trackpads is still blocked by the guards in main.tsx. */
 html,
 body {
   touch-action: pan-x pan-y;
   -ms-touch-action: pan-x pan-y;
-  overscroll-behavior: none;
-}
-
-* {
-  touch-action: pan-x pan-y;
 }
 
 button,

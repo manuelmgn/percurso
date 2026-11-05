@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -7,12 +8,44 @@ from fastapi import HTTPException, status
 from app.config import settings
 from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo
 from app.sanitize import sanitize_notes
-from app.schemas import TripCreate, TripUpdate
+from app.schemas import TripCreate, TripUpdate, ExternalLinkInput
 from app.services import visibility_service, project_service, notification_service
 
 
 def trip_display_name(trip: Trip) -> str:
     return trip.title or f"Viagem {trip.start_date} – {trip.end_date}"
+
+
+def detect_external_link_type(url: str) -> str:
+    """Classify an external link: Google Photos albums, Immich (default port
+    2283 or an 'immich' hostname) or a generic link."""
+    try:
+        parsed = urlparse(url)
+        port = parsed.port  # raises ValueError on malformed ports
+    except ValueError:
+        return "link"
+    host = (parsed.hostname or "").lower()
+    if host in ("photos.google.com", "photos.app.goo.gl"):
+        return "google_photos"
+    if port == 2283 or "immich" in host:
+        return "immich"
+    return "link"
+
+
+def _normalise_external_links(links: list[ExternalLinkInput]) -> list[dict]:
+    seen: set[str] = set()
+    result = []
+    for link in links:
+        url = link.url.strip()
+        key = url.rstrip("/")
+        if key in seen:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Ligações externas duplicadas",
+            )
+        seen.add(key)
+        result.append({"url": url, "type": detect_external_link_type(url)})
+    return result
 
 
 def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
@@ -26,11 +59,12 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
         visibility=data.visibility,
         creator_id=user.id,
         companions_text=data.companions_text,
+        external_links=_normalise_external_links(data.external_links) or None,
     )
     db.add(trip)
     db.flush()
 
-    _update_relations(db, trip, data)
+    _update_relations(db, user, trip, data)
     db.commit()
     db.refresh(trip)
     notification_service.notify_participants(
@@ -69,6 +103,8 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
         trip.visibility = data.visibility
     if data.companions_text is not None:
         trip.companions_text = data.companions_text
+    if data.external_links is not None:
+        trip.external_links = _normalise_external_links(data.external_links) or None
 
     if data.clear_cover:
         trip.cover_photo_id = None
@@ -84,7 +120,7 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
         trip.cover_photo_id = photo.id
 
-    _update_relations(db, trip, data)
+    _update_relations(db, user, trip, data)
     trip.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(trip)
@@ -100,11 +136,13 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
     return trip
 
 
-def _update_relations(db: Session, trip: Trip, data) -> None:
+def _update_relations(db: Session, user: User, trip: Trip, data) -> None:
     """Replace the trip's places/projects/participants/viewers by what the
     payload carries. Each block only runs when the ids key was sent (PATCH
-    may omit them). Unknown place/project ids are skipped, matching the
-    tolerant behaviour elsewhere; participant ids resolve through orml."""
+    may omit them). Unknown place ids are skipped, matching the tolerant
+    behaviour elsewhere; project ids must also be visible to the editor,
+    otherwise linking a trip would leak a hidden project to every viewer of
+    the trip. Participant ids resolve through orml."""
     if data.place_ids is not None:
         # Rebuild the whole list (the association carries no per-row state
         # worth diffing). Validate all ids in one IN query instead of one
@@ -121,7 +159,13 @@ def _update_relations(db: Session, trip: Trip, data) -> None:
     if data.project_ids is not None:
         db.query(TripProject).filter(TripProject.trip_id == trip.id).delete()
         valid_project_ids = (
-            {row[0] for row in db.query(Project.id).filter(Project.id.in_(set(data.project_ids)))}
+            {
+                row[0]
+                for row in db.query(Project.id).filter(
+                    Project.id.in_(set(data.project_ids)),
+                    visibility_service._project_is_visible_condition(user.id),
+                )
+            }
             if data.project_ids
             else set()
         )

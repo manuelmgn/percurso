@@ -272,6 +272,10 @@ export function ProjectDetailPage() {
     polygons: 'projects.mapPolygons',
     auto: 'projects.mapAuto',
   }
+  // Mirrors the backend edit rule (creator or participant). Users who can
+  // only *see* the project get no mutation UI — every action would 404.
+  const canEdit =
+    !!user && (project.creator_id === user.id || project.participants.some((p) => p.id === user.id))
 
   return (
     <div className="space-y-6">
@@ -284,15 +288,19 @@ export function ProjectDetailPage() {
           <Link to={`/viagens/novo?projeto=${project.id}`} className="btn-secondary">
             {t('projects.newTripWithProject')}
           </Link>
-          <Link to={`/projetos/${project.id}/editar`} className="btn-primary">
-            {t('actions.edit')}
-          </Link>
-          <button
-            onClick={() => setIsConfirmingDelete(true)}
-            className="btn-danger-quiet"
-          >
-            {t('actions.delete')}
-          </button>
+          {canEdit && (
+            <>
+              <Link to={`/projetos/${project.id}/editar`} className="btn-primary">
+                {t('actions.edit')}
+              </Link>
+              <button
+                onClick={() => setIsConfirmingDelete(true)}
+                className="btn-danger-quiet"
+              >
+                {t('actions.delete')}
+              </button>
+            </>
+          )}
         </div>
       </div>
       <ErrorBanner message={error || actionError} />
@@ -406,7 +414,7 @@ export function ProjectDetailPage() {
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {(place.is_visited || place.is_unmarked) && (
+                  {canEdit && (place.is_visited || place.is_unmarked) && (
                     <button
                       onClick={() => handleToggleUnmark(place.place_id)}
                       disabled={busyPlaceId === place.place_id}
@@ -415,46 +423,50 @@ export function ProjectDetailPage() {
                       {place.is_unmarked ? t('projects.markVisitedAgain') : t('projects.unmarkVisit')}
                     </button>
                   )}
-                  {removingPlaceId === place.place_id ? (
-                    <>
+                  {canEdit &&
+                    (removingPlaceId === place.place_id ? (
+                      <>
+                        <button
+                          onClick={() => handleRemovePlace(place.place_id)}
+                          disabled={busyPlaceId === place.place_id}
+                          className="btn-danger"
+                        >
+                          {busyPlaceId === place.place_id ? t('projects.removing') : t('projects.confirmRemove')}
+                        </button>
+                        <button
+                          onClick={() => setRemovingPlaceId(null)}
+                          disabled={busyPlaceId === place.place_id}
+                          className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:hover:bg-fill"
+                        >
+                          {t('actions.cancel')}
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={() => handleRemovePlace(place.place_id)}
+                        onClick={() => setRemovingPlaceId(place.place_id)}
                         disabled={busyPlaceId === place.place_id}
-                        className="btn-danger"
+                        className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
                       >
-                        {busyPlaceId === place.place_id ? t('projects.removing') : t('projects.confirmRemove')}
+                        {t('projects.removePlace')}
                       </button>
-                      <button
-                        onClick={() => setRemovingPlaceId(null)}
-                        disabled={busyPlaceId === place.place_id}
-                        className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:hover:bg-fill"
-                      >
-                        {t('actions.cancel')}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setRemovingPlaceId(place.place_id)}
-                      disabled={busyPlaceId === place.place_id}
-                      className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
-                    >
-                      {t('projects.removePlace')}
-                    </button>
-                  )}
+                    ))}
                 </div>
               </li>
             ))}
           </ul>
         )}
 
-        <div className="mt-6 border-t border-line pt-4">
-          <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
-          <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
-          {isAddingPlace && (
-            <p className="mt-2 text-sm text-muted">{t('projects.addingPlace')}</p>
-          )}
-        </div>
+        {canEdit && (
+          <div className="mt-6 border-t border-line pt-4">
+            <h4 className="mb-2 text-sm font-medium">{t('projects.addPlace')}</h4>
+            <PlacePicker selected={addSelection} onChange={handlePlacePicked} />
+            {isAddingPlace && (
+              <p className="mt-2 text-sm text-muted">{t('projects.addingPlace')}</p>
+            )}
+          </div>
+        )}
 
+        {canEdit && (
         <div className="mt-6 border-t border-line pt-4">
           <button onClick={() => setShowBulk((v) => !v)} className="btn-outline">
             {showBulk ? t('bulkImport.close') : t('bulkImport.title')}
@@ -616,6 +628,7 @@ export function ProjectDetailPage() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <div className="card">
