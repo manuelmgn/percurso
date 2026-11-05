@@ -28,7 +28,7 @@ export function ProgressGoal({ current, total, year }: ProgressGoalProps) {
       >
         <div className="h-full rounded-pill bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-2 text-xs text-muted">{t('goal.remaining', { count: remaining })}</p>
+      <p className="mt-2 text-xs text-muted">{t(remaining === 1 ? 'goal.remaining.one' : 'goal.remaining.other', { count: remaining })}</p>
     </div>
   )
 }

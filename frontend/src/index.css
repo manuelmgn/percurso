@@ -96,6 +96,12 @@
     @apply inline-flex items-center justify-center gap-2 rounded-pill bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-bg;
   }
 
+  /* Quiet danger for action rows: signals risk without shouting next to the
+     primary button; the loud .btn-danger stays for the confirmation step. */
+  .btn-danger-quiet {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill border border-red-200 bg-surface px-5 py-2.5 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus-visible:ring-offset-bg;
+  }
+
   /* Secondary variant used by ProjectDetailPage. */
   .btn-secondary {
     @apply rounded-pill bg-coral px-4 py-2 font-medium text-white transition-all duration-200 hover:bg-coral-600 focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 active:scale-[0.97] disabled:opacity-50 dark:focus-visible:ring-offset-bg;

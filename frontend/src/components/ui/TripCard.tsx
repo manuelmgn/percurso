@@ -44,7 +44,7 @@ export function TripCard({ trip, prefs, coverUrl }: TripCardProps) {
             <CalendarDays size={13} aria-hidden="true" /> {formatTripDateRange(trip.start_date, trip.end_date, prefs)}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <MapPin size={13} aria-hidden="true" /> {t('trip.placeCount', { count: trip.place_count })}
+            <MapPin size={13} aria-hidden="true" /> {t(trip.place_count === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.place_count })}
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between">

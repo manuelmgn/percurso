@@ -237,14 +237,14 @@ export function DashboardPage() {
                 </p>
                 <p className="mt-0.5 text-[13px] text-muted">
                   {formatTripDateRange(nextTrip.start_date, nextTrip.end_date, user)} ·{' '}
-                  {t('trip.placeCount', { count: nextTrip.place_count })}
+                  {t(nextTrip.place_count === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: nextTrip.place_count })}
                 </p>
               </Link>
             )}
           </div>
         )}
 
-        <aside className={`flex flex-col gap-5 ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
+        <aside className={`flex flex-col gap-5 self-start ${hasMap ? 'lg:col-span-4' : 'lg:col-span-12'}`}>
           <div className="card flex flex-1 flex-col">
             <h2 className="font-display text-[22px] font-bold">{t('stats.yearInNumbers')}</h2>
             <div className="mt-5 grid grid-cols-2 gap-5">

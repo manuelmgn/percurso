@@ -2,9 +2,10 @@ import { useTranslation } from '@/i18n'
 import type { TripStatus } from '@/utils/tripStatus'
 
 const styles: Record<TripStatus, string> = {
-  concluida: 'bg-plum-tint text-plum dark:bg-plum/25',
-  em_curso: 'bg-primary-tint text-primary dark:bg-primary/20',
-  planeada: 'bg-amber-tint text-amber-deep dark:bg-amber/15',
+  // Solid dark fills: the translucent tints vanish over maps and dark cards.
+  concluida: 'bg-plum-tint text-plum dark:bg-plum dark:text-plum-tint',
+  em_curso: 'bg-primary-tint text-primary dark:bg-primary-800 dark:text-primary-200',
+  planeada: 'bg-amber-tint text-amber-deep dark:bg-amber-deep dark:text-amber-tint',
 }
 
 const labelKeys: Record<TripStatus, string> = {

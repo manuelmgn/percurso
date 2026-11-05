@@ -289,7 +289,7 @@ export function ProjectDetailPage() {
           </Link>
           <button
             onClick={() => setIsConfirmingDelete(true)}
-            className="btn-danger"
+            className="btn-danger-quiet"
           >
             {t('actions.delete')}
           </button>

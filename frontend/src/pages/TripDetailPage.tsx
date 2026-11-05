@@ -135,16 +135,18 @@ export function TripDetailPage() {
         ) : (
           <div className="absolute inset-0 bg-brand" />
         )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink/15 via-transparent to-ink/80" />
+        {/* Black (not ink) so the legibility veil stays dark in both themes. */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80" />
         <Link
           to="/viagens"
-          className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-pill bg-white/90 px-4 py-2 text-[13px] font-semibold text-ink shadow-pop transition-colors hover:bg-white"
+          className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-pill bg-white/95 px-4 py-2 text-[13px] font-semibold text-ink shadow-pop transition-colors hover:bg-white dark:bg-surface/95 dark:hover:bg-surface"
         >
           <ArrowLeft size={14} /> {t('nav.trips')}
         </Link>
         <StatusChip status={status} className="absolute right-6 top-6" />
         <div className="absolute bottom-5 left-6 right-6 text-white">
-          <h1 className="font-display text-[34px] font-bold leading-tight">{formatTripTitle(trip, user)}</h1>
+          {/* Explicit text-white: the global h1 colour beats inheritance. */}
+          <h1 className="font-display text-[34px] font-bold leading-tight text-white">{formatTripTitle(trip, user)}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-5 text-sm text-white/85">
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays size={15} aria-hidden="true" />
@@ -152,7 +154,7 @@ export function TripDetailPage() {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <MapPin size={15} aria-hidden="true" />
-              {t('trip.placeCount', { count: trip.places.length })}
+              {t(trip.places.length === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.places.length })}
             </span>
           </div>
         </div>
@@ -172,7 +174,7 @@ export function TripDetailPage() {
           </Link>
           <button
             onClick={handleDeleteClick}
-            className="btn-danger"
+            className="btn-danger-quiet"
           >
             {t('actions.delete')}
           </button>
@@ -222,7 +224,7 @@ export function TripDetailPage() {
         <section className="card lg:col-span-7">
           <h2 className="font-display text-xl font-bold">{t('trip.itinerary')}</h2>
           <p className="mt-1 text-[13px] text-muted">
-            {dayCount} {t('trip.days')} · {t('trip.placeCount', { count: trip.places.length })}
+            {dayCount} {t(dayCount === 1 ? 'trip.days.one' : 'trip.days.other')} · {t(trip.places.length === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.places.length })}
           </p>
           {trip.places.length === 0 ? (
             <p className="mt-4 text-sm text-muted">{t('trips.noPlaces')}</p>
@@ -267,15 +269,15 @@ export function TripDetailPage() {
           <div className="grid grid-cols-3 gap-4">
             <div className="card p-4 text-center">
               <p className="font-display text-[21px] font-bold">{dayCount}</p>
-              <p className="text-xs text-muted">{t('trip.days')}</p>
+              <p className="text-xs text-muted">{t(dayCount === 1 ? 'trip.days.one' : 'trip.days.other')}</p>
             </div>
             <div className="card p-4 text-center">
               <p className="font-display text-[21px] font-bold">{trip.places.length}</p>
-              <p className="text-xs text-muted">{t('units.place.other')}</p>
+              <p className="text-xs text-muted">{t(trip.places.length === 1 ? 'units.place.one' : 'units.place.other')}</p>
             </div>
             <div className="card p-4 text-center">
               <p className="font-display text-[21px] font-bold">{trip.projects.length}</p>
-              <p className="text-xs text-muted">{t('units.project.other')}</p>
+              <p className="text-xs text-muted">{t(trip.projects.length === 1 ? 'units.project.one' : 'units.project.other')}</p>
             </div>
           </div>
 
