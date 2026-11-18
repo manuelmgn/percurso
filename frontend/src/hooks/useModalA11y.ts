@@ -23,7 +23,8 @@ export function useModalA11y<T extends HTMLElement>(onClose: () => void) {
         ) ?? [],
       ).filter((el) => !el.hasAttribute('disabled'))
 
-    // Initial focus: first meaningful element inside, else the container.
+    // Initial focus goes to the container itself (tabIndex -1); the Tab trap
+    // below then cycles through its focusable children.
     container?.focus()
 
     const onKeyDown = (e: KeyboardEvent) => {

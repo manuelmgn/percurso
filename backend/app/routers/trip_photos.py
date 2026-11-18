@@ -41,7 +41,13 @@ def _get_visible_trip(db: Session, trip_id: int, user: User):
 
 def _get_editable_trip(db: Session, trip_id: int, user: User):
     trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not trip_service.can_user_edit_trip(user, trip):
+    # Editing also requires visibility: a participant of a SPECIFIC trip who
+    # is not among its allowed viewers must not edit through a leaked id.
+    if (
+        not trip
+        or not trip_service.can_user_edit_trip(user, trip)
+        or not visibility_service.can_user_see_trip(db, user, trip)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
     return trip
 

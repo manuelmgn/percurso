@@ -14,8 +14,11 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export async function getPushSubscription(): Promise<PushSubscription | null> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
-  const registration = await navigator.serviceWorker.ready
-  return registration.pushManager.getSubscription()
+  // getRegistration() resolves immediately, whereas `ready` waits forever
+  // when no worker is registered (dev builds, or a failed PROD registration)
+  // — that left the settings toggle stuck on "checking".
+  const registration = await navigator.serviceWorker.getRegistration()
+  return registration ? registration.pushManager.getSubscription() : null
 }
 
 export async function isPushEnabled(): Promise<boolean> {
@@ -33,10 +36,16 @@ export async function subscribePush(): Promise<void> {
     applicationServerKey: urlBase64ToUint8Array(public_key) as BufferSource,
   })
   const json = subscription.toJSON()
-  await api.push.subscribe({
-    endpoint: subscription.endpoint,
-    keys: json.keys ?? {},
-  })
+  try {
+    await api.push.subscribe({
+      endpoint: subscription.endpoint,
+      keys: json.keys ?? {},
+    })
+  } catch (err) {
+    // Roll back the browser-side subscription so isPushEnabled() stays honest.
+    await subscription.unsubscribe().catch(() => {})
+    throw err
+  }
 }
 
 export async function unsubscribePush(): Promise<void> {

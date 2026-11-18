@@ -142,7 +142,7 @@ async def import_place(
 
 @router.get("/", response_model=list[PlaceResponse])
 def list_places(
-    limit: int = Query(100, le=500),
+    limit: int = Query(100, ge=0, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

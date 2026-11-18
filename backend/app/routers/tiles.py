@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -13,6 +16,7 @@ TILE_SOURCES = {
     "dark": "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
 }
 TILE_USER_AGENT = "Percursos/0.1 (https://github.com/manuelmgn/percurso)"
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 def _tile_url(style: str, z: int, x: int, y: int) -> str:
@@ -60,5 +64,28 @@ async def get_tile(
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail="Tile não disponível")
 
-        tile_path.write_bytes(response.content)
-        return Response(content=response.content, media_type="image/png", headers={"Cache-Control": "public, max-age=2592000"})
+        content = response.content
+        content_type = response.headers.get("content-type", "")
+        if not content.startswith(_PNG_MAGIC) and "image/png" not in content_type:
+            # A 200 that is not a PNG (error page, rate-limit notice…) must
+            # never enter the cache — serve it as-is, uncached.
+            return Response(
+                content=content,
+                media_type=content_type.split(";")[0] or "application/octet-stream",
+                headers={"Cache-Control": "no-store"},
+            )
+
+        # Atomic cache write: temp file in the same directory + rename, so a
+        # crash mid-write can never leave a truncated tile that would be
+        # served from cache forever.
+        fd, tmp_path = tempfile.mkstemp(dir=tile_path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as tmp_file:
+                tmp_file.write(content)
+            os.replace(tmp_path, tile_path)
+        except OSError:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        return Response(content=content, media_type="image/png", headers={"Cache-Control": "public, max-age=2592000"})

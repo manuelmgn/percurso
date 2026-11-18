@@ -1,7 +1,10 @@
+import math
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -9,6 +12,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.database import engine, Base, db_session
+from app.auth import get_current_user
 from app.services import user_service
 from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push
 
@@ -142,6 +146,32 @@ async def security_headers(request: Request, call_next):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
+@app.exception_handler(OverflowError)
+async def overflow_error_handler(request: Request, exc: OverflowError):
+    # SQLite binds integers as int64; an id beyond that range (path or body)
+    # raises OverflowError at bind time. Surface it as a clean 422 instead
+    # of an unhandled 500.
+    return JSONResponse(status_code=422, content={"detail": "Identificador fora do intervalo suportado"})
+
+
+def _json_safe(value):
+    """Replace non-finite floats with their string form so the 422 body is
+    serialisable (a NaN in the rejected input otherwise crashes the default
+    RequestValidationError handler with a 500)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(_json_safe(exc.errors()))})
+
+
 app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(users.router)
@@ -166,16 +196,18 @@ def health():
     return {"status": "ok"}
 
 
-# Serve uploaded files with long-lived cache headers (filenames are UUIDs, so
-# immutable is safe) and tile cache directly.
+# Uploaded files (avatars, trip photos, images embedded in notes) are private
+# user content: require a session (the <img> tags send the session cookie,
+# same-origin) and forbid shared caches. Filenames are UUIDs, so immutable is
+# still safe.
 @app.api_route("/uploads/{filename}", methods=["GET", "HEAD"])
-def serve_upload(filename: str):
+def serve_upload(filename: str, _user: User = Depends(get_current_user)):
     if "/" in filename or ".." in filename:
         raise HTTPException(status_code=404, detail="Not found")
     file_path = settings.uploads_dir / filename
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(file_path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return FileResponse(file_path, headers={"Cache-Control": "private, max-age=31536000, immutable"})
 
 
 app.mount("/tile-cache", StaticFiles(directory=settings.tile_cache_dir), name="tile-cache")

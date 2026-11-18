@@ -47,11 +47,19 @@ def _check_login_rate_limit(ip: str, now: float):
             )
         attempts.append(now)
         _login_attempts[ip] = attempts
+        # Prune aged-out failures so idle IPs do not linger in memory.
+        if failures:
+            _login_failures[ip] = failures
+        else:
+            _login_failures.pop(ip, None)
 
 
 def _record_login_failure(ip: str, now: float):
     with _login_lock:
-        _login_failures.setdefault(ip, []).append(now)
+        # Pruning here too keeps stale timestamps from piling up per IP.
+        failures = _recent(_login_failures.get(ip, []), now)
+        failures.append(now)
+        _login_failures[ip] = failures
 
 
 def _reset_login_rate_limit(ip: str):

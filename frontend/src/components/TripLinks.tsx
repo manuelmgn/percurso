@@ -52,6 +52,9 @@ export function TripLinks({ trip }: TripLinksProps) {
   }
 
   const handleAdd = async () => {
+    // No concurrent saves: each PATCH replaces the whole list, so a second
+    // save computed from the pre-first-save list would silently drop links.
+    if (isSaving) return
     const url = draft.trim()
     if (!url) return
     let parsed: URL
@@ -83,6 +86,7 @@ export function TripLinks({ trip }: TripLinksProps) {
   }
 
   const handleRemove = async (link: ExternalLink) => {
+    if (isSaving) return // same full-list-replace race as handleAdd
     try {
       await save(links.filter((l) => l.url !== link.url).map((l) => ({ url: l.url })))
     } catch {

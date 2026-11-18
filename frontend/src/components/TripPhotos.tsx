@@ -24,6 +24,9 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   // would send concurrent PUTs whose responses can arrive out of order,
   // leaving the grid showing an order the server does not have.
   const [isReordering, setIsReordering] = useState(false)
+  // Photo delete in flight: a second click would fire a duplicate DELETE
+  // that 404s and surfaces an error even though the photo was removed.
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Local override of the trip cover: the parent refetches on its own
   // schedule, so a plain useState(init) could go stale. Until the user
@@ -72,13 +75,17 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   }
 
   const handleDelete = async (photo: Photo) => {
+    if (deletingPhotoId !== null) return
     setError('')
+    setDeletingPhotoId(photo.id)
     try {
       await api.photos.remove(trip.id, photo.id)
       setPhotos((current) => (current ?? []).filter((p) => p.id !== photo.id))
       if (lightboxIndex !== null) setLightboxIndex(null)
     } catch (err) {
       setError(getErrorMessage(err, t('trip.photoDeleteError')))
+    } finally {
+      setDeletingPhotoId(null)
     }
   }
 
@@ -220,6 +227,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
               {canManage(photo) && (
                 <button
                   onClick={() => handleDelete(photo)}
+                  disabled={deletingPhotoId !== null}
                   aria-label={t('trip.deletePhoto')}
                   className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white opacity-0 shadow-pop transition-opacity hover:bg-red-600 group-hover:opacity-100 focus:opacity-100"
                 >

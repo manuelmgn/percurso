@@ -18,6 +18,8 @@ import type { Geometry } from 'geojson'
 
 const VISITED_COLOR = '#f59e0b'
 const PENDING_COLOR = '#7a756d'
+// Mirrors BulkImportRequest's max_length on the backend.
+const MAX_BULK_LINES = 100
 
 function formatCandidate(result: PlaceSearchResult): string {
   const hierarchy = formatHierarchy(result.hierarchy)
@@ -161,6 +163,10 @@ export function ProjectDetailPage() {
   const handleResolve = async () => {
     const lines = bulkText.split('\n').map((l) => l.trim()).filter(Boolean)
     if (lines.length === 0) return
+    if (lines.length > MAX_BULK_LINES) {
+      setActionError(t('bulkImport.tooManyLines', { max: MAX_BULK_LINES }))
+      return
+    }
     setActionError('')
     setIsResolving(true)
     try {

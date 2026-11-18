@@ -3,7 +3,7 @@ from typing import Collection, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import User, Project, ProjectPlace, Place, TripProject, TripPlace
+from app.models import User, Project, ProjectPlace, Place, TripProject, TripPlace, Pin, EntityType
 from app.schemas import ProjectCreate, ProjectUpdate
 from app.services import visibility_service, notification_service
 
@@ -87,6 +87,11 @@ def update_project(db: Session, user: User, project: Project, data: ProjectUpdat
 
 
 def delete_project(db: Session, user: User, project: Project) -> None:
+    # Pins carry a plain entity id with no FK, so they must be removed
+    # explicitly or they would dangle on other users' dashboards.
+    db.query(Pin).filter(Pin.entity_type == EntityType.PROJECT, Pin.entity_id == project.id).delete(
+        synchronize_session=False
+    )
     db.delete(project)
     db.commit()
 

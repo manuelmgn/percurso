@@ -14,6 +14,7 @@ interface PinButtonProps {
 export function PinButton({ entityType, entityId, label, showLabel = false }: PinButtonProps) {
   const [isPinned, setIsPinned] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState('')
   const { t } = useTranslation()
 
@@ -41,7 +42,11 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
   if (isLoading) return null
 
   const handleClick = async () => {
+    // Guard against double clicks: a second toggle fired before the first
+    // resolves reads stale isPinned and errors against the server state.
+    if (isBusy) return
     setError('')
+    setIsBusy(true)
     try {
       if (isPinned) {
         await api.pins.unpin(entityType, entityId)
@@ -52,6 +57,8 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
       else setError(t('pinButton.error'))
+    } finally {
+      setIsBusy(false)
     }
   }
 
@@ -60,7 +67,7 @@ export function PinButton({ entityType, entityId, label, showLabel = false }: Pi
       <button
         type="button"
         onClick={handleClick}
-        disabled={isLoading}
+        disabled={isLoading || isBusy}
         aria-label={isPinned ? t('pinButton.unpinAria', { label }) : t('pinButton.pinAria', { label })}
         title={isPinned ? t('actions.unpin') : t('actions.pin')}
         className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-2 text-sm font-medium transition-colors ${

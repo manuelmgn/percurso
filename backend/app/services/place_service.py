@@ -132,9 +132,14 @@ def rank_results(results: list[PlaceSearchResult], query: str) -> list[PlaceSear
     return sorted(results, key=score)
 
 
+def escape_like(value: str) -> str:
+    """Escape LIKE/ILIKE metacharacters so a user query is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def find_cached_places(db: Session, query: str, limit: int = 5) -> list[Place]:
     """Local places whose name contains the query (ILIKE), best match first."""
-    return db.query(Place).filter(Place.name.ilike(f"%{query}%")).limit(limit).all()
+    return db.query(Place).filter(Place.name.ilike(f"%{escape_like(query)}%", escape="\\")).limit(limit).all()
 
 
 def merge_dedup_rank(candidates: list[PlaceSearchResult], limit: int | None = None) -> list[PlaceSearchResult]:

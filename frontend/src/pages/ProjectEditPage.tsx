@@ -120,6 +120,17 @@ export function ProjectEditPage() {
     return <FormPageSkeleton />
   }
 
+  // A failed load in edit mode leaves the form blank; rendering it would
+  // invite saving empty data over the existing project. Show just the error.
+  if (isEdit && error) {
+    return (
+      <div className="space-y-6 pb-6">
+        <h2 className="font-display text-2xl font-bold">{t('projectEdit.editTitle')}</h2>
+        <ErrorBanner message={error} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 pb-6">
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('projectEdit.editTitle') : t('projectEdit.newTitle')}</h2>
@@ -134,6 +145,7 @@ export function ProjectEditPage() {
               id="name"
               type="text"
               required
+              maxLength={255}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="input"

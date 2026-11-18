@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.config import settings
-from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo
+from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo, Pin, EntityType
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate, ExternalLinkInput
 from app.services import visibility_service, project_service, notification_service
@@ -32,12 +32,29 @@ def detect_external_link_type(url: str) -> str:
     return "link"
 
 
+def _link_dedup_key(url: str) -> str:
+    """Two links are duplicates when scheme/host/port differ only in case
+    and the path only in a trailing slash (paths stay case-sensitive)."""
+    parsed = urlparse(url)
+    try:
+        port = parsed.port  # raises ValueError on malformed ports
+    except ValueError:
+        port = None
+    key = f"{parsed.scheme.lower()}://{(parsed.hostname or '').lower()}"
+    if port:
+        key += f":{port}"
+    key += parsed.path.rstrip("/")
+    if parsed.query:
+        key += f"?{parsed.query}"
+    return key
+
+
 def _normalise_external_links(links: list[ExternalLinkInput]) -> list[dict]:
     seen: set[str] = set()
     result = []
     for link in links:
         url = link.url.strip()
-        key = url.rstrip("/")
+        key = _link_dedup_key(url)
         if key in seen:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -193,6 +210,11 @@ def delete_trip(db: Session, trip: Trip) -> None:
     # non-nullable trip_id and the delete would fail.
     for photo in photos:
         db.delete(photo)
+    # Pins carry a plain entity id with no FK, so they must be removed
+    # explicitly or they would dangle on other users' dashboards.
+    db.query(Pin).filter(Pin.entity_type == EntityType.TRIP, Pin.entity_id == trip.id).delete(
+        synchronize_session=False
+    )
     db.delete(trip)
     db.commit()
     for photo in photos:

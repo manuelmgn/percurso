@@ -103,7 +103,7 @@ def validate_csrf(request: Request, user: User = Depends(get_current_user), db: 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
 
     session = db.query(UserSession).filter(UserSession.token == session_token).first()
-    if not session or not session.csrf_token or token != session.csrf_token:
+    if not session or not session.csrf_token or not secrets.compare_digest(token, session.csrf_token):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido")
     return user
 

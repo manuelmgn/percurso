@@ -101,6 +101,14 @@ export function TripEditPage() {
     return () => { cancelled = true }
   }, [id, isEdit, user?.id, t])
 
+  // The ?projeto= preset can change while the create form stays mounted
+  // (same route, new query). Re-apply it only while the form is untouched
+  // so it never clobbers the user's own project selection.
+  useEffect(() => {
+    if (isEdit || !presetProjectId || isDirty) return
+    setProjectIds((prev) => (prev.includes(presetProjectId) ? prev : [...prev, presetProjectId]))
+  }, [isEdit, presetProjectId, isDirty])
+
   const toggleId = (list: number[], idToToggle: number) =>
     list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
 
@@ -173,6 +181,17 @@ export function TripEditPage() {
 
   if (isLoading) {
     return <FormPageSkeleton />
+  }
+
+  // A failed load in edit mode leaves the form blank; rendering it would
+  // invite saving empty data over the existing trip. Show just the error.
+  if (isEdit && error) {
+    return (
+      <div className="space-y-6 pb-6">
+        <h2 className="font-display text-2xl font-bold">{t('tripEdit.editTitle')}</h2>
+        <ErrorBanner message={error} />
+      </div>
+    )
   }
 
   return (
@@ -251,11 +270,12 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t('tripEdit.notesLabel')}</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor={isEdit ? undefined : 'notes'}>{t('tripEdit.notesLabel')}</label>
             {isEdit ? (
               <NotesEditor value={notes} onChange={setNotes} />
             ) : (
               <textarea
+                id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('notesEditor.placeholder')}
@@ -266,7 +286,7 @@ export function TripEditPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t('tripEdit.companionsLabel')}</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="companions">{t('tripEdit.companionsLabel')}</label>
             <div className="relative">
               <div
                 className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:focus-within:ring-offset-bg"

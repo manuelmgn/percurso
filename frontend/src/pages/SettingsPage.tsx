@@ -448,7 +448,7 @@ export function SettingsPage() {
 
             {/* Editable field for the public name */}
             <form onSubmit={handleSaveUsername} className="mt-5 w-full text-left">
-              <label className="mb-1 block text-sm font-medium text-ink">
+              <label htmlFor="settings-username" className="mb-1 block text-sm font-medium text-ink">
                 {t('settings.publicNameLabel')}
               </label>
 
@@ -465,6 +465,7 @@ export function SettingsPage() {
 
               <div className="flex gap-2">
                 <input
+                  id="settings-username"
                   type="text"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}

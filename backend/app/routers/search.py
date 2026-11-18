@@ -40,7 +40,10 @@ def search(
     visible_place_ids = place_service.get_visible_place_ids(db, user)
     matching_places = (
         db.query(Place)
-        .filter(Place.id.in_(visible_place_ids), Place.name.ilike(f"%{q}%"))
+        .filter(
+            Place.id.in_(visible_place_ids),
+            Place.name.ilike(f"%{place_service.escape_like(q)}%", escape="\\"),
+        )
         .limit(20)
         .all()
     ) if visible_place_ids else []

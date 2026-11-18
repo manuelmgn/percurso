@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime, timezone
 
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, get_session_token, validate_csrf
-from app.models import User, UserRole, Session as UserSession, Photo
+from app.models import User, UserRole, Session as UserSession
 from app.schemas import UserResponse, UserPasswordChange, UserPreferencesUpdate
 from app.services import user_service, image_service, activity_service
 from app.models.enums import EntityAction, EntityType
@@ -83,21 +82,12 @@ def delete_account(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Não é possível eliminar a conta do único administrador do sistema",
             )
-    # FK cascades remove the photo rows but not the files on disk; collect
-    # the URLs first (uploaded by the user, or on trips they created) and
-    # unlink them after the delete has committed.
-    trip_ids = [t.id for t in user.trips]
-    photo_filter = Photo.uploader_id == user.id
-    if trip_ids:
-        photo_filter = or_(photo_filter, Photo.trip_id.in_(trip_ids))
-    photo_urls = [url for (url,) in db.query(Photo.url).filter(photo_filter).all()]
-    avatar_url = user.avatar_url
-    db.delete(user)
-    db.commit()
+    # Photo rows are deleted explicitly inside (no ORM cascade from User);
+    # the files on disk are removed only after the delete has committed.
+    urls = user_service.delete_user_account(db, user)
     response.delete_cookie(key=settings.session_cookie_name)
-    for url in photo_urls:
+    for url in urls:
         _unlink_upload(url)
-    _unlink_upload(avatar_url)
     return None
 
 

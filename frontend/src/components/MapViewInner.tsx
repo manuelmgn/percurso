@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Geometry } from 'geojson'
+import { useNavigate } from 'react-router-dom'
 import { useTheme } from '@/components/ThemeProvider'
 import { useTranslation } from '@/i18n'
 
@@ -92,6 +93,7 @@ export default function MapViewInner({
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
   const tileLayerRef = useRef<L.TileLayer | null>(null)
+  const navigate = useNavigate()
   const { resolvedTheme } = useTheme()
   const { t } = useTranslation()
 
@@ -111,7 +113,7 @@ export default function MapViewInner({
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
-    setTimeout(() => map.invalidateSize(), 0)
+    const initTimeout = window.setTimeout(() => map.invalidateSize(), 0)
 
     // Leaflet caches its size at init; without this the map renders grey
     // whenever it is mounted before its container gets real dimensions —
@@ -125,9 +127,26 @@ export default function MapViewInner({
     })
     observer.observe(containerRef.current)
 
+    // Popup anchors carry plain hrefs, which would trigger a full document
+    // navigation and reload the SPA. Intercept internal links and route them
+    // through react-router instead.
+    const onPopupOpen = (e: L.PopupEvent) => {
+      const element = e.popup.getElement()
+      element?.querySelectorAll('a[href^="/"]').forEach((anchor) => {
+        anchor.addEventListener('click', (event) => {
+          event.preventDefault()
+          const href = anchor.getAttribute('href')
+          if (href) navigate(href)
+        })
+      })
+    }
+    map.on('popupopen', onPopupOpen)
+
     return () => {
+      window.clearTimeout(initTimeout)
       observer.disconnect()
       cancelAnimationFrame(raf)
+      map.off('popupopen', onPopupOpen)
       map.remove()
       mapRef.current = null
       layerRef.current = null

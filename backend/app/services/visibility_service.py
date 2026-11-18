@@ -1,9 +1,21 @@
 from typing import Collection
 
 from sqlalchemy import and_, exists, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import User, Trip, Project, Visibility, TripPlace, ProjectPlace, trip_participants, trip_visible_users, project_participants, project_visible_users
+from app.models import User, Trip, TripPlace, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
+
+
+def _trip_list_options():
+    """Eager loads for everything to_trip_list_response touches (creator,
+    cover photo, place/project links); the nested joinedload on
+    TripPlace.place also covers the search-by-place-name fan-out."""
+    return (
+        joinedload(Trip.creator),
+        joinedload(Trip.cover_photo),
+        selectinload(Trip.places).joinedload(TripPlace.place),
+        selectinload(Trip.projects),
+    )
 
 
 def _trip_is_visible_condition(user_id: int):
@@ -89,6 +101,7 @@ def get_visible_trips(db: Session, user: User) -> list[Trip]:
     """Trip objects the user can see, filtered and ordered in the database."""
     return (
         db.query(Trip)
+        .options(*_trip_list_options())
         .filter(_trip_is_visible_condition(user.id))
         .order_by(Trip.updated_at.desc())
         .all()
@@ -132,6 +145,7 @@ def get_trips_for_place(db: Session, user: User, place_id: int) -> list[Trip]:
     of their places to test membership."""
     return (
         db.query(Trip)
+        .options(*_trip_list_options())
         .filter(TripPlace.place_id == place_id, TripPlace.trip_id == Trip.id, _trip_is_visible_condition(user.id))
         .order_by(Trip.start_date.desc())
         .all()

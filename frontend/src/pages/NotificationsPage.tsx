@@ -6,6 +6,7 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
 import { entityDetailPath } from '@/utils/format'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { RowListSkeleton } from '@/components/ui/Skeleton'
 import type { Notification } from '@/types'
 
@@ -86,7 +87,7 @@ export function NotificationsPage() {
           <RowListSkeleton />
         </div>
       ) : error ? (
-        <div className="card p-6 text-sm text-primary" role="alert">{error}</div>
+        <ErrorBanner message={error} />
       ) : notifications.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">
           <Bell size={32} className="text-muted" aria-hidden="true" />

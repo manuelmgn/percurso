@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 import logging
 from typing import Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.auth import hash_password, verify_password, needs_rehash
 from app.config import settings
-from app.models import User, UserRole
+from app.models import User, UserRole, Trip, Photo, Pin, EntityType
 from app.schemas import UserCreate, UserUpdate, UserPasswordChange
 
 logger = logging.getLogger(__name__)
@@ -98,3 +99,52 @@ def seed_default_admin(db: Session) -> Optional[User]:
 
 def list_users(db: Session) -> list[User]:
     return db.query(User).order_by(User.username).all()
+
+
+def delete_user_account(db: Session, user: User) -> list[str]:
+    """Delete the user and everything attached. ORM cascades cover sessions,
+    trips, projects, activities and milestones; DB-level FK cascades cover
+    notifications, pins and the secondary association rows. Photo rows have
+    no delete cascade, so they are removed explicitly — otherwise the flush
+    would try to nullify their non-nullable trip_id/uploader_id and fail.
+
+    Returns the upload URLs whose files must be unlinked AFTER this call's
+    commit (same rule as trip_service.delete_trip: a failed commit must not
+    leave rows pointing at deleted files)."""
+    trip_ids = [t.id for t in user.trips]
+    project_ids = [p.id for p in user.projects]
+    photo_filter = Photo.uploader_id == user.id
+    if trip_ids:
+        photo_filter = or_(photo_filter, Photo.trip_id.in_(trip_ids))
+    photos = db.query(Photo).filter(photo_filter).all()
+    urls = [p.url for p in photos]
+    if user.avatar_url:
+        urls.append(user.avatar_url)
+
+    # Logical SET NULL for covers pointing at the photos being deleted (the
+    # cover FK only exists on fresh databases; legacy SQLite got the column
+    # without it). This also covers photos the user uploaded to other
+    # people's trips.
+    photo_ids = [p.id for p in photos]
+    if photo_ids:
+        db.query(Trip).filter(Trip.cover_photo_id.in_(photo_ids)).update(
+            {Trip.cover_photo_id: None}, synchronize_session=False
+        )
+    for photo in photos:
+        db.delete(photo)
+    db.flush()
+
+    # Pins carry a plain entity id with no FK: pins belonging to OTHER users
+    # that point at this user's trips/projects would dangle otherwise.
+    if trip_ids:
+        db.query(Pin).filter(Pin.entity_type == EntityType.TRIP, Pin.entity_id.in_(trip_ids)).delete(
+            synchronize_session=False
+        )
+    if project_ids:
+        db.query(Pin).filter(Pin.entity_type == EntityType.PROJECT, Pin.entity_id.in_(project_ids)).delete(
+            synchronize_session=False
+        )
+
+    db.delete(user)
+    db.commit()
+    return urls

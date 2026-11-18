@@ -72,9 +72,9 @@ const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
   photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   pins: ['/api/pins'],
-  // me/users rename or avatar changes: trip/project payloads embed
-  // creator_username, so those caches must refresh too.
-  me: ['/api/me', '/api/auth/me', '/api/users/public', '/api/trips', '/api/projects'],
+  // me/users rename or avatar changes: trip/project/activity/search payloads
+  // embed usernames, so those caches must refresh too.
+  me: ['/api/me', '/api/auth/me', '/api/users/public', '/api/trips', '/api/projects', '/api/activities', '/api/search'],
   users: ['/api/users', '/api/trips', '/api/projects'],
   auth: ['/api/'],
   admin: ['/api/'],
@@ -136,6 +136,23 @@ async function fetchJson<T>(path: string, options: RequestInit = {}): Promise<T>
 }
 
 /**
+ * Pull a readable message out of an error body. FastAPI 422s carry a *list*
+ * of validation errors in `detail` (each with a `msg` — model validators put
+ * pt-PT text there); everything else uses a plain string.
+ */
+function errorMessageFromBody(body: { detail?: unknown; message?: unknown }): string | undefined {
+  const detail = body.detail ?? body.message
+  if (typeof detail === 'string' && detail) return detail
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => (item && typeof item === 'object' ? (item as { msg?: unknown }).msg : undefined))
+      .filter((msg): msg is string => typeof msg === 'string' && msg.length > 0)
+    if (messages.length > 0) return messages.join(' ')
+  }
+  return undefined
+}
+
+/**
  * Shared response handling: 401 navigation, error extraction, 204 short
  * circuit. Used by both performFetch (JSON) and postFormData (multipart) so
  * the login redirect logic lives in exactly one place.
@@ -152,7 +169,7 @@ async function handleResponse<T>(path: string, response: Response): Promise<T> {
         window.location.href = '/login'
       }
     }
-    throw new ApiError(response.status, body.detail || body.message || `Request failed: ${response.status}`)
+    throw new ApiError(response.status, errorMessageFromBody(body) ?? `Request failed: ${response.status}`)
   }
 
   if (response.status === 204) {

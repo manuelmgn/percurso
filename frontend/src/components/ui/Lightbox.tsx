@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Pencil, X } from 'lucide-react'
 import { useTranslation } from '@/i18n'
+import { useAuth } from '@/context/AuthContext'
 import { useModalA11y } from '@/hooks/useModalA11y'
 import { formatDateTime } from '@/utils/format'
 import type { Photo } from '@/types'
@@ -21,6 +22,7 @@ interface LightboxProps {
 
 export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption }: LightboxProps) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [index, setIndex] = useState(initialIndex)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -78,7 +80,12 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current - e.deltaY * 0.002)))
+      setZoom((current) => {
+        const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current - e.deltaY * 0.002))
+        // Back at fit-to-view: drop any leftover pan, matching resetView.
+        if (next === MIN_ZOOM) setPan({ x: 0, y: 0 })
+        return next
+      })
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
@@ -197,6 +204,15 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
                   autoFocus
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Esc cancels the edit; without stopPropagation the
+                    // document-level handler (useModalA11y) would also close
+                    // the whole lightbox, discarding the draft.
+                    if (e.key === 'Escape') {
+                      e.stopPropagation()
+                      setEditing(false)
+                    }
+                  }}
                   placeholder={t('lightbox.captionPlaceholder')}
                   maxLength={512}
                   className="w-64 max-w-full rounded-pill bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -235,7 +251,7 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
             )}
             {(photo.taken_at || photo.lat !== null) && (
               <span className="mt-1 block text-xs text-white/50">
-                {photo.taken_at ? formatDateTime(photo.taken_at) : ''}
+                {photo.taken_at ? formatDateTime(photo.taken_at, user) : ''}
                 {photo.taken_at && photo.lat !== null && ' · '}
                 {photo.lat !== null && photo.lon !== null
                   ? `${photo.lat.toFixed(5)}, ${photo.lon.toFixed(5)}`

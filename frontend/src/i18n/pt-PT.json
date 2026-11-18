@@ -261,6 +261,7 @@
   "projectEdit.noOtherUsers": "Não há outros utilizadores.",
   "projectEdit.loadError": "Erro ao carregar dados",
   "bulkImport.title": "Importar lista em massa",
+  "bulkImport.tooManyLines": "Máximo de {max} linhas por importação — divide a lista.",
   "bulkImport.close": "Fechar importação em massa",
   "bulkImport.placeholder": "Um lugar por linha, ex.:\nLugo\nSantiago de Compostela\nOviedo",
   "bulkImport.typeLabel": "Tipo dos lugares:",

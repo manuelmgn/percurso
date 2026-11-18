@@ -79,8 +79,10 @@ class PlaceBase(BaseModel):
     name: str
     place_type: PlaceType
     hierarchy: Optional[dict] = None
-    lat: float
-    lon: float
+    # Finite values inside the valid geographic ranges: a NaN would be
+    # stored and later serialised as invalid JSON, breaking clients.
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lon: float = Field(ge=-180, le=180, allow_inf_nan=False)
 
 
 class PlaceResponse(PlaceBase):
@@ -100,8 +102,8 @@ class PlaceSearchResult(BaseModel):
     name: str
     place_type: PlaceType
     hierarchy: Optional[dict] = None
-    lat: float
-    lon: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lon: float = Field(ge=-180, le=180, allow_inf_nan=False)
     is_cached: bool = False
 
 

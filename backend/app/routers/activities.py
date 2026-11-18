@@ -18,18 +18,61 @@ def list_activities(
 ):
     activities = activity_service.list_activities(db, limit=limit)
 
+    trip_ids = {a.entity_id for a in activities if a.entity_type == EntityType.TRIP}
+    project_ids = {a.entity_id for a in activities if a.entity_type == EntityType.PROJECT}
+    user_ids = {a.user_id for a in activities}
+
+    # Existence and visibility are resolved with aggregate IN queries (plus
+    # the shared SQL visibility conditions) instead of a db.get() plus a
+    # can_user_see_* check per row.
+    existing_trip_ids = (
+        {row[0] for row in db.query(Trip.id).filter(Trip.id.in_(trip_ids))} if trip_ids else set()
+    )
+    visible_trip_ids = (
+        {
+            row[0]
+            for row in db.query(Trip.id).filter(
+                Trip.id.in_(trip_ids), visibility_service._trip_is_visible_condition(user.id)
+            )
+        }
+        if trip_ids
+        else set()
+    )
+    existing_project_ids = (
+        {row[0] for row in db.query(Project.id).filter(Project.id.in_(project_ids))} if project_ids else set()
+    )
+    visible_project_ids = (
+        {
+            row[0]
+            for row in db.query(Project.id).filter(
+                Project.id.in_(project_ids), visibility_service._project_is_visible_condition(user.id)
+            )
+        }
+        if project_ids
+        else set()
+    )
+    usernames = (
+        {row.id: row.username for row in db.query(User.id, User.username).filter(User.id.in_(user_ids))}
+        if user_ids
+        else {}
+    )
+
     visible = []
     for a in activities:
-        # Hide actions on trips/projects the current user cannot see.
-        # When the entity no longer exists the activity is a deletion record;
-        # the name is kept (it was visible to someone at the time).
         if a.entity_type == EntityType.TRIP:
-            trip = db.get(Trip, a.entity_id)
-            if trip is not None and not visibility_service.can_user_see_trip(db, user, trip):
-                continue
+            existing, allowed = existing_trip_ids, visible_trip_ids
         elif a.entity_type == EntityType.PROJECT:
-            project = db.get(Project, a.entity_id)
-            if project is not None and not visibility_service.can_user_see_project(db, user, project):
+            existing, allowed = existing_project_ids, visible_project_ids
+        else:
+            existing, allowed = None, None
+        if existing is not None:
+            if a.entity_id not in existing:
+                # The entity was deleted. The stored entity_name may belong
+                # to a trip/project others never saw, so the record is only
+                # kept for its own actor.
+                if a.user_id != user.id:
+                    continue
+            elif a.entity_id not in allowed:
                 continue
         visible.append(a)
         if len(visible) >= limit:
@@ -39,7 +82,9 @@ def list_activities(
         ActivityResponse(
             id=a.id,
             user_id=a.user_id,
-            user_username=a.user.username,
+            # "?" covers activities whose author account was deleted (the old
+            # per-row lazy load would have crashed on None.username).
+            user_username=usernames.get(a.user_id, "?"),
             action=a.action.value,
             entity_type=a.entity_type.value,
             entity_id=a.entity_id,

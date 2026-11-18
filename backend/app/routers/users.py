@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, require_admin, require_admin_csrf
-from app.models import User, UserRole, Session as UserSession, Photo
+from app.models import User, UserRole, Session as UserSession
 from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
 from app.services import user_service, visibility_service
 
@@ -127,18 +126,9 @@ def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizador não encontrado")
     if user.id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Não te podes eliminar a ti próprio")
-    # FK cascades remove the photo rows but not the files on disk; collect
-    # the URLs first (uploaded by the user, or on trips they created) and
-    # unlink them after the delete has committed.
-    trip_ids = [t.id for t in user.trips]
-    photo_filter = Photo.uploader_id == user.id
-    if trip_ids:
-        photo_filter = or_(photo_filter, Photo.trip_id.in_(trip_ids))
-    photo_urls = [url for (url,) in db.query(Photo.url).filter(photo_filter).all()]
-    avatar_url = user.avatar_url
-    db.delete(user)
-    db.commit()
-    for url in photo_urls:
+    # Photo rows are deleted explicitly inside (no ORM cascade from User);
+    # the files on disk are removed only after the delete has committed.
+    urls = user_service.delete_user_account(db, user)
+    for url in urls:
         _unlink_upload(url)
-    _unlink_upload(avatar_url)
     return None

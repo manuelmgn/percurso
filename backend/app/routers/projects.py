@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
-from app.models import User, Project, Place
+from app.models import User, Project, Place, Trip, TripProject
 from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse, BulkImportRequest, BulkImportResponse, BulkImportLine, PlaceSearchResult, UserResponse
 from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
 from app.services import project_service, place_service, activity_service, visibility_service
@@ -53,7 +53,11 @@ def update_project(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     project = project_service.update_project(db, user, project, payload)
@@ -68,7 +72,11 @@ def delete_project(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.PROJECT, project.id, project.name)
@@ -84,7 +92,11 @@ def add_place_to_project(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     place = db.query(Place).filter(Place.id == place_id).first()
@@ -104,7 +116,11 @@ def remove_place_from_project(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     project_service.remove_place_from_project(db, user, project, place_id)
@@ -139,7 +155,11 @@ async def bulk_import_places(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     place_type = payload.place_type
@@ -193,7 +213,11 @@ async def confirm_bulk_import(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     # Any line with a selected candidate is imported, whatever its original
@@ -225,7 +249,11 @@ def toggle_place_unmarked(
     user: User = Depends(validate_csrf),
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not project_service.can_user_edit_project(user, project):
+    if (
+        not project
+        or not project_service.can_user_edit_project(user, project)
+        or not visibility_service.can_user_see_project(db, user, project)
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
 
     project_place = project_service.toggle_place_unmarked(db, user, project, place_id)
@@ -256,11 +284,19 @@ def _project_to_response(db: Session, user: User, project: Project) -> ProjectRe
             "visited_at": pp.added_at if is_visited else None,
         })
 
-    trips = []
-    for tp in project.trips:
-        if visibility_service.can_user_see_trip(db, user, tp.trip):
-            trips.append(to_trip_list_response(tp.trip))
-    trips.sort(key=lambda t: t.updated_at, reverse=True)
+    # Visible linked trips in one eager query (same SQL visibility rule as
+    # the trip list) instead of a per-trip lazy load + visibility check.
+    trips = (
+        db.query(Trip)
+        .options(*visibility_service._trip_list_options())
+        .filter(
+            TripProject.project_id == project.id,
+            TripProject.trip_id == Trip.id,
+            visibility_service._trip_is_visible_condition(user.id),
+        )
+        .all()
+    )
+    trips = [to_trip_list_response(t) for t in sorted(trips, key=lambda t: t.updated_at, reverse=True)]
 
     return ProjectResponse(
         id=project.id,

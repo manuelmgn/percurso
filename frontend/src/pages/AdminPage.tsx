@@ -87,6 +87,7 @@ export function AdminPage() {
       setResetPasswordUser(null)
       setResetPasswordValue('')
       setSuccessNotice(t('admin.resetPasswordSuccess'))
+      setTimeout(() => setSuccessNotice(''), 3000)
     } catch (err) {
       setActionError(getErrorMessage(err, t('admin.resetPasswordError')))
     } finally {
@@ -132,6 +133,8 @@ export function AdminPage() {
               type="text"
               placeholder={t('admin.usernamePlaceholder')}
               required
+              minLength={2}
+              maxLength={64}
               autoComplete="username"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}

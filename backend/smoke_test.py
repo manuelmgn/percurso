@@ -61,7 +61,7 @@ def create_user(db, username, password):
 
 def reset_test_data(db):
     orphan_files = []
-    for username in ['smoke_user1', 'smoke_user2']:
+    for username in ['smoke_user1', 'smoke_user2', 'smoke_user3']:
         u = db.query(User).filter(User.username == username).first()
         if u:
             db.query(Activity).filter(Activity.user_id == u.id).delete()
@@ -80,7 +80,7 @@ def reset_test_data(db):
             db.query(ProjectPlace).filter(ProjectPlace.project_id.in_([p.id for p in u.projects])).delete()
             db.query(Project).filter(Project.creator_id == u.id).delete()
             db.delete(u)
-    for name in ['Santiago de Compostela', 'Lugo', 'Lugo Sur', 'A Coruña']:
+    for name in ['Santiago de Compostela', 'Lugo', 'Lugo Sur', 'A Coruña', 'Polo Norte Teste']:
         db.query(Place).filter(Place.name == name).delete()
     db.commit()
     for url in orphan_files:
@@ -461,6 +461,157 @@ def main():
     check('photos gone with trip', r.status_code == 404)
     check('photo files removed with trip', all(not f.exists() for f in doomed_files))
 
+    # --- Audit fixes (2026-11) ---
+
+    # Fix 3: a participant of a SPECIFIC entity who is not in visible_users
+    # cannot edit through a leaked id (404, same as not being able to see).
+    me2_id = me2['id']
+    r = client1.post('/api/trips/', json={
+        'title': 'Viaje specific',
+        'start_date': '2026-09-10',
+        'end_date': '2026-09-11',
+        'visibility': 'specific',
+        'participant_ids': [me2_id],
+        'place_ids': [coruna_id],
+    })
+    check('create specific trip with invisible participant', r.status_code == 201, r.text[:200])
+    specific_trip_id = r.json()['id']
+    r = client2.patch(f'/api/trips/{specific_trip_id}', json={'title': 'hackeado'})
+    check('invisible participant cannot edit trip', r.status_code == 404, r.text[:200])
+    r = client2.post(f'/api/trips/{specific_trip_id}/photos/', files=[('files', ('x.png', make_image(), 'image/png'))])
+    check('invisible participant cannot upload photos', r.status_code == 404)
+    r = client1.post('/api/projects/', json={
+        'name': 'Proj specific', 'visibility': 'specific', 'map_mode': 'auto', 'participant_ids': [me2_id],
+    })
+    check('create specific project with invisible participant', r.status_code == 201, r.text[:200])
+    specific_project_id = r.json()['id']
+    r = client2.patch(f'/api/projects/{specific_project_id}', json={'name': 'hackeado'})
+    check('invisible participant cannot edit project', r.status_code == 404, r.text[:200])
+    # Once added to visible_users the same participant CAN edit.
+    r = client1.patch(f'/api/trips/{specific_trip_id}', json={'visible_user_ids': [me2_id]})
+    check('grant visibility to participant', r.status_code == 200)
+    r = client2.patch(f'/api/trips/{specific_trip_id}', json={'title': 'Editado pelo participante'})
+    check('visible participant can edit trip', r.status_code == 200, r.text[:200])
+    r = client1.delete(f'/api/trips/{specific_trip_id}')
+    check('cleanup specific trip', r.status_code == 204)
+    r = client1.delete(f'/api/projects/{specific_project_id}')
+    check('cleanup specific project', r.status_code == 204)
+
+    # Fix 9: pins pointing at a deleted entity are removed with it.
+    r = client1.post('/api/trips/', json={
+        'title': 'Viaje pinneado',
+        'start_date': '2026-10-10',
+        'end_date': '2026-10-11',
+        'visibility': 'all',
+        'place_ids': [coruna_id],
+    })
+    pinned_trip_id = r.json()['id']
+    r = client1.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': pinned_trip_id})
+    check('pin trip (user1)', r.status_code == 201, r.text[:200])
+    r = client2.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': pinned_trip_id})
+    check('pin trip (user2)', r.status_code == 201, r.text[:200])
+    r = client1.delete(f'/api/trips/{pinned_trip_id}')
+    check('delete pinned trip', r.status_code == 204)
+    r = client1.get('/api/pins/')
+    check('user1 pin removed with trip', all(p['entity_id'] != pinned_trip_id for p in r.json()))
+    r = client2.get('/api/pins/')
+    check('user2 pin removed with trip', all(p['entity_id'] != pinned_trip_id for p in r.json()))
+
+    r = client1.post('/api/projects/', json={'name': 'Proj pinneado', 'visibility': 'all', 'map_mode': 'auto'})
+    pinned_project_id = r.json()['id']
+    r = client1.post('/api/pins/', json={'entity_type': 'project', 'entity_id': pinned_project_id})
+    check('pin project', r.status_code == 201, r.text[:200])
+    r = client1.delete(f'/api/projects/{pinned_project_id}')
+    check('delete pinned project', r.status_code == 204)
+    r = client1.get('/api/pins/')
+    check('project pin removed with project', all(p['entity_id'] != pinned_project_id for p in r.json()))
+
+    # Fix 6: a deletion record of a private entity is only kept for its actor.
+    r = client1.post('/api/trips/', json={
+        'title': 'Privado efímero',
+        'start_date': '2026-11-01',
+        'end_date': '2026-11-02',
+        'visibility': 'private',
+        'place_ids': [coruna_id],
+    })
+    eph_trip_id = r.json()['id']
+    r = client1.delete(f'/api/trips/{eph_trip_id}')
+    check('delete ephemeral private trip', r.status_code == 204)
+    r = client2.get('/api/activities/')
+    check('deleted private trip hidden from others feed',
+          all(a['entity_name'] != 'Privado efímero' for a in r.json()))
+    r = client1.get('/api/activities/')
+    check('actor keeps deletion record',
+          any(a['entity_type'] == 'trip' and a['entity_id'] == eph_trip_id and a['action'] == 'deleted' for a in r.json()))
+
+    # Fix 7: images over the pixel budget are rejected from the header alone
+    # (decompression-bomb guard), leaving no row and no file behind.
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    photos_before = len(r.json())
+    big = Image.new('RGB', (8200, 5000), color='green')  # 41 Mpx > 40 Mpx
+    big_buf = BytesIO()
+    big.save(big_buf, format='PNG')
+    big_buf.seek(0)
+    r = client1.post(f'/api/trips/{trip_id}/photos/', files=[('files', ('huge.png', big_buf, 'image/png'))])
+    check('oversized-pixel image rejected', r.status_code == 400, r.text[:200])
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('no photo row after rejected upload', len(r.json()) == photos_before)
+
+    # Fix 1: deleting a user whose trips have photos (or who uploaded photos
+    # to someone else's trip) must not 500, and must clean rows + files.
+    db = SessionLocal()
+    try:
+        user3 = create_user(db, 'smoke_user3', 'pass12345')
+        user3_id = user3.id
+    finally:
+        db.close()
+    client4 = TestClient(app)
+    login(client4, 'smoke_user3', 'pass12345')
+
+    r = client4.post('/api/trips/', json={
+        'title': 'Viaje del user3',
+        'start_date': '2026-11-05',
+        'end_date': '2026-11-06',
+        'place_ids': [coruna_id],
+    })
+    check('user3 creates trip', r.status_code == 201, r.text[:200])
+    user3_trip_id = r.json()['id']
+    r = client4.post(f'/api/trips/{user3_trip_id}/photos/', files=[('files', ('u3.png', make_image(), 'image/png'))])
+    check('user3 uploads photo', r.status_code == 201, r.text[:200])
+    user3_photo = r.json()[0]
+    user3_photo_file = settings.uploads_dir / user3_photo['url'].rsplit('/', 1)[-1]
+    r = client4.patch(f'/api/trips/{user3_trip_id}', json={'cover_photo_id': user3_photo['id']})
+    check('user3 sets cover', r.status_code == 200)
+
+    # user3 also uploads a photo to user1's trip (as participant) and user1
+    # uses it as the trip cover.
+    r = client1.patch(f'/api/trips/{trip_id}', json={'participant_ids': [user3_id]})
+    check('user1 adds user3 as participant', r.status_code == 200, r.text[:200])
+    r = client4.post(f'/api/trips/{trip_id}/photos/', files=[('files', ('u3foreign.png', make_image(), 'image/png'))])
+    check('user3 uploads to user1 trip', r.status_code == 201, r.text[:200])
+    foreign_photo = r.json()[0]
+    foreign_photo_file = settings.uploads_dir / foreign_photo['url'].rsplit('/', 1)[-1]
+    r = client1.patch(f'/api/trips/{trip_id}', json={'cover_photo_id': foreign_photo['id']})
+    check('user1 covers with user3 photo', r.status_code == 200, r.text[:200])
+
+    r = client4.delete('/api/me/')
+    check('delete account with photos', r.status_code == 204, r.text[:200])
+    r = client4.get('/api/me/')
+    check('deleted user session invalid', r.status_code == 401)
+
+    db = SessionLocal()
+    try:
+        check('user3 gone from db', db.query(User).filter(User.id == user3_id).first() is None)
+        check('user3 trip gone', db.query(Trip).filter(Trip.id == user3_trip_id).first() is None)
+        check('user3 photo rows gone', db.query(Photo).filter(Photo.uploader_id == user3_id).count() == 0)
+        check('user1 trip cover cleared after user deletion',
+              db.query(Trip).filter(Trip.id == trip_id).one().cover_photo_id is None)
+    finally:
+        db.close()
+    check('user3 photo files removed', not user3_photo_file.exists() and not foreign_photo_file.exists())
+    r = client1.get(f'/api/trips/{trip_id}/photos/')
+    check('foreign photo gone from user1 trip', all(p['id'] != foreign_photo['id'] for p in r.json()))
+
     # Manual unmark a place in project
     place_to_unmark = place_ids_in_project[0]
     r = client1.post(f'/api/projects/{project_id}/places/{place_to_unmark}/unmark')
@@ -489,6 +640,16 @@ def main():
     r = client1.post('/api/me/avatar', files={'file': ('avatar2.png', img, 'image/png')})
     check('replace avatar', r.status_code == 200)
     check('old avatar file removed', not first_avatar_file.exists())
+
+    # Uploads are private user content: no session → 401; with a session the
+    # file is served with a private cache policy.
+    avatar_url = r.json()['avatar_url']
+    anon_client = TestClient(app)
+    r = anon_client.get(avatar_url)
+    check('uploads require auth', r.status_code == 401, r.text[:200])
+    r = client1.get(avatar_url)
+    check('uploads served with session', r.status_code == 200)
+    check('uploads cache is private', r.headers.get('cache-control', '').startswith('private'), r.headers.get('cache-control'))
 
     # Password change
     r = client1.post('/api/me/password', json={'current_password': 'pass12345', 'new_password': 'newpass123'})
@@ -580,6 +741,280 @@ def main():
         check('trips persisted', len(trips) >= 3)
     finally:
         db.close()
+
+    # --- Adversarial / dynamic tests (2026-11-18) ---
+    # The rate-limit probes above leave 6 fresh failures on the shared
+    # 'testclient' IP; without a reset, every later login in this run would
+    # get a 429. The limiter is in-process, so clearing it here is enough.
+    from app.routers.auth import _login_attempts, _login_failures
+    _login_attempts.clear()
+    _login_failures.clear()
+
+    # A dedicated client that surfaces unhandled server exceptions as 500
+    # responses instead of raising, so each probe records a FAIL instead of
+    # crashing the whole run.
+    adv = TestClient(app, raise_server_exceptions=False)
+    login(adv, 'smoke_user1', 'newpass123')
+
+    # The lightweight migrations already ran twice by now (script top + app
+    # lifespan); a further explicit run must still be a no-op.
+    try:
+        _apply_lightweight_migrations()
+        check('migrations idempotent rerun', True)
+    except Exception as e:
+        check('migrations idempotent rerun', False, repr(e))
+
+    # Ids outside SQLite's int64 range must produce a clean 4xx, never a 500
+    # (the driver raises OverflowError when binding them).
+    HUGE = 10 ** 20
+    r = adv.get(f'/api/trips/{HUGE}')
+    check('giant trip id no 500', r.status_code in (404, 422), str(r.status_code))
+    r = adv.get(f'/api/projects/{HUGE}')
+    check('giant project id no 500', r.status_code in (404, 422), str(r.status_code))
+    r = adv.get(f'/api/places/{HUGE}')
+    check('giant place id no 500', r.status_code in (404, 422), str(r.status_code))
+    r = adv.patch(f'/api/trips/{trip_id}', json={'cover_photo_id': HUGE})
+    check('giant cover photo id no 500', r.status_code in (404, 422), str(r.status_code))
+    r = adv.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': HUGE})
+    check('giant pin entity id no 500', r.status_code in (404, 422), str(r.status_code))
+    r = adv.post('/api/notifications/read', json={'ids': [HUGE]})
+    check('giant notification id no 500', r.status_code in (200, 422), str(r.status_code))
+
+    # Negative and zero ids are simply not found.
+    check('negative trip id 404', adv.get('/api/trips/-1').status_code == 404)
+    check('zero trip id 404', adv.get('/api/trips/0').status_code == 404)
+    check('negative place id 404', adv.get('/api/places/-5').status_code == 404)
+    check('zero photo id 404', adv.patch(f'/api/trips/{trip_id}/photos/0', json={'caption': 'x'}).status_code == 404)
+
+    # Dates: inverted on create, absurd-but-valid years, invalid strings.
+    r = adv.post('/api/trips/', json={'title': 'Invertido', 'start_date': '2026-07-05', 'end_date': '2026-07-01'})
+    check('create inverted dates 422', r.status_code == 422, r.text[:200])
+    r = adv.post('/api/trips/', json={'title': 'Ano 9999', 'start_date': '9999-12-31'})
+    check('year 9999 no 500', r.status_code == 201, r.text[:200])
+    if r.status_code == 201:
+        adv.delete(f"/api/trips/{r.json()['id']}")
+    r = adv.post('/api/trips/', json={'title': 'Ano 1', 'start_date': '0001-01-01'})
+    check('year 1 no 500', r.status_code == 201, r.text[:200])
+    if r.status_code == 201:
+        adv.delete(f"/api/trips/{r.json()['id']}")
+    check('invalid date string 422', adv.patch(f'/api/trips/{trip_id}', json={'start_date': 'não-é-data'}).status_code == 422)
+    check('impossible date 422', adv.post('/api/trips/', json={'start_date': '2026-02-30'}).status_code == 422)
+
+    # Types and malformed payloads must be 422, never 500.
+    check('place_ids string 422', adv.post('/api/trips/', json={'start_date': '2026-07-01', 'place_ids': 'abc'}).status_code == 422)
+    check('participant id bad type 422', adv.post('/api/trips/', json={'start_date': '2026-07-01', 'participant_ids': [1, 'x']}).status_code == 422)
+    check('bogus visibility 422', adv.post('/api/trips/', json={'start_date': '2026-07-01', 'visibility': 'everyone'}).status_code == 422)
+    r = adv.post('/api/trips/', content=b'{"title":', headers={'content-type': 'application/json'})
+    check('malformed json 422', r.status_code == 422, str(r.status_code))
+    check('array instead of object 422', adv.post('/api/trips/', json=['não', 'é', 'objeto']).status_code == 422)
+
+    # Length limits and extreme unicode.
+    check('10k title 422', adv.post('/api/trips/', json={'title': 'x' * 10_000, 'start_date': '2026-07-01'}).status_code == 422)
+    check('256 project name 422', adv.post('/api/projects/', json={'name': 'y' * 256}).status_code == 422)
+    unicode_title = 'Foguete 🚀 עברית é'
+    r = adv.post('/api/trips/', json={'title': unicode_title, 'start_date': '2026-07-01'})
+    check('unicode title accepted', r.status_code == 201, r.text[:200])
+    if r.status_code == 201:
+        unicode_trip_id = r.json()['id']
+        check('unicode title round-trips', adv.get(f'/api/trips/{unicode_trip_id}').json()['title'] == unicode_title)
+        adv.delete(f'/api/trips/{unicode_trip_id}')
+    r = adv.post('/api/trips/', json={'title': 'NUL', 'start_date': '2026-07-01', 'notes': 'abc\x00def'})
+    check('NUL byte in notes no 500', r.status_code == 201, str(r.status_code))
+    if r.status_code == 201:
+        adv.delete(f"/api/trips/{r.json()['id']}")
+
+    # LIKE metacharacters in the search query must be treated literally.
+    r = adv.get('/api/search/', params={'q': '__'})
+    check('search underscores not wildcard',
+          r.status_code == 200 and r.json()['places'] == [] and r.json()['trips'] == [],
+          str(r.json())[:200])
+    r = adv.get('/api/search/', params={'q': '%%'})
+    check('search percent not wildcard',
+          r.status_code == 200 and r.json()['places'] == [] and r.json()['trips'] == [],
+          str(r.json())[:200])
+    from app.services import place_service
+    db = SessionLocal()
+    try:
+        check('cached place search escapes wildcards', place_service.find_cached_places(db, '__') == [])
+    finally:
+        db.close()
+
+    # Pagination bounds.
+    check('activities limit=0 422', adv.get('/api/activities/', params={'limit': 0}).status_code == 422)
+    check('activities limit=-1 422', adv.get('/api/activities/', params={'limit': -1}).status_code == 422)
+    check('activities limit huge 422', adv.get('/api/activities/', params={'limit': 10 ** 9}).status_code == 422)
+    r = adv.get('/api/activities/', params={'limit': 1})
+    check('activities limit=1 ok', r.status_code == 200 and len(r.json()) <= 1)
+    check('places limit=-1 422', adv.get('/api/places/', params={'limit': -1}).status_code == 422)
+    r = adv.get('/api/places/', params={'limit': 0})
+    check('places limit=0 empty ok', r.status_code == 200 and r.json() == [])
+    check('places offset=-1 422', adv.get('/api/places/', params={'offset': -1}).status_code == 422)
+    check('places limit=501 422', adv.get('/api/places/', params={'limit': 501}).status_code == 422)
+
+    # Place import: coordinates must be finite and in range (a NaN would be
+    # stored and later serialised as invalid JSON, breaking every client).
+    nan_place = {'osm_type': 'node', 'osm_id': 900001, 'name': 'NaN Island', 'place_type': 'outro', 'lat': float('nan'), 'lon': 0.0}
+    check('NaN latitude 422', adv.post('/api/places/import', json=nan_place).status_code == 422)
+    check('latitude 91 422', adv.post('/api/places/import', json={**nan_place, 'lat': 91.0}).status_code == 422)
+    check('longitude -181 422', adv.post('/api/places/import', json={**nan_place, 'lat': 0.0, 'lon': -181.0}).status_code == 422)
+    r = adv.post('/api/places/import', json={
+        'osm_type': 'node', 'osm_id': 900002, 'name': 'Polo Norte Teste',
+        'place_type': 'outro', 'lat': 90.0, 'lon': 180.0,
+    })
+    check('edge coordinates accepted', r.status_code == 200, r.text[:200])
+
+    # External links: duplicates differing only by trailing slash or by
+    # scheme/host case are still duplicates.
+    r = adv.patch(f'/api/trips/{trip_id}', json={'external_links': [
+        {'url': 'https://example.com/x'}, {'url': 'https://example.com/x/'},
+    ]})
+    check('duplicate link trailing slash 422', r.status_code == 422, r.text[:200])
+    r = adv.patch(f'/api/trips/{trip_id}', json={'external_links': [
+        {'url': 'https://EXAMPLE.com/x'}, {'url': 'https://example.com/x'},
+    ]})
+    check('duplicate link host case 422', r.status_code == 422, r.text[:200])
+
+    # Photo upload abuse: 15 MB + 1 byte, and an executable with an image
+    # content-type (content sniffing must reject it cleanly).
+    oversized = b'\x89PNG\r\n\x1a\n' + b'\x00' * settings.max_upload_bytes
+    r = adv.post(f'/api/trips/{trip_id}/photos/', files=[('files', ('big.png', oversized, 'image/png'))])
+    check('15MB+1 upload rejected 413', r.status_code == 413, str(r.status_code))
+    exe = b'MZ\x90\x00' + b'\x00' * 200
+    photos_before = len(adv.get(f'/api/trips/{trip_id}/photos/').json())
+    r = adv.post(f'/api/trips/{trip_id}/photos/', files=[('files', ('evil.png', exe, 'image/png'))])
+    check('exe as png rejected 400', r.status_code == 400, r.text[:200])
+    check('no photo row after exe', len(adv.get(f'/api/trips/{trip_id}/photos/').json()) == photos_before)
+
+    trip_photos_now = adv.get(f'/api/trips/{trip_id}/photos/').json()
+    first_photo_id = trip_photos_now[0]['id']
+    check('caption 513 chars 422', adv.patch(f'/api/trips/{trip_id}/photos/{first_photo_id}', json={'caption': 'c' * 513}).status_code == 422)
+    r = adv.patch(f'/api/trips/{trip_id}/photos/{first_photo_id}', json={'caption': 'Legenda 🌍'})
+    check('emoji caption ok', r.status_code == 200 and r.json()['caption'] == 'Legenda 🌍', r.text[:200])
+
+    # Reorder must reject a foreign photo id (from another trip), not just
+    # missing/duplicate ids.
+    r = adv.post('/api/trips/', json={'title': 'Viaje B', 'start_date': '2026-11-10', 'place_ids': [coruna_id]})
+    check('create trip B', r.status_code == 201, r.text[:200])
+    trip_b_id = r.json()['id']
+    r = adv.post(f'/api/trips/{trip_b_id}/photos/', files=[('files', ('b.png', make_image(), 'image/png'))])
+    check('photo on trip B', r.status_code == 201, r.text[:200])
+    foreign_photo_id = r.json()[0]['id']
+    current_photo_ids = [p['id'] for p in adv.get(f'/api/trips/{trip_id}/photos/').json()]
+    r = adv.put(f'/api/trips/{trip_id}/photos/order', json={'photo_ids': current_photo_ids[:-1] + [foreign_photo_id]})
+    check('reorder rejects foreign photo id', r.status_code == 422, r.text[:200])
+    r = adv.delete(f'/api/trips/{trip_b_id}')
+    check('cleanup trip B', r.status_code == 204)
+
+    # Pins: documented cap (2 per type), invalid entity type, double unpin.
+    check('pin trip 1', adv.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': trip_id}).status_code == 201)
+    check('pin trip 2', adv.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': private_trip_id}).status_code == 201)
+    r = adv.post('/api/trips/', json={'title': 'Terceira', 'start_date': '2026-11-11', 'place_ids': [coruna_id]})
+    third_trip_id = r.json()['id']
+    r = adv.post('/api/pins/', json={'entity_type': 'trip', 'entity_id': third_trip_id})
+    check('third pin 409', r.status_code == 409, r.text[:200])
+    check('pin place 422', adv.post('/api/pins/', json={'entity_type': 'place', 'entity_id': coruna_id}).status_code == 422)
+    check('unpin trip 1', adv.delete(f'/api/pins/trip/{trip_id}').status_code == 204)
+    check('double unpin 404', adv.delete(f'/api/pins/trip/{trip_id}').status_code == 404)
+    adv.delete(f'/api/pins/trip/{private_trip_id}')
+    adv.delete(f'/api/trips/{third_trip_id}')
+
+    # Referential integrity: deleting a project linked to a trip cleans the
+    # relation rows and the trip detail.
+    r = adv.post('/api/projects/', json={'name': 'Proj ligado', 'visibility': 'all', 'map_mode': 'auto'})
+    linked_project_id = r.json()['id']
+    r = adv.post('/api/trips/', json={
+        'title': 'Viaje ligado', 'start_date': '2026-11-12',
+        'place_ids': [coruna_id], 'project_ids': [linked_project_id],
+    })
+    linked_trip_id = r.json()['id']
+    check('trip linked to project', len(adv.get(f'/api/trips/{linked_trip_id}').json()['projects']) == 1)
+    r = adv.delete(f'/api/projects/{linked_project_id}')
+    check('delete linked project', r.status_code == 204, r.text[:200])
+    check('trip projects cleaned after project delete',
+          adv.get(f'/api/trips/{linked_trip_id}').json()['projects'] == [])
+    db = SessionLocal()
+    try:
+        check('no dangling trip_project rows',
+              db.query(TripProject).filter(TripProject.project_id == linked_project_id).count() == 0)
+    finally:
+        db.close()
+    adv.delete(f'/api/trips/{linked_trip_id}')
+
+    # A deleted user must disappear from participants/visible_users of trips
+    # they were attached to (user3 was a participant of trip_id and was
+    # deleted earlier in this run).
+    r = adv.get(f'/api/trips/{trip_id}')
+    check('deleted user not in participants', all(p['id'] != user3_id for p in r.json()['participants']))
+    check('deleted user not in visible users', all(u['id'] != user3_id for u in r.json()['visible_users']))
+
+    # Same-name create → delete → create is allowed (names are not unique).
+    r = adv.post('/api/projects/', json={'name': 'Projeto Efémero'})
+    check('create ephemeral project', r.status_code == 201)
+    eph_id = r.json()['id']
+    check('delete ephemeral project', adv.delete(f'/api/projects/{eph_id}').status_code == 204)
+    r = adv.post('/api/projects/', json={'name': 'Projeto Efémero'})
+    check('recreate same-name project', r.status_code == 201, r.text[:200])
+    if r.status_code == 201:
+        adv.delete(f"/api/projects/{r.json()['id']}")
+
+    # Mark-as-read must only affect the caller's own notifications.
+    r = client2.get('/api/notifications/')
+    user2_notif_ids = [n['id'] for n in r.json()['notifications']]
+    user2_unread_before = r.json()['unread_count']
+    r = adv.post('/api/notifications/read', json={'ids': user2_notif_ids})
+    check('mark read call ok', r.status_code == 200, r.text[:200])
+    r = client2.get('/api/notifications/unread-count')
+    check('cross-user mark_read is no-op', r.json()['unread_count'] == user2_unread_before, str(r.json()))
+
+    # Auth/session edge cases.
+    anon = TestClient(app, raise_server_exceptions=False)
+    check('mutation without session 401',
+          anon.post('/api/trips/', json={'start_date': '2026-07-01'}).status_code == 401)
+    check('read without session 401', anon.get('/api/notifications/').status_code == 401)
+
+    no_csrf = TestClient(app, raise_server_exceptions=False)
+    login(no_csrf, 'smoke_user1', 'newpass123')
+    no_csrf.headers.pop('x-csrf-token')
+    check('mutation without csrf 403', no_csrf.post('/api/trips/', json={'start_date': '2026-07-01'}).status_code == 403)
+    check('read without csrf ok', no_csrf.get('/api/trips/').status_code == 200)
+    no_csrf.headers.update({'x-csrf-token': 'token-errado'})
+    check('mutation wrong csrf 403', no_csrf.post('/api/trips/', json={'start_date': '2026-07-01'}).status_code == 403)
+
+    # An expired session is rejected and pruned from the table.
+    sess_client = TestClient(app, raise_server_exceptions=False)
+    login(sess_client, 'smoke_user1', 'newpass123')
+    sess_token = sess_client.cookies.get(settings.session_cookie_name)
+    db = SessionLocal()
+    try:
+        from app.models import Session as UserSession
+        from datetime import datetime, timedelta, timezone
+        row = db.query(UserSession).filter(UserSession.token == sess_token).one()
+        row.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+        db.commit()
+    finally:
+        db.close()
+    check('expired session 401', sess_client.get('/api/me/').status_code == 401)
+    db = SessionLocal()
+    try:
+        check('expired session pruned',
+              db.query(UserSession).filter(UserSession.token == sess_token).first() is None)
+    finally:
+        db.close()
+
+    # Logout invalidates the session server-side.
+    out_client = TestClient(app, raise_server_exceptions=False)
+    login(out_client, 'smoke_user1', 'newpass123')
+    check('logout ok', out_client.post('/api/auth/logout').status_code == 200)
+    check('session dead after logout', out_client.get('/api/me/').status_code == 401)
+
+    # Username uniqueness is case-insensitive (both stored lowercased).
+    r = adv.patch('/api/me/', json={'username': 'SMOKE_USER2'})
+    check('username duplicate other case 409', r.status_code == 409, r.text[:200])
+
+    # Tile validation happens before any upstream request.
+    check('tile zoom 20 rejected', adv.get('/api/tiles/light/20/0/0.png').status_code == 400)
+    check('tile negative zoom rejected', adv.get('/api/tiles/light/-1/0/0.png').status_code == 400)
+    check('tile bogus style rejected', adv.get('/api/tiles/blue/5/0/0.png').status_code == 400)
 
     # Final summary
     passed = sum(1 for _, s, _ in results if s == 'PASS')

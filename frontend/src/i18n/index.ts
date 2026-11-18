@@ -12,7 +12,9 @@ export function t(key: string, params?: Record<string, string | number>): string
   }
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
-      text = text.replace(`{${k}}`, String(v))
+      // split/join replaces every occurrence (String.replace only the first);
+      // replaceAll would need lib ES2021 and the target is ES2020.
+      text = text.split(`{${k}}`).join(String(v))
     })
   }
   return text

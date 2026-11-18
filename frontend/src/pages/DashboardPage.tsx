@@ -49,6 +49,7 @@ export function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [pinError, setPinError] = useState('')
+  const [isPinBusy, setIsPinBusy] = useState(false)
 
   // The four datasets load in parallel, each through the shared hook; stats
   // stay optional (a failure there leaves the fallback numbers in place).
@@ -98,7 +99,11 @@ export function DashboardPage() {
   const hasMap = visitedPlaces.length > 0
 
   const togglePin = async (entityType: PinEntityType, entityId: number) => {
+    // No concurrent toggles: a second click before the first resolves reads
+    // a stale pinned set and the duplicate request fails server-side.
+    if (isPinBusy) return
     setPinError('')
+    setIsPinBusy(true)
     try {
       if (pinnedKeys.has(`${entityType}:${entityId}`)) {
         await api.pins.unpin(entityType, entityId)
@@ -109,6 +114,8 @@ export function DashboardPage() {
     } catch (err) {
       if (err instanceof ApiError) setPinError(err.message)
       else setPinError(t('dashboard.pinError'))
+    } finally {
+      setIsPinBusy(false)
     }
   }
 

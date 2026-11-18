@@ -7,13 +7,19 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
-from PIL import Image
+from PIL import Image, ImageOps
 import pillow_heif
 
 from app.config import settings
 
 MAX_SIZE = 2000
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+# Decompression-bomb guard: images over this many pixels are rejected before
+# any pixel data is decoded. Pillow's own warning threshold is much higher,
+# so MAX_IMAGE_PIXELS is pinned to the same limit to make it an error.
+MAX_IMAGE_PIXELS = 40_000_000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 _EXIF_DATETIME_ORIGINAL = 36867  # DateTimeOriginal, lives in the EXIF IFD
 _EXIF_DATETIME_DIGITIZED = 36868  # fallback when the camera filled only this
@@ -86,7 +92,25 @@ def process_and_save(content: bytes, content_type: str) -> tuple[str, int, int]:
             image = Image.frombytes(heif_file.mode, heif_file.size, heif_file.data, "raw")
         else:
             image = Image.open(io.BytesIO(content))
+            # Reject oversized images from the header alone, before any pixel
+            # data is decoded into memory (decompression-bomb guard).
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Imagem demasiado grande (máx. 40 Mpx)",
+                )
             image.load()  # fully decode now, the BytesIO is closed by the caller
+            # Mobile photos store orientation in an EXIF tag instead of
+            # rotating the pixels; bake it in so portraits are not saved
+            # sideways. EXIF extraction reads the original bytes, so the
+            # transpose does not affect taken_at/GPS.
+            image = ImageOps.exif_transpose(image)
+
+        if image.width * image.height > MAX_IMAGE_PIXELS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Imagem demasiado grande (máx. 40 Mpx)",
+            )
 
         if image.mode in ("RGBA", "P", "LA"):
             image = image.convert("RGB")
