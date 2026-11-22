@@ -12,6 +12,7 @@ import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import { TripLinks } from '@/components/TripLinks'
 import { TripPhotos } from '@/components/TripPhotos'
 import { getTripStatus } from '@/utils/tripStatus'
+import { canEditEntity } from '@/utils/permissions'
 import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
 
@@ -124,11 +125,9 @@ export function TripDetailPage() {
 
   const status = getTripStatus(trip.start_date, trip.end_date)
   const dayCount = tripDayCount(trip.start_date, trip.end_date)
-  // Mirrors the backend edit rule (can_user_edit_trip: creator or
-  // participant). Users who can only *see* the trip get no mutation
-  // actions — every one of them would fail with a 404.
-  const canEdit =
-    !!user && (trip.creator_id === user.id || trip.participants.some((p) => p.id === user.id))
+  // Users who can only *see* the trip get no mutation actions — every one
+  // of them would fail with a 404.
+  const canEdit = canEditEntity(user, trip)
 
   return (
     <div className="space-y-6">

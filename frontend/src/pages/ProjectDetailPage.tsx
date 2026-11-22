@@ -14,6 +14,7 @@ import { formatHierarchy, formatTripTitle, formatDate as formatUserDate, visibil
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { checkAndCelebrate } from '@/utils/milestones'
+import { canEditEntity } from '@/utils/permissions'
 import type { Geometry } from 'geojson'
 
 const VISITED_COLOR = '#f59e0b'
@@ -278,10 +279,9 @@ export function ProjectDetailPage() {
     polygons: 'projects.mapPolygons',
     auto: 'projects.mapAuto',
   }
-  // Mirrors the backend edit rule (creator or participant). Users who can
-  // only *see* the project get no mutation UI — every action would 404.
-  const canEdit =
-    !!user && (project.creator_id === user.id || project.participants.some((p) => p.id === user.id))
+  // Users who can only *see* the project get no mutation UI — every action
+  // would 404.
+  const canEdit = canEditEntity(user, project)
 
   return (
     <div className="space-y-6">

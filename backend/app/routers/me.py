@@ -17,16 +17,6 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 ALLOWED_DATE_FORMATS = {"%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d"}
 
 
-def _unlink_upload(url: str | None) -> None:
-    """Best-effort removal of a file stored in the uploads volume."""
-    if not url or not url.startswith("/uploads/"):
-        return
-    try:
-        (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
-    except OSError:
-        pass
-
-
 @router.get("/", response_model=UserResponse)
 def get_profile(user=Depends(get_current_user)):
     return user
@@ -87,7 +77,7 @@ def delete_account(
     urls = user_service.delete_user_account(db, user)
     response.delete_cookie(key=settings.session_cookie_name)
     for url in urls:
-        _unlink_upload(url)
+        image_service.unlink_upload(url)
     return None
 
 
@@ -127,5 +117,5 @@ async def upload_avatar(
     db.refresh(user)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.USER, user.id, user.username)
     # The replaced avatar file is no longer referenced by anyone.
-    _unlink_upload(previous_avatar)
+    image_service.unlink_upload(previous_avatar)
     return user

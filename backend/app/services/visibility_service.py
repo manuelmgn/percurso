@@ -67,6 +67,13 @@ def _project_is_visible_condition(user_id: int):
     )
 
 
+def can_user_edit_entity(user: User, entity) -> bool:
+    """Edit rule shared by trips and projects: creator or participant."""
+    if entity.creator_id == user.id:
+        return True
+    return any(p.id == user.id for p in entity.participants)
+
+
 def can_user_see_trip(db: Session, user: User, trip: Trip) -> bool:
     """Single-trip check via the same SQL rule as the list filters."""
     return (

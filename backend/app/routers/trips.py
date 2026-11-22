@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -9,28 +9,9 @@ from app.schemas import TripCreate, TripUpdate, TripResponse, TripListResponse, 
 from app.serializers import to_trip_list_response
 from app.services import trip_service, project_service, activity_service, visibility_service
 from app.services.trip_service import trip_display_name
+from app.routers.guards import get_visible_trip_or_404, get_editable_trip_or_404
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
-
-
-def _get_visible_trip(db: Session, trip_id: int, user: User) -> Trip:
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not visibility_service.can_user_see_trip(db, user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
-    return trip
-
-
-def _get_editable_trip(db: Session, trip_id: int, user: User) -> Trip:
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    # Editing also requires visibility: a participant of a SPECIFIC trip who
-    # is not among its allowed viewers must not edit through a leaked id.
-    if (
-        not trip
-        or not trip_service.can_user_edit_trip(user, trip)
-        or not visibility_service.can_user_see_trip(db, user, trip)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
-    return trip
 
 
 @router.get("/", response_model=list[TripListResponse])
@@ -59,7 +40,7 @@ def get_trip(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    trip = _get_visible_trip(db, trip_id, user)
+    trip = get_visible_trip_or_404(db, trip_id, user)
     return _trip_to_response(db, user, trip)
 
 
@@ -70,7 +51,7 @@ def update_trip(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
 
     trip = trip_service.update_trip(db, user, trip, payload)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.TRIP, trip.id, trip_display_name(trip))
@@ -83,7 +64,7 @@ def get_delete_warning(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
 
     affected = trip_service.get_affected_projects(db, user, trip)
     return TripDeleteWarning(
@@ -112,7 +93,7 @@ def delete_trip(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
 
     activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.TRIP, trip.id, trip_display_name(trip))
     trip_service.delete_trip(db, trip)

@@ -78,6 +78,19 @@ def extract_exif(content: bytes, content_type: str) -> tuple[Optional[datetime],
     return taken_at, lat, lon
 
 
+def unlink_upload(url: Optional[str]) -> None:
+    """Best-effort removal of a file stored in the uploads volume.
+
+    The file may already be gone from a previous partial cleanup, and the
+    url may be None or point elsewhere — both are ignored silently."""
+    if not url or not url.startswith("/uploads/"):
+        return
+    try:
+        (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def process_and_save(content: bytes, content_type: str) -> tuple[str, int, int]:
     """Process raw image bytes and save as WebP. Returns (url, width, height)."""
     if content_type not in ALLOWED_TYPES:

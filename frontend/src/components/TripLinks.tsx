@@ -3,6 +3,7 @@ import { ExternalLink as ExternalLinkIcon, HardDrive, Images, Link as LinkIcon, 
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
+import { canEditEntity } from '@/utils/permissions'
 import { useTranslation } from '@/i18n'
 import type { ExternalLink, Trip } from '@/types'
 
@@ -31,8 +32,7 @@ export function TripLinks({ trip }: TripLinksProps) {
   const [linksOverride, setLinksOverride] = useState<ExternalLink[] | undefined>(undefined)
   const links = linksOverride ?? trip.external_links
 
-  const canEditTrip =
-    !!user && (trip.creator_id === user.id || trip.participants.some((p) => p.id === user.id))
+  const canEditTrip = canEditEntity(user, trip)
 
   // Hidden when there is nothing to show and the user cannot add links.
   if (!canEditTrip && links.length === 0) return null

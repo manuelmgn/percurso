@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
-import { useUnloadGuard } from '@/hooks/useUnloadGuard'
+import { useDirtyForm } from '@/hooks/useDirtyForm'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { FormPageSkeleton } from '@/components/ui/Skeleton'
+import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
+import { toggleId } from '@/utils/forms'
 import type { MapMode, PlaceType, User, Visibility } from '@/types'
 import { isPolygonMode } from '@/types'
 export function ProjectEditPage() {
@@ -29,20 +31,11 @@ export function ProjectEditPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  // JSON fingerprint of the whole form; frozen once the initial load
-  // finishes. Any later difference arms the "unsaved changes" dialog.
-  const savedFormRef = useRef<string | null>(null)
-  const formFingerprint = JSON.stringify({
-    name, description, visibility, mapMode, participantIds, visibleUserIds,
-  })
-  if (savedFormRef.current === null && !isLoading) {
-    savedFormRef.current = formFingerprint
-  }
-  const isDirty =
-    savedFormRef.current !== null &&
-    !isSubmitting &&
-    formFingerprint !== savedFormRef.current
-  useUnloadGuard(isDirty)
+  useDirtyForm(
+    { name, description, visibility, mapMode, participantIds, visibleUserIds },
+    isLoading,
+    isSubmitting,
+  )
 
   useEffect(() => {
     // Cancellation guard: a slow response for project A must never
@@ -78,9 +71,6 @@ export function ProjectEditPage() {
     load()
     return () => { cancelled = true }
   }, [id, isEdit, user?.id, t])
-
-  const toggleId = (list: number[], idToToggle: number) =>
-    list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
 
   // Mixed place types force points mode and hide the toggle (spec §6.1)
   const mixedTypes = new Set(placeTypes).size > 1
@@ -164,19 +154,7 @@ export function ProjectEditPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium" htmlFor="visibility">{t('projectEdit.visibilityLabel')}</label>
-              <select
-                id="visibility"
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value as Visibility)}
-                className="input"
-              >
-                <option value="all">{t('visibility.optionAll')}</option>
-                <option value="specific">{t('visibility.optionSpecific')}</option>
-                <option value="private">{t('visibility.optionPrivate')}</option>
-              </select>
-            </div>
+            <VisibilitySelect prefix="projectEdit" value={visibility} onChange={setVisibility} />
             {mixedTypes ? (
               <div>
                 <label className="mb-1 block text-sm font-medium">{t('projectEdit.mapModeLabel')}</label>
@@ -202,15 +180,12 @@ export function ProjectEditPage() {
           </div>
 
           {visibility === 'specific' && (
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t('projectEdit.visibleToLabel')}</label>
-              <PillChecklist
-                items={users.map((u) => ({ id: u.id, label: u.username }))}
-                selectedIds={visibleUserIds}
-                onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
-                emptyMessage={t('projectEdit.noOtherUsers')}
-              />
-            </div>
+            <VisibleUsersField
+              prefix="projectEdit"
+              users={users}
+              selectedIds={visibleUserIds}
+              onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
+            />
           )}
 
           <div>

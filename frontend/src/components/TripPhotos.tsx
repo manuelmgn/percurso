@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Image as ImageIcon, Loader2, Plus, Star, Tra
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
+import { canEditEntity } from '@/utils/permissions'
 import { useTranslation } from '@/i18n'
 import { Lightbox } from '@/components/ui/Lightbox'
 import type { Photo, Trip } from '@/types'
@@ -35,8 +36,7 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   const coverPhotoId = coverOverride ?? trip.cover_photo_id
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const canEditTrip =
-    !!user && (trip.creator_id === user.id || trip.participants.some((p) => p.id === user.id))
+  const canEditTrip = canEditEntity(user, trip)
   const canManage = (photo: Photo) =>
     !!user && canEditTrip && (photo.uploader_id === user.id || trip.creator_id === user.id)
 

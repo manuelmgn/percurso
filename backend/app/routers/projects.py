@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
@@ -9,6 +9,7 @@ from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectLi
 from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
 from app.services import project_service, place_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
+from app.routers.guards import get_visible_project_or_404, get_editable_project_or_404
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -39,9 +40,7 @@ def get_project(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or not visibility_service.can_user_see_project(db, user, project):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_visible_project_or_404(db, project_id, user)
     return _project_to_response(db, user, project)
 
 
@@ -52,13 +51,7 @@ def update_project(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     project = project_service.update_project(db, user, project, payload)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.PROJECT, project.id, project.name)
@@ -71,13 +64,7 @@ def delete_project(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     activity_service.log_activity(db, user, EntityAction.DELETED, EntityType.PROJECT, project.id, project.name)
     project_service.delete_project(db, user, project)
@@ -91,13 +78,7 @@ def add_place_to_project(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     place = db.query(Place).filter(Place.id == place_id).first()
     if not place:
@@ -115,13 +96,7 @@ def remove_place_from_project(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     project_service.remove_place_from_project(db, user, project, place_id)
     activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.PROJECT, project.id, project.name)
@@ -154,13 +129,7 @@ async def bulk_import_places(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     place_type = payload.place_type
 
@@ -212,13 +181,7 @@ async def confirm_bulk_import(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     # Any line with a selected candidate is imported, whatever its original
     # status (the user resolves ambiguous lines in the review screen).
@@ -248,13 +211,7 @@ def toggle_place_unmarked(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if (
-        not project
-        or not project_service.can_user_edit_project(user, project)
-        or not visibility_service.can_user_see_project(db, user, project)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado")
+    project = get_editable_project_or_404(db, project_id, user)
 
     project_place = project_service.toggle_place_unmarked(db, user, project, place_id)
     if not project_place:

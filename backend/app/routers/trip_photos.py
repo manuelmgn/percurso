@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -9,7 +7,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import User, Photo
 from app.schemas import PhotoResponse, PhotoCaptionUpdate, PhotoOrderUpdate
-from app.services import trip_service, visibility_service, image_service
+from app.services import image_service
+from app.routers.guards import get_visible_trip_or_404, get_editable_trip_or_404
 
 router = APIRouter(prefix="/api/trips/{trip_id}/photos", tags=["photos"])
 
@@ -32,39 +31,15 @@ def _photo_to_response(photo: Photo) -> PhotoResponse:
     )
 
 
-def _get_visible_trip(db: Session, trip_id: int, user: User):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    if not trip or not visibility_service.can_user_see_trip(db, user, trip):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
-    return trip
-
-
-def _get_editable_trip(db: Session, trip_id: int, user: User):
-    trip = trip_service.get_trip_by_id(db, trip_id)
-    # Editing also requires visibility: a participant of a SPECIFIC trip who
-    # is not among its allowed viewers must not edit through a leaked id.
-    if (
-        not trip
-        or not trip_service.can_user_edit_trip(user, trip)
-        or not visibility_service.can_user_see_trip(db, user, trip)
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
-    return trip
-
-
 def _get_editable_photo(db: Session, trip_id: int, user: User, photo_id: int) -> Photo:
     """Photo inside the trip that this user may manage (uploader or creator).
 
     Deliberate 404 (not 403) so outsiders cannot even learn the id exists."""
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
     photo = db.query(Photo).filter(Photo.id == photo_id, Photo.trip_id == trip_id).first()
     if not photo or (photo.uploader_id != user.id and trip.creator_id != user.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
     return photo
-
-
-def _uploads_path(url: str) -> Path:
-    return settings.uploads_dir / url.rsplit("/", 1)[-1]
 
 
 @router.get("/", response_model=list[PhotoResponse])
@@ -73,7 +48,7 @@ def list_photos(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    trip = _get_visible_trip(db, trip_id, user)
+    trip = get_visible_trip_or_404(db, trip_id, user)
     photos = (
         db.query(Photo)
         .filter(Photo.trip_id == trip.id)
@@ -90,7 +65,7 @@ async def upload_photos(
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
 
     # Validate everything before writing anything: either all photos are
     # created or none are.
@@ -138,10 +113,7 @@ async def upload_photos(
         db.rollback()
         # Remove any files already written so a failed batch leaves no orphans.
         for photo in photos:
-            try:
-                _uploads_path(photo.url).unlink(missing_ok=True)
-            except OSError:
-                pass
+            image_service.unlink_upload(photo.url)
         raise
 
     for photo in photos:
@@ -158,7 +130,7 @@ def reorder_photos(
 ):
     """Reassign manual positions. The payload is the FULL desired order and
     must list exactly the trip's photo ids (same set, no extras, no dupes)."""
-    trip = _get_editable_trip(db, trip_id, user)
+    trip = get_editable_trip_or_404(db, trip_id, user)
 
     current_ids = {row[0] for row in db.query(Photo.id).filter(Photo.trip_id == trip.id).all()}
     requested_ids = payload.photo_ids
@@ -205,7 +177,7 @@ def delete_photo(
 ):
     photo = _get_editable_photo(db, trip_id, user, photo_id)
 
-    file_path = _uploads_path(photo.url)
+    photo_url = photo.url
     # Clear the trip cover if it pointed at this photo. Needed on databases
     # where the cover FK could not be added (SQLite ALTER limitation); on
     # fresh databases ON DELETE SET NULL also does it, and this write is
@@ -216,8 +188,5 @@ def delete_photo(
     db.delete(photo)
     db.commit()
     # Best effort: the file may already be gone from a previous partial cleanup.
-    try:
-        file_path.unlink(missing_ok=True)
-    except OSError:
-        pass
+    image_service.unlink_upload(photo_url)
     return None

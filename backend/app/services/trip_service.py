@@ -5,11 +5,10 @@ from urllib.parse import urlparse
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.config import settings
 from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo, Pin, EntityType
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate, ExternalLinkInput
-from app.services import visibility_service, project_service, notification_service
+from app.services import visibility_service, project_service, notification_service, image_service
 
 
 def trip_display_name(trip: Trip) -> str:
@@ -218,12 +217,7 @@ def delete_trip(db: Session, trip: Trip) -> None:
     db.delete(trip)
     db.commit()
     for photo in photos:
-        try:
-            filename = photo.url.rsplit("/", 1)[-1]
-            file_path = settings.uploads_dir / filename
-            file_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        image_service.unlink_upload(photo.url)
 
 
 def get_affected_projects(db: Session, user: User, trip: Trip) -> list[Project]:
@@ -236,10 +230,7 @@ def get_affected_projects(db: Session, user: User, trip: Trip) -> list[Project]:
 
 
 def can_user_edit_trip(user: User, trip: Trip) -> bool:
-    if trip.creator_id == user.id:
-        return True
-    participant_ids = [p.id for p in trip.participants]
-    return user.id in participant_ids
+    return visibility_service.can_user_edit_entity(user, trip)
 
 
 def list_trips(db: Session, user: User) -> list[Trip]:

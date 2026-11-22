@@ -246,7 +246,4 @@ def toggle_place_unmarked(db: Session, user: User, project: Project, place_id: i
 
 
 def can_user_edit_project(user: User, project: Project) -> bool:
-    if project.creator_id == user.id:
-        return True
-    participant_ids = [p.id for p in project.participants]
-    return user.id in participant_ids
+    return visibility_service.can_user_edit_entity(user, project)

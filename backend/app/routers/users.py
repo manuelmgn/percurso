@@ -1,24 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user, require_admin, require_admin_csrf
 from app.models import User, UserRole, Session as UserSession
 from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
-from app.services import user_service, visibility_service
+from app.services import user_service, visibility_service, image_service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
-
-
-def _unlink_upload(url: str | None) -> None:
-    """Best-effort removal of a file stored in the uploads volume."""
-    if not url or not url.startswith("/uploads/"):
-        return
-    try:
-        (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 @router.get("/public/{username}", response_model=PublicProfileResponse)
@@ -130,5 +119,5 @@ def delete_user(
     # the files on disk are removed only after the delete has committed.
     urls = user_service.delete_user_account(db, user)
     for url in urls:
-        _unlink_upload(url)
+        image_service.unlink_upload(url)
     return None

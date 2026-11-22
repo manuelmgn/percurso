@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
-import { useUnloadGuard } from '@/hooks/useUnloadGuard'
+import { useDirtyForm } from '@/hooks/useDirtyForm'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
@@ -11,7 +11,9 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { FormPageSkeleton } from '@/components/ui/Skeleton'
 import { PillChecklist } from '@/components/ui/PillChecklist'
+import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
 import { formatTripDateRange } from '@/utils/format'
+import { toggleId } from '@/utils/forms'
 import type { ProjectListItem, User, Visibility } from '@/types'
 
 export function TripEditPage() {
@@ -41,21 +43,14 @@ export function TripEditPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  // JSON fingerprint of the whole form; frozen once the initial load
-  // finishes. Any later difference arms the "unsaved changes" dialog.
-  const savedFormRef = useRef<string | null>(null)
-  const formFingerprint = JSON.stringify({
-    title, startDate, endDate, notes, companionsText, visibility,
-    places, participantIds, visibleUserIds, projectIds,
-  })
-  if (savedFormRef.current === null && !isLoading) {
-    savedFormRef.current = formFingerprint
-  }
-  const isDirty =
-    savedFormRef.current !== null &&
-    !isSubmitting &&
-    formFingerprint !== savedFormRef.current
-  useUnloadGuard(isDirty)
+  const isDirty = useDirtyForm(
+    {
+      title, startDate, endDate, notes, companionsText, visibility,
+      places, participantIds, visibleUserIds, projectIds,
+    },
+    isLoading,
+    isSubmitting,
+  )
 
   useEffect(() => {
     // Cancellation guard: a slow response for trip A must never repopulate
@@ -108,9 +103,6 @@ export function TripEditPage() {
     if (isEdit || !presetProjectId || isDirty) return
     setProjectIds((prev) => (prev.includes(presetProjectId) ? prev : [...prev, presetProjectId]))
   }, [isEdit, presetProjectId, isDirty])
-
-  const toggleId = (list: number[], idToToggle: number) =>
-    list.includes(idToToggle) ? list.filter((x) => x !== idToToggle) : [...list, idToToggle]
 
   // Unified "Companhia" field: while the user types, matching users are
   // suggested. Picking one turns them into a user companion (chip); text
@@ -372,30 +364,15 @@ export function TripEditPage() {
             <p className="mt-1 text-xs text-muted">{t('tripEdit.companionsHint')}</p>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="visibility">{t('tripEdit.visibilityLabel')}</label>
-            <select
-              id="visibility"
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as Visibility)}
-              className="input"
-            >
-              <option value="all">{t('visibility.optionAll')}</option>
-              <option value="specific">{t('visibility.optionSpecific')}</option>
-              <option value="private">{t('visibility.optionPrivate')}</option>
-            </select>
-          </div>
+          <VisibilitySelect prefix="tripEdit" value={visibility} onChange={setVisibility} />
 
           {visibility === 'specific' && (
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t('tripEdit.visibleToLabel')}</label>
-              <PillChecklist
-                items={users.map((u) => ({ id: u.id, label: u.username }))}
-                selectedIds={visibleUserIds}
-                onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
-                emptyMessage={t('tripEdit.noOtherUsers')}
-              />
-            </div>
+            <VisibleUsersField
+              prefix="tripEdit"
+              users={users}
+              selectedIds={visibleUserIds}
+              onToggle={(uid) => setVisibleUserIds((prev) => toggleId(prev, uid))}
+            />
           )}
 
           <div className="flex gap-2 pt-2">
