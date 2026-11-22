@@ -30,7 +30,12 @@ export async function subscribePush(): Promise<void> {
     throw new Error('unsupported')
   }
   const { public_key } = await api.push.vapidKey()
-  const registration = await navigator.serviceWorker.ready
+  if (!public_key) throw new Error('push-not-configured')
+  // getRegistration() resolves immediately; `ready` waits forever when no
+  // worker is registered (dev builds, failed registration) and would leave
+  // the settings toggle spinning with no error.
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) throw new Error('no-service-worker')
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(public_key) as BufferSource,

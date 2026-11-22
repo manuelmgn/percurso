@@ -249,7 +249,9 @@ export function TripDetailPage() {
                       className="text-[11px] font-bold uppercase tracking-[1.5px]"
                       style={{ color }}
                     >
-                      {t('trip.dayLabel', { day: index + 1 })}
+                      {/* "Paragem N", not "Dia N": the day each place was
+                          visited is not tracked (and must not be implied). */}
+                      {t('trip.stopLabel', { n: index + 1 })}
                     </p>
                     <h3 className="mt-1 font-display text-base font-bold">
                       <Link to={`/lugares/${place.place_id}`} className="text-primary hover:underline">

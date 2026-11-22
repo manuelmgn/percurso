@@ -419,6 +419,11 @@ export function ProjectDetailPage() {
                     {formatHierarchy(place.place_hierarchy)}
                   </p>
                 )}
+                {place.is_visited && place.visited_at && (
+                  <p className="mt-1 text-xs text-muted">
+                    {t('projects.visitedOn', { date: formatUserDate(place.visited_at, user) })}
+                  </p>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {canEdit && (place.is_visited || place.is_unmarked) && (
                     <button

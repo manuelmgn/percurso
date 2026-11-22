@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Collection, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import User, Project, ProjectPlace, Place, TripProject, TripPlace, Pin, EntityType
+from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, Pin, EntityType
 from app.schemas import ProjectCreate, ProjectUpdate
 from app.services import visibility_service, notification_service
 
@@ -143,6 +144,26 @@ def get_visited_place_ids_in_project(db: Session, user: User, project_id: int) -
         TripProject.trip_id == TripPlace.trip_id,
     )
     return {row[0] for row in visited}
+
+
+def get_last_visit_dates_in_project(db: Session, user: User, project_id: int) -> "dict[int, date]":
+    """Latest trip end_date per project place, across visible trips linked to
+    the project. Feeds ProjectPlaceResponse.visited_at (which used to carry
+    the date the place was ADDED to the project — a different thing)."""
+    if not (visible_trip_ids := visibility_service.get_visible_trip_ids(db, user)):
+        return {}
+    rows = (
+        db.query(TripPlace.place_id, func.max(Trip.end_date))
+        .join(Trip, Trip.id == TripPlace.trip_id)
+        .filter(
+            TripPlace.trip_id.in_(visible_trip_ids),
+            TripProject.project_id == project_id,
+            TripProject.trip_id == TripPlace.trip_id,
+        )
+        .group_by(TripPlace.place_id)
+        .all()
+    )
+    return {place_id: last for place_id, last in rows}
 
 
 def get_progress_by_project(

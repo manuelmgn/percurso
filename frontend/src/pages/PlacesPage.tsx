@@ -23,9 +23,13 @@ interface PlacesFilters {
 const DEFAULT_FILTERS: PlacesFilters = { query: '', placeType: '', status: 'all', sort: 'alpha' }
 
 
-function placeStatus(place: PlaceOverviewItem): 'visited' | 'pending' | 'both' {
-  if (place.visit_count > 0) return place.is_project_target ? 'both' : 'visited'
-  return 'pending'
+// A place in the overview is relevant because it was visited and/or is a
+// project target; "pendente" means on a target list but not yet visited (an
+// unvisited non-target cannot appear in the overview at all). Showing the
+// pending badge on an already-visited target would contradict its visit
+// count and the status filter below.
+function placeStatus(place: PlaceOverviewItem): 'visited' | 'pending' {
+  return place.visit_count > 0 ? 'visited' : 'pending'
 }
 
 // "Mais recentes": last visit when there is one, otherwise last edit.
@@ -176,7 +180,7 @@ export function PlacesPage() {
                             {place.visit_count === 1 ? t('places.visitedOnce') : t('places.visitedTimes', { count: place.visit_count })}
                           </span>
                         )}
-                        {(status === 'pending' || status === 'both') && (
+                        {status === 'pending' && (
                           <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                             {t('places.pendingBadge')}
                           </span>

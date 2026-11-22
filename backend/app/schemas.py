@@ -161,7 +161,9 @@ class ProjectPlaceResponse(BaseModel):
     place_polygon: Optional[dict] = None
     is_visited: bool
     is_unmarked: bool = False
-    visited_at: Optional[datetime] = None
+    # Latest end_date of the visible trips that visited the place (None when
+    # not visited).
+    visited_at: Optional[date] = None
 
 
 class ProjectResponse(ProjectBase):
@@ -436,10 +438,16 @@ class RegionStat(BaseModel):
     count: int
 
 
+class PlaceTypeStat(BaseModel):
+    place_type: PlaceType
+    count: int
+
+
 class StatsResponse(BaseModel):
     summary: StatsSummary
     project_stats: list[ProjectStat]
     region_stats: list[RegionStat]
+    place_type_stats: list[PlaceTypeStat]
     most_visited: list[PlaceRanking]
 
 

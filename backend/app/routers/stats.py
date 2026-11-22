@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import User, Place, TripPlace, Trip, trip_participants
-from app.schemas import StatsResponse, StatsSummary, ProjectStat, PlaceRanking, RegionStat
+from app.models import User, Place, PlaceType, TripPlace, Trip, trip_participants
+from app.schemas import StatsResponse, StatsSummary, ProjectStat, PlaceRanking, RegionStat, PlaceTypeStat
 from app.services import visibility_service, project_service
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -23,19 +23,21 @@ def get_stats(
     place_ids: set[int] = set()
     place_occurrences: Counter[int] = Counter()
     region_counter: Counter[str] = Counter()
+    place_type_counter: Counter[PlaceType] = Counter()
 
     trip_ids = visibility_service.get_visible_trip_ids(db, user)
     companion_names: set[str] = set()
     if trip_ids:
         link_rows = (
-            db.query(TripPlace.place_id, Place.hierarchy)
+            db.query(TripPlace.place_id, Place.hierarchy, Place.place_type)
             .join(Place, Place.id == TripPlace.place_id)
             .filter(TripPlace.trip_id.in_(trip_ids))
             .all()
         )
-        for place_id, hierarchy in link_rows:
+        for place_id, hierarchy, place_type in link_rows:
             place_ids.add(place_id)
             place_occurrences[place_id] += 1
+            place_type_counter[place_type] += 1
             region = (hierarchy or {}).get("region")
             if region:
                 region_counter[region] += 1
@@ -89,6 +91,10 @@ def get_stats(
         ))
 
     region_stats = [RegionStat(region=r, count=c) for r, c in region_counter.most_common()]
+    # Visit occurrences per place type, across EVERY visible visited place —
+    # the stats page donut used to derive this from the top-10 most visited
+    # list, silently ignoring the rest.
+    place_type_stats = [PlaceTypeStat(place_type=pt, count=c) for pt, c in place_type_counter.most_common()]
 
     # Most visited places: top 10 occurrences, with place rows fetched in
     # a single query for just those 10 IDs.
@@ -117,5 +123,6 @@ def get_stats(
         ),
         project_stats=project_stats,
         region_stats=region_stats,
+        place_type_stats=place_type_stats,
         most_visited=most_visited,
     )

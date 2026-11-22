@@ -319,9 +319,11 @@ export function AdminPage() {
         {backupState.message && (
           <p
             className={`mt-3 text-sm ${
-              backupState.status === 'ok' || backupState.status === 'confirm'
+              backupState.status === 'ok'
                 ? 'text-green-700 dark:text-green-300'
-                : 'text-red-700 dark:text-red-300'
+                : backupState.status === 'confirm'
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : 'text-red-700 dark:text-red-300'
             }`}
             role="status"
           >

@@ -7,7 +7,7 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import type { PlaceDetail } from '@/types'
-import { formatHierarchy, formatTripTitle } from '@/utils/format'
+import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/format'
 import type { Geometry } from 'geojson'
 
 export function PlaceDetailPage() {
@@ -122,7 +122,7 @@ export function PlaceDetailPage() {
                   {formatTripTitle(trip, user)}
                 </Link>
                 <span className="text-sm text-muted">
-                  {' '}· {trip.creator_username}
+                  {' '}· {formatTripDateRange(trip.start_date, trip.end_date, user)} · {trip.creator_username}
                 </span>
               </li>
             ))}

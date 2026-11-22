@@ -40,4 +40,6 @@ def log_activity(
 
 
 def list_activities(db: Session, limit: int = 50) -> list[Activity]:
-    return db.query(Activity).order_by(Activity.created_at.desc()).limit(limit).all()
+    # id desc tiebreak: rows sharing a created_at (same-request bursts) keep
+    # a stable, deterministic order.
+    return db.query(Activity).order_by(Activity.created_at.desc(), Activity.id.desc()).limit(limit).all()

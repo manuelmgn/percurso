@@ -264,8 +264,11 @@ def toggle_place_unmarked(
 
 def _project_to_response(db: Session, user: User, project: Project) -> ProjectResponse:
     # Resolve visited places once for the whole response (progress + per-place
-    # flags) instead of one existence check per place.
+    # flags) instead of one existence check per place. Last visit dates come
+    # from one aggregate query (real trip dates, not the date the place was
+    # added to the project).
     visited_ids = project_service.get_visited_place_ids_in_project(db, user, project.id)
+    last_visits = project_service.get_last_visit_dates_in_project(db, user, project.id)
     progress = project_service.get_project_progress(db, user, project, visited_ids)
     places = []
     for pp in project.places:
@@ -281,7 +284,7 @@ def _project_to_response(db: Session, user: User, project: Project) -> ProjectRe
             "place_polygon": pp.place.polygon,
             "is_visited": is_visited,
             "is_unmarked": pp.is_unmarked,
-            "visited_at": pp.added_at if is_visited else None,
+            "visited_at": last_visits.get(pp.place_id) if is_visited else None,
         })
 
     # Visible linked trips in one eager query (same SQL visibility rule as

@@ -48,15 +48,13 @@ export function StatsPage() {
       .map(([year, count]) => ({ label: year, value: count }))
   }, [trips])
 
-  // Visited places grouped by administrative place type.
-  const placesByType = useMemo(() => {
-    if (!stats) return []
-    const counts = new Map<string, number>()
-    for (const place of stats.most_visited) {
-      counts.set(place.place_type, (counts.get(place.place_type) ?? 0) + place.visit_count)
-    }
-    return [...counts.entries()].map(([type, count]) => ({ label: type, value: count }))
-  }, [stats])
+  // Visit occurrences grouped by place type — served by the backend across
+  // every visible visited place (deriving it from the top-10 most visited
+  // list silently dropped every place outside the ranking).
+  const placesByType = useMemo(
+    () => stats?.place_type_stats.map((s) => ({ label: s.place_type, value: s.count })) ?? [],
+    [stats],
+  )
 
   // Activities grouped by month of creation, chronological.
   const activitiesPerMonth = useMemo(() => {

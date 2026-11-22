@@ -244,6 +244,20 @@ def main():
     # completed project; the private trip is created further below.
     check('stats counts', stats['summary']['trip_count'] >= 2 and stats['summary']['completed_projects'] >= 1)
 
+    # place_type_stats covers EVERY visible visited place, so per type it can
+    # never fall below what the top-10 ranking alone accounts for.
+    type_totals = {row['place_type']: row['count'] for row in stats['place_type_stats']}
+    check('stats place_type_stats shape', isinstance(stats['place_type_stats'], list)
+          and all(isinstance(row['count'], int) and row['count'] > 0 for row in stats['place_type_stats']))
+    ranking_type_totals = {}
+    for row in stats['most_visited']:
+        ranking_type_totals[row['place_type']] = ranking_type_totals.get(row['place_type'], 0) + row['visit_count']
+    check('stats place_type_stats covers ranking',
+          all(type_totals.get(pt, 0) >= count for pt, count in ranking_type_totals.items()))
+    check('stats place_type_stats covers all visited places',
+          sum(type_totals.values()) >= sum(row['visit_count'] for row in stats['most_visited'])
+          and len(type_totals) >= len(ranking_type_totals))
+
     # Feed
     r = client1.get('/api/activities/')
     check('feed ok', r.status_code == 200)
@@ -617,13 +631,21 @@ def main():
     r = client1.post(f'/api/projects/{project_id}/places/{place_to_unmark}/unmark')
     check('manual unmark', r.status_code == 200)
     r = client1.get(f'/api/projects/{project_id}')
-    check('progress after unmark', r.json()['visited_places'] == 1 and not r.json()['is_completed'])
+    detail = r.json()
+    check('progress after unmark', detail['visited_places'] == 1 and not detail['is_completed'])
+    unmarked_row = next(p for p in detail['places'] if p['place_id'] == place_to_unmark)
+    check('unmarked place has no visited_at', unmarked_row['is_unmarked'] and unmarked_row['visited_at'] is None)
 
     # Re-mark
     r = client1.post(f'/api/projects/{project_id}/places/{place_to_unmark}/unmark')
     check('re-mark', r.status_code == 200)
     r = client1.get(f'/api/projects/{project_id}')
-    check('progress after re-mark', r.json()['visited_places'] == 2 and r.json()['is_completed'])
+    detail = r.json()
+    check('progress after re-mark', detail['visited_places'] == 2 and detail['is_completed'])
+    # visited_at must be the real last visit date (trip end_date), not the
+    # date the place was added to the project.
+    check('visited_at is the trip end date',
+          all(p['visited_at'] == '2026-07-05' for p in detail['places'] if p['is_visited']))
 
     # Preferences
     r = client1.patch('/api/me/', json={'timezone': 'Europe/Madrid', 'date_format': '%Y-%m-%d', 'theme': 'dark'})

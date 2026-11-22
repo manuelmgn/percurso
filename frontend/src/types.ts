@@ -400,10 +400,16 @@ export interface RegionStat {
   count: number
 }
 
+export interface PlaceTypeStat {
+  place_type: PlaceType
+  count: number
+}
+
 export interface StatsResponse {
   summary: StatsSummary
   project_stats: ProjectStat[]
   region_stats: RegionStat[]
+  place_type_stats: PlaceTypeStat[]
   most_visited: PlaceRanking[]
 }
 
