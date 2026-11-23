@@ -19,16 +19,26 @@ for d in [data_dir, uploads_dir, tiles_dir, backups_dir, Path("/var/log")]:
 # Run DB schema + migrations
 sys.path.insert(0, "/app")
 from app.main import _apply_lightweight_migrations
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app import models  # ensure models imported
 
 Base.metadata.create_all(bind=engine)
 _apply_lightweight_migrations()
 
-# Ensure the admin configured in .env exists with the configured password
+# One-shot admin reset on the next startup; subsequent starts only seed if empty.
+reset_marker = data_dir / ".admin_reset_done"
 try:
-    from app.manage import reset_admin_cmd
-    reset_admin_cmd()
+    if not reset_marker.exists():
+        from app.manage import reset_admin_cmd
+        reset_admin_cmd()
+        reset_marker.write_text("done\n", encoding="utf-8")
+    else:
+        from app.services import user_service
+        db = SessionLocal()
+        try:
+            user_service.seed_default_admin(db)
+        finally:
+            db.close()
 except Exception as e:
     print(f"init: admin sync warning: {e}", flush=True)
 
