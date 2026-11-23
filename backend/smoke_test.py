@@ -725,6 +725,26 @@ def main():
         usernames = {u['username'] for u in directory}
         check('directory includes active users', 'smoke_user1' in usernames and 'smoke_user2' in usernames, str(usernames))
         check('directory omits admin-only fields', all(set(u.keys()) == {'id', 'username', 'avatar_url'} for u in directory), str(directory[:2]))
+        db = SessionLocal()
+        try:
+            admin_users = db.query(User).filter(User.role == UserRole.ADMIN).all()
+            admin_ids = [a.id for a in admin_users]
+            admin_names = {a.username for a in admin_users}
+        finally:
+            db.close()
+        check('directory excludes admin users', usernames.isdisjoint(admin_names), str(usernames & admin_names))
+        if admin_ids:
+            r_adm = client1.post('/api/projects/', json={
+                'name': 'Sem Admin', 'visibility': 'specific', 'map_mode': 'auto',
+                'participant_ids': [admin_ids[0]], 'visible_user_ids': [admin_ids[0]],
+            })
+            check('project creation ignores admin invite',
+                  r_adm.status_code == 201
+                  and r_adm.json()['participants'] == []
+                  and r_adm.json()['visible_users'] == [],
+                  r_adm.text[:200])
+            if r_adm.status_code == 201:
+                client1.delete(f"/api/projects/{r_adm.json()['id']}")
 
     # Security headers on API responses (HSTS only when session cookies are
     # Secure, i.e. production).

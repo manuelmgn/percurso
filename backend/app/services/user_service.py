@@ -102,7 +102,13 @@ def list_users(db: Session) -> list[User]:
 
 
 def list_active_users(db: Session) -> list[User]:
-    return db.query(User).filter(User.is_active == True).order_by(User.username).all()
+    """Active non-admin users eligible for participant/visibility pickers."""
+    return (
+        db.query(User)
+        .filter(User.is_active == True, User.role != UserRole.ADMIN)
+        .order_by(User.username)
+        .all()
+    )
 
 
 def delete_user_account(db: Session, user: User) -> list[str]:

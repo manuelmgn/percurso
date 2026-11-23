@@ -3,7 +3,7 @@ from typing import Collection
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import User, Trip, TripPlace, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
+from app.models import User, UserRole, Trip, TripPlace, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
 
 
 def _trip_list_options():
@@ -78,11 +78,20 @@ def apply_user_links(db: Session, entity, data) -> None:
     """Replace an entity's participants/allowed viewers by the payload ids.
     Shared by trips and projects; each block only runs when its key was sent
     (PATCH may omit them), while on create assigning an empty list is a
-    harmless no-op."""
+    harmless no-op. Admin and inactive accounts are excluded so they can
+    never be invited to a trip or project."""
     if data.participant_ids is not None:
-        entity.participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
+        entity.participants = (
+            db.query(User)
+            .filter(User.id.in_(data.participant_ids), User.is_active == True, User.role != UserRole.ADMIN)
+            .all()
+        )
     if data.visible_user_ids is not None:
-        entity.visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
+        entity.visible_users = (
+            db.query(User)
+            .filter(User.id.in_(data.visible_user_ids), User.is_active == True, User.role != UserRole.ADMIN)
+            .all()
+        )
 
 
 def can_user_see_trip(db: Session, user: User, trip: Trip) -> bool:
