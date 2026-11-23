@@ -53,6 +53,12 @@ export interface User {
   updated_at: string
 }
 
+export interface UserDirectoryItem {
+  id: number
+  username: string
+  avatar_url: string | null
+}
+
 export interface MeResponse {
   user: User
   csrf_token: string

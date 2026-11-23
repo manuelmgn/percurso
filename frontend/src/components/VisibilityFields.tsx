@@ -1,6 +1,6 @@
 import { useTranslation } from '@/i18n'
 import { PillChecklist } from '@/components/ui/PillChecklist'
-import type { User, Visibility } from '@/types'
+import type { UserDirectoryItem, Visibility } from '@/types'
 
 // Sharing fields used by both entity edit forms (trip and project). `prefix`
 // picks the i18n namespace ('tripEdit' | 'projectEdit'); both define the
@@ -35,7 +35,7 @@ export function VisibilitySelect({ prefix, value, onChange }: VisibilitySelectPr
 
 interface VisibleUsersFieldProps {
   prefix: string
-  users: User[]
+  users: UserDirectoryItem[]
   selectedIds: number[]
   onToggle: (id: number) => void
 }

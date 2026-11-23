@@ -73,6 +73,16 @@ class PublicProfileResponse(BaseModel):
     place_count: int
 
 
+class UserDirectoryItem(BaseModel):
+    """Minimal active-user entry exposed to any logged-in user for
+    participant and visibility pickers (no admin fields)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    avatar_url: Optional[str] = None
+
+
 # --- Place schemas ---
 
 class PlaceBase(BaseModel):

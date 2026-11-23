@@ -10,7 +10,7 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { FormPageSkeleton } from '@/components/ui/Skeleton'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
 import { toggleId } from '@/utils/forms'
-import type { MapMode, PlaceType, User, Visibility } from '@/types'
+import type { MapMode, PlaceType, UserDirectoryItem, Visibility } from '@/types'
 import { isPolygonMode } from '@/types'
 export function ProjectEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -26,7 +26,7 @@ export function ProjectEditPage() {
   const [placeTypes, setPlaceTypes] = useState<PlaceType[]>([])
   const [participantIds, setParticipantIds] = useState<number[]>([])
   const [visibleUserIds, setVisibleUserIds] = useState<number[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<UserDirectoryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -43,7 +43,7 @@ export function ProjectEditPage() {
     let cancelled = false
     const load = async () => {
       try {
-        const allUsers = await api.users.list()
+        const allUsers = await api.users.directory()
         if (cancelled) return
         setUsers(allUsers.filter((u) => u.id !== user?.id))
 

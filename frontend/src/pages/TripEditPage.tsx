@@ -14,7 +14,7 @@ import { PillChecklist } from '@/components/ui/PillChecklist'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
 import { formatTripDateRange } from '@/utils/format'
 import { toggleId } from '@/utils/forms'
-import type { ProjectListItem, User, Visibility } from '@/types'
+import type { ProjectListItem, UserDirectoryItem, Visibility } from '@/types'
 
 export function TripEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,7 +34,7 @@ export function TripEditPage() {
   const [places, setPlaces] = useState<PickedPlace[]>([])
   const [participantIds, setParticipantIds] = useState<number[]>([])
   const [visibleUserIds, setVisibleUserIds] = useState<number[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<UserDirectoryItem[]>([])
   const [companionHighlight, setCompanionHighlight] = useState(0)
   const [companionsOpen, setCompanionsOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectListItem[]>([])
@@ -58,7 +58,7 @@ export function TripEditPage() {
     let cancelled = false
     const load = async () => {
       try {
-        const allUsers = await api.users.list()
+        const allUsers = await api.users.directory()
         const projectList = await api.projects.list()
         if (cancelled) return
         setUsers(allUsers.filter((u) => u.id !== user?.id))
@@ -119,7 +119,7 @@ export function TripEditPage() {
         .slice(0, 6)
     : []
 
-  const addCompanion = (u: User | undefined) => {
+  const addCompanion = (u: UserDirectoryItem | undefined) => {
     if (!u) return
     setParticipantIds((prev) => (prev.includes(u.id) ? prev : [...prev, u.id]))
     setCompanionsText('')

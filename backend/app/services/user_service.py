@@ -101,6 +101,10 @@ def list_users(db: Session) -> list[User]:
     return db.query(User).order_by(User.username).all()
 
 
+def list_active_users(db: Session) -> list[User]:
+    return db.query(User).filter(User.is_active == True).order_by(User.username).all()
+
+
 def delete_user_account(db: Session, user: User) -> list[str]:
     """Delete the user and everything attached. ORM cascades cover sessions,
     trips, projects, activities and milestones; DB-level FK cascades cover

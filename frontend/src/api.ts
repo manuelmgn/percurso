@@ -3,6 +3,7 @@ import type {
   LoginRequest,
   PublicUserProfile,
   User,
+  UserDirectoryItem,
   UserCreate,
   UserUpdate,
   UserPreferencesUpdate,
@@ -77,7 +78,7 @@ const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
   pins: ['/api/pins'],
   // me/users rename or avatar changes: trip/project/activity/search payloads
   // embed usernames, so those caches must refresh too.
-  me: ['/api/me', '/api/auth/me', '/api/users/public', '/api/trips', '/api/projects', '/api/activities', '/api/search'],
+  me: ['/api/me', '/api/auth/me', '/api/users/public', '/api/users/directory', '/api/trips', '/api/projects', '/api/activities', '/api/search'],
   users: ['/api/users', '/api/trips', '/api/projects'],
   auth: ['/api/'],
   admin: ['/api/'],
@@ -276,6 +277,7 @@ export const api = {
 
   users: {
     list: () => fetchJson<User[]>('/api/users/'),
+    directory: () => fetchJson<UserDirectoryItem[]>('/api/users/directory'),
     publicProfile: (username: string) => fetchJson<PublicUserProfile>(`/api/users/public/${encodeURIComponent(username)}`),
     create: (data: UserCreate) => fetchJson<User>('/api/users/', {
       method: 'POST',

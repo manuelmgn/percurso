@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user, require_admin, require_admin_csrf
 from app.models import User, UserRole, Session as UserSession
-from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse
+from app.schemas import UserCreate, UserUpdate, UserResponse, PasswordResetRequest, PublicProfileResponse, UserDirectoryItem
 from app.services import user_service, visibility_service, image_service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -37,6 +37,16 @@ def get_public_profile(
         trip_count=trip_count,
         place_count=place_count,
     )
+
+
+@router.get("/directory", response_model=list[UserDirectoryItem])
+def list_user_directory(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Active user directory for any logged-in user (participant and
+    visibility pickers on trip/project forms)."""
+    return user_service.list_active_users(db)
 
 
 @router.get("/", response_model=list[UserResponse])

@@ -714,6 +714,18 @@ def main():
         check('last admin cannot be demoted', True, 'skipped: default admin is not the sole active admin')
         check('last admin cannot be deactivated', True, 'skipped: default admin is not the sole active admin')
 
+    # User directory: non-admins cannot call the admin list, but can fetch
+    # the minimal active-user directory needed by trip/project edit forms.
+    r = client1.get('/api/users/')
+    check('non-admin blocked from /api/users/', r.status_code == 403, f'{r.status_code}: {r.text[:120]}')
+    r = client1.get('/api/users/directory')
+    check('non-admin can read /api/users/directory', r.status_code == 200, f'{r.status_code}: {r.text[:120]}')
+    if r.status_code == 200:
+        directory = r.json()
+        usernames = {u['username'] for u in directory}
+        check('directory includes active users', 'smoke_user1' in usernames and 'smoke_user2' in usernames, str(usernames))
+        check('directory omits admin-only fields', all(set(u.keys()) == {'id', 'username', 'avatar_url'} for u in directory), str(directory[:2]))
+
     # Security headers on API responses (HSTS only when session cookies are
     # Secure, i.e. production).
     r = client1.get('/api/health')
