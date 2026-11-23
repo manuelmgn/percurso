@@ -12,6 +12,7 @@ import { AlertBanner } from '@/components/ui/ErrorBanner'
 import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import { TripLinks } from '@/components/TripLinks'
 import { TripPhotos } from '@/components/TripPhotos'
+import { ImmichGallery } from '@/components/ImmichGallery'
 import { getTripStatus } from '@/utils/tripStatus'
 import { canEditEntity } from '@/utils/permissions'
 import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
@@ -346,6 +347,8 @@ export function TripDetailPage() {
           <TripLinks trip={trip} />
         </div>
       </div>
+
+      <ImmichGallery trip={trip} />
 
       <TripPhotos trip={trip} />
     </div>

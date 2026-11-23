@@ -14,7 +14,7 @@ from app.config import settings
 from app.database import engine, Base, db_session
 from app.auth import get_current_user
 from app.services import user_service
-from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push
+from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push, immich
 
 # Import all models so they are registered with SQLAlchemy before create_all
 from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription, Photo  # noqa: F401
@@ -39,6 +39,7 @@ def _apply_lightweight_migrations():
             # covers (see the photos router and the Trip model comment).
             "cover_photo_id": "INTEGER",
             "external_links": "JSON",
+            "immich_album_id": "VARCHAR(64)",
         },
         "photos": {
             "position": "INTEGER",
@@ -189,6 +190,7 @@ app.include_router(admin.router)
 app.include_router(pins.router)
 app.include_router(notifications.router)
 app.include_router(push.router)
+app.include_router(immich.router)
 
 
 @app.get("/api/health")

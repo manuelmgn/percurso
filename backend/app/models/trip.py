@@ -41,6 +41,9 @@ class Trip(Base, TimestampMixin):
     # Up to 3 external links (Google Photos / Immich albums or generic URLs),
     # stored as [{url, type}]; the type is detected when the trip is saved.
     external_links = Column(JSON, nullable=True)
+    # Optional linked Immich album UUID (used to render an inline gallery
+    # proxied through the backend without storing photos locally).
+    immich_album_id = Column(String(64), nullable=True)
     # Manual cover chosen from the trip's gallery. SQLite cannot add this
     # FK to an existing table (ALTER ADD COLUMN drops FK constraints), so on
     # legacy databases referential integrity is enforced in the service

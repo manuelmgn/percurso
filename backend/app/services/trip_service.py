@@ -136,6 +136,11 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
         trip.cover_photo_id = photo.id
 
+    if data.clear_immich_album:
+        trip.immich_album_id = None
+    elif data.immich_album_id is not None:
+        trip.immich_album_id = data.immich_album_id
+
     _update_relations(db, user, trip, data)
     trip.updated_at = datetime.now(timezone.utc)
     db.commit()

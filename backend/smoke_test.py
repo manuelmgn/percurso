@@ -1038,6 +1038,31 @@ def main():
     check('tile negative zoom rejected', adv.get('/api/tiles/light/-1/0/0.png').status_code == 400)
     check('tile bogus style rejected', adv.get('/api/tiles/blue/5/0/0.png').status_code == 400)
 
+    # Immich integration (works cleanly both with Immich disabled and with mocked/bad IDs)
+    r = adv.get('/api/immich/status')
+    check('immich status 200', r.status_code == 200 and 'enabled' in r.json(), r.text[:200])
+    immich_enabled = r.json().get('enabled', False)
+    if not immich_enabled:
+        check('immich albums 503 when disabled', adv.get('/api/immich/albums').status_code == 503)
+    check('immich bad asset id 422', adv.get('/api/immich/assets/bad!id/thumbnail').status_code == 422)
+
+    r_trip = adv.post('/api/trips/', json={'start_date': '2026-05-01', 'title': 'Immich Smoke'})
+    check('immich test trip created', r_trip.status_code == 201, r_trip.text[:200])
+    if r_trip.status_code == 201:
+        tid = r_trip.json()['id']
+        check('immich trip album 404 when unlinked', adv.get(f'/api/immich/trips/{tid}/album').status_code == 404)
+        check('immich invalid album id 422',
+              adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'bad/id!'}).status_code == 422)
+        r_link = adv.patch(f'/api/trips/{tid}', json={'immich_album_id': '11111111-2222-3333-4444-555555555555'})
+        check('immich album id saved',
+              r_link.status_code == 200 and r_link.json().get('immich_album_id') == '11111111-2222-3333-4444-555555555555')
+        if not immich_enabled:
+            check('immich trip album 503 when disabled', adv.get(f'/api/immich/trips/{tid}/album').status_code == 503)
+        r_clear = adv.patch(f'/api/trips/{tid}', json={'clear_immich_album': True})
+        check('immich album id cleared',
+              r_clear.status_code == 200 and r_clear.json().get('immich_album_id') is None)
+        adv.delete(f'/api/trips/{tid}')
+
     # Final summary
     passed = sum(1 for _, s, _ in results if s == 'PASS')
     failed = sum(1 for _, s, _ in results if s == 'FAIL')

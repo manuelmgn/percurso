@@ -4,23 +4,37 @@ import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { useModalA11y } from '@/hooks/useModalA11y'
 import { formatDateTime } from '@/utils/format'
-import type { Photo } from '@/types'
+
+export interface LightboxPhoto {
+  id: number | string
+  url: string
+  caption?: string | null
+  taken_at?: string | null
+  lat?: number | null
+  lon?: number | null
+}
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
 /** Double-click toggles between this level and fit-to-view. */
 const TOGGLE_ZOOM = 2.5
 
-interface LightboxProps {
-  photos: Photo[]
+interface LightboxProps<T extends LightboxPhoto = LightboxPhoto> {
+  photos: T[]
   initialIndex: number
   /** Whether the current user may edit this photo's caption. */
-  canEdit: (photo: Photo) => boolean
+  canEdit?: (photo: T) => boolean
   onClose: () => void
-  onSaveCaption: (photo: Photo, caption: string) => Promise<void>
+  onSaveCaption?: (photo: T, caption: string) => Promise<void>
 }
 
-export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption }: LightboxProps) {
+export function Lightbox<T extends LightboxPhoto = LightboxPhoto>({
+  photos,
+  initialIndex,
+  canEdit,
+  onClose,
+  onSaveCaption,
+}: LightboxProps<T>) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [index, setIndex] = useState(initialIndex)
@@ -133,6 +147,7 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
   }
 
   const saveCaption = async () => {
+    if (!onSaveCaption) return
     setIsSaving(true)
     try {
       await onSaveCaption(photo, draft.trim())
@@ -238,7 +253,7 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
             ) : (
               <span className="inline-flex items-center gap-2 text-sm text-white/85">
                 {photo.caption ?? ''}
-                {canEdit(photo) && (
+                {canEdit?.(photo) && onSaveCaption && (
                   <button
                     onClick={startEditing}
                     aria-label={t('lightbox.editCaption')}
@@ -249,11 +264,11 @@ export function Lightbox({ photos, initialIndex, canEdit, onClose, onSaveCaption
                 )}
               </span>
             )}
-            {(photo.taken_at || photo.lat !== null) && (
+            {(photo.taken_at || photo.lat != null) && (
               <span className="mt-1 block text-xs text-white/50">
                 {photo.taken_at ? formatDateTime(photo.taken_at, user) : ''}
-                {photo.taken_at && photo.lat !== null && ' · '}
-                {photo.lat !== null && photo.lon !== null
+                {photo.taken_at && photo.lat != null && ' · '}
+                {photo.lat != null && photo.lon != null
                   ? `${photo.lat.toFixed(5)}, ${photo.lon.toFixed(5)}`
                   : ''}
               </span>

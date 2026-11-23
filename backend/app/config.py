@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_public_key: str | None = None
     vapid_subject: str = "mailto:admin@percurso.local"
+    # Optional Immich integration: server-to-server base URL (e.g.
+    # http://192.168.0.133:2283) and API key. immich_public_url defaults to
+    # immich_url when omitted.
+    immich_url: str = ""
+    immich_api_key: str = ""
+    immich_public_url: str = ""
+
+    @property
+    def immich_enabled(self) -> bool:
+        return bool(self.immich_url.strip() and self.immich_api_key.strip())
 
     @property
     def session_cookie_secure_resolved(self) -> bool:

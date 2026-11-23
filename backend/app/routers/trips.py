@@ -145,6 +145,7 @@ def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
         ],
         cover_photo_id=trip.cover_photo_id,
         cover_photo_url=trip.cover_photo.url if trip.cover_photo else None,
+        immich_album_id=trip.immich_album_id,
         external_links=trip.external_links or [],
         created_at=trip.created_at,
         updated_at=trip.updated_at,

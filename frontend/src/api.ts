@@ -33,6 +33,9 @@ import type {
   NotificationListResponse,
   Photo,
   PhotoCaptionUpdate,
+  ImmichStatus,
+  ImmichAlbumSummary,
+  ImmichAlbumDetail,
 } from './types'
 
 const CACHE_TTL_MS = 60_000
@@ -68,7 +71,7 @@ function invalidateCaches(...pathPrefixes: string[]): void {
 
 /** GET cache families touched by a mutation under each API resource. */
 const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
-  trips: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  trips: ['/api/trips', '/api/immich/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   pins: ['/api/pins'],
@@ -407,5 +410,11 @@ export const api = {
     get: (id: number) => fetchJson<PlaceDetail>(`/api/places/${id}`),
     visited: () => fetchJson<Place[]>('/api/places/visited'),
     overview: () => fetchJson<PlaceOverviewItem[]>('/api/places/overview'),
+  },
+
+  immich: {
+    status: () => fetchJson<ImmichStatus>('/api/immich/status'),
+    albums: () => fetchJson<ImmichAlbumSummary[]>('/api/immich/albums'),
+    tripAlbum: (tripId: number) => fetchJson<ImmichAlbumDetail>(`/api/immich/trips/${tripId}/album`),
   },
 }

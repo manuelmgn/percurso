@@ -279,6 +279,9 @@ class TripUpdate(BaseModel):
     # Cover photo: set to a photo id of this trip, or clear with clear_cover.
     cover_photo_id: Optional[int] = None
     clear_cover: bool = False
+    # Linked Immich album UUID, or clear with clear_immich_album.
+    immich_album_id: Optional[str] = Field(None, max_length=64, pattern=r"^[a-zA-Z0-9-]+$")
+    clear_immich_album: bool = False
 
     @model_validator(mode="after")
     def check_date_range(self):
@@ -311,6 +314,7 @@ class TripResponse(TripBase):
     projects: list[ProjectListResponse] = Field(default_factory=list)
     cover_photo_id: Optional[int] = None
     cover_photo_url: Optional[str] = None
+    immich_album_id: Optional[str] = None
     external_links: list[ExternalLink] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
