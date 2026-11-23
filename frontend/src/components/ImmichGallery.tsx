@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ExternalLink, HardDrive, Image as ImageIcon, Loader2, Search, Unlink, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, ExternalLink, HardDrive, Image as ImageIcon, Loader2, Search, Unlink, X } from 'lucide-react'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
 import { getErrorMessage } from '@/hooks/useApiResource'
@@ -12,13 +12,15 @@ import { Lightbox } from '@/components/ui/Lightbox'
 import type { ImmichAlbumDetail, ImmichAlbumSummary, ImmichStatus, Trip } from '@/types'
 
 const ALBUM_PATH_RE = /\/albums\/([a-zA-Z0-9-]{1,64})(?:\/|$)/
+/** Number of photos shown before the "show all" toggle keeps trip pages compact. */
+const PREVIEW_LIMIT = 12
 
-function extractImmichAlbumIdFromLinks(trip: Trip): string | null {
+function extractImmichAlbumFromLinks(trip: Trip): { id: string; url: string } | null {
   for (const link of trip.external_links) {
     if (link.type !== 'immich') continue
     try {
       const match = ALBUM_PATH_RE.exec(new URL(link.url).pathname)
-      if (match) return match[1]
+      if (match) return { id: match[1], url: link.url }
     } catch {
       // Ignore malformed URLs; server validation handles them.
     }
@@ -27,9 +29,11 @@ function extractImmichAlbumIdFromLinks(trip: Trip): string | null {
 }
 
 function ImmichAlbumPickerModal({
+  currentAlbumId,
   onSelect,
   onClose,
 }: {
+  currentAlbumId: string | null
   onSelect: (album: ImmichAlbumSummary) => Promise<void>
   onClose: () => void
 }) {
@@ -126,13 +130,18 @@ function ImmichAlbumPickerModal({
             <p className="py-8 text-center text-sm text-muted">{t('trip.immichNoAlbums')}</p>
           ) : (
             filtered.map((album) => {
+              const isSelected = album.id === currentAlbumId
               const countKey = album.asset_count === 1 ? 'trip.immichCount.one' : 'trip.immichCount.other'
               return (
                 <button
                   key={album.id}
                   onClick={() => handleChoose(album)}
                   disabled={savingId !== null}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-line bg-bg/50 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-fill disabled:opacity-50"
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition-colors disabled:opacity-50 ${
+                    isSelected
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'border-line bg-bg/50 hover:border-primary/40 hover:bg-fill'
+                  }`}
                 >
                   {album.thumbnail_url ? (
                     <img
@@ -153,9 +162,14 @@ function ImmichAlbumPickerModal({
                       {album.start_date ? ` · ${formatDate(album.start_date, user)}` : ''}
                     </p>
                   </div>
-                  {savingId === album.id && (
+                  {savingId === album.id ? (
                     <Loader2 size={16} className="shrink-0 animate-spin text-primary" aria-hidden="true" />
-                  )}
+                  ) : isSelected ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      <Check size={12} aria-hidden="true" />
+                      {t('trip.immichSelected')}
+                    </span>
+                  ) : null}
                 </button>
               )
             })
@@ -180,15 +194,15 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
   const [error, setError] = useState('')
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [isUnlinking, setIsUnlinking] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   // Local override until parent refetches (same pattern as TripLinks / TripPhotos).
   const [albumIdOverride, setAlbumIdOverride] = useState<string | null | undefined>(undefined)
 
   const canEditTrip = canEditEntity(user, trip)
-  const effectiveAlbumId =
-    albumIdOverride !== undefined
-      ? albumIdOverride
-      : trip.immich_album_id ?? extractImmichAlbumIdFromLinks(trip)
+  const linkFallback = extractImmichAlbumFromLinks(trip)
+  const explicitAlbumId = albumIdOverride !== undefined ? albumIdOverride : trip.immich_album_id
+  const effectiveAlbumId = explicitAlbumId ?? linkFallback?.id ?? null
 
   useEffect(() => {
     let cancelled = false
@@ -213,13 +227,17 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
     let cancelled = false
     setLoadingAlbum(true)
     setError('')
+    setExpanded(false)
     api.immich
       .tripAlbum(trip.id)
       .then((data) => {
         if (!cancelled) setAlbum(data)
       })
       .catch((err) => {
-        if (!cancelled) setError(getErrorMessage(err, t('trip.immichLoadError')))
+        if (!cancelled) {
+          setAlbum(null)
+          setError(getErrorMessage(err, t('trip.immichLoadError')))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingAlbum(false)
@@ -252,7 +270,19 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
     }
   }
 
-  const lightboxPhotos = (album?.assets ?? []).map((asset) => ({
+  // Keep the external link usable even if the album metadata fetch fails
+  // (e.g. Immich temporarily offline).
+  const externalUrl =
+    album?.external_url ??
+    (effectiveAlbumId && status.public_url
+      ? `${status.public_url}/albums/${effectiveAlbumId}`
+      : linkFallback?.url ?? null)
+
+  const allAssets = album?.assets ?? []
+  const visibleAssets = expanded ? allAssets : allAssets.slice(0, PREVIEW_LIMIT)
+  const hasMore = allAssets.length > PREVIEW_LIMIT
+
+  const lightboxPhotos = allAssets.map((asset) => ({
     id: asset.id,
     url: asset.preview_url,
     caption: asset.caption,
@@ -280,9 +310,9 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {album?.external_url && (
+          {externalUrl && (
             <a
-              href={album.external_url}
+              href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-outline inline-flex items-center gap-2"
@@ -300,7 +330,7 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
               {effectiveAlbumId ? t('trip.immichChange') : t('trip.immichLink')}
             </button>
           )}
-          {canEditTrip && trip.immich_album_id && effectiveAlbumId && (
+          {canEditTrip && explicitAlbumId && (
             <button
               onClick={() => handleUnlink()}
               disabled={isUnlinking}
@@ -328,28 +358,54 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
         <div className="flex items-center justify-center py-8 text-muted">
           <Loader2 size={20} className="animate-spin" aria-hidden="true" />
         </div>
-      ) : album && album.assets.length > 0 ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {album.assets.map((asset, index) => (
-            <button
-              key={asset.id}
-              onClick={() => setLightboxIndex(index)}
-              className="group block w-full overflow-hidden rounded-2xl shadow-card"
-              aria-label={asset.caption ?? asset.filename ?? t('trip.openPhoto')}
-            >
-              <img
-                src={asset.thumbnail_url}
-                alt={asset.caption ?? ''}
-                loading="lazy"
-                className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.85]"
-              />
-            </button>
-          ))}
-        </div>
+      ) : album && allAssets.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">{t('trip.immichNoPhotos')}</p>
+      ) : album ? (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {visibleAssets.map((asset, index) => (
+              <button
+                key={asset.id}
+                onClick={() => setLightboxIndex(index)}
+                className="group block w-full overflow-hidden rounded-2xl shadow-card"
+                aria-label={asset.caption ?? asset.filename ?? t('trip.openPhoto')}
+              >
+                <img
+                  src={asset.thumbnail_url}
+                  alt={asset.caption ?? ''}
+                  loading="lazy"
+                  className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.85]"
+                />
+              </button>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => setExpanded((prev) => !prev)}
+                className="btn-outline inline-flex items-center gap-2"
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp size={15} aria-hidden="true" />
+                    {t('trip.immichShowLess')}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={15} aria-hidden="true" />
+                    {t('trip.immichShowAll', { count: allAssets.length })}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       ) : null}
 
       {isPickerOpen && (
         <ImmichAlbumPickerModal
+          currentAlbumId={effectiveAlbumId}
           onSelect={handleSelectAlbum}
           onClose={() => setIsPickerOpen(false)}
         />

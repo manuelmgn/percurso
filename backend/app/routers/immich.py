@@ -69,10 +69,14 @@ async def get_trip_immich_album(
     user: User = Depends(get_current_user),
 ):
     trip = get_visible_trip_or_404(db, trip_id, user)
-    album_id = trip.immich_album_id or immich_service.extract_album_id_from_links(trip.external_links)
+    fallback_id, fallback_url = immich_service.extract_album_from_links(trip.external_links)
+    album_id = trip.immich_album_id or fallback_id
     if not album_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum álbum Immich associado a esta viagem")
-    return await immich_service.get_album(album_id)
+    return await immich_service.get_album(
+        album_id,
+        external_url_override=None if trip.immich_album_id else fallback_url,
+    )
 
 
 @router.get("/assets/{asset_id}/thumbnail")

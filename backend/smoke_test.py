@@ -1061,6 +1061,87 @@ def main():
         r_clear = adv.patch(f'/api/trips/{tid}', json={'clear_immich_album': True})
         check('immich album id cleared',
               r_clear.status_code == 200 and r_clear.json().get('immich_album_id') is None)
+
+        # Mocked upstream Immich responses: verify album listing dedup/sorting,
+        # external_links fallback, video filtering, and strict image MIME check.
+        import httpx as _httpx
+        from app.config import settings as _settings
+        from app.services import immich_service as _immich_svc
+
+        def _mock_immich_handler(request: _httpx.Request) -> _httpx.Response:
+            path = request.url.path
+            if path == '/api/albums' and request.url.params.get('shared') == 'true':
+                return _httpx.Response(200, json=[
+                    {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
+                    {'id': 'alb-2', 'albumName': 'Açores', 'assetCount': 5, 'startDate': None},
+                ])
+            if path == '/api/albums':
+                return _httpx.Response(200, json=[
+                    {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
+                ])
+            if path == '/api/albums/alb-1':
+                return _httpx.Response(200, json={
+                    'id': 'alb-1',
+                    'albumName': 'Porto',
+                    'assets': [
+                        {
+                            'id': 'img-1',
+                            'type': 'IMAGE',
+                            'originalFileName': 'ponte.jpg',
+                            'exifInfo': {'description': 'Ponte Luís I', 'latitude': 41.14, 'longitude': -8.61},
+                        },
+                        {'id': 'vid-1', 'type': 'VIDEO', 'originalFileName': 'clip.mp4'},
+                    ],
+                })
+            if path == '/api/assets/img-1/thumbnail':
+                return _httpx.Response(200, content=b'\xff\xd8\xff\xe0jpeg', headers={'content-type': 'image/jpeg'})
+            if path == '/api/assets/bad-mime/thumbnail':
+                return _httpx.Response(200, content=b'<html>oops</html>', headers={'content-type': 'text/html'})
+            if path == '/api/assets/svg-mime/thumbnail':
+                return _httpx.Response(200, content=b'<svg></svg>', headers={'content-type': 'image/svg+xml'})
+            return _httpx.Response(404)
+
+        orig_url, orig_key, orig_pub, orig_client = (
+            _settings.immich_url, _settings.immich_api_key, _settings.immich_public_url, _immich_svc._client
+        )
+        try:
+            _settings.immich_url = 'http://immich.test:2283'
+            _settings.immich_api_key = 'test-key'
+            _settings.immich_public_url = ''
+            _immich_svc._client = _httpx.AsyncClient(transport=_httpx.MockTransport(_mock_immich_handler))
+
+            r_list = adv.get('/api/immich/albums')
+            check('immich albums deduped and sorted',
+                  r_list.status_code == 200 and [a['id'] for a in r_list.json()] == ['alb-1', 'alb-2'],
+                  r_list.text[:200])
+
+            # Fallback from external_links preserves the pasted album URL.
+            adv.patch(f'/api/trips/{tid}', json={'external_links': [{'url': 'https://fotos.immich.example/albums/alb-1'}]})
+            r_alb = adv.get(f'/api/immich/trips/{tid}/album')
+            alb_body = r_alb.json() if r_alb.status_code == 200 else {}
+            check('immich album fallback + video filtered + exif mapped',
+                  r_alb.status_code == 200
+                  and alb_body.get('asset_count') == 1
+                  and alb_body.get('external_url') == 'https://fotos.immich.example/albums/alb-1'
+                  and alb_body['assets'][0]['caption'] == 'Ponte Luís I'
+                  and alb_body['assets'][0]['lat'] == 41.14,
+                  r_alb.text[:200])
+
+            r_thumb = adv.get('/api/immich/assets/img-1/thumbnail?size=preview')
+            check('immich thumbnail proxy serves image/jpeg private',
+                  r_thumb.status_code == 200
+                  and r_thumb.headers.get('content-type', '').startswith('image/jpeg')
+                  and 'private' in r_thumb.headers.get('cache-control', ''))
+            check('immich thumbnail rejects text/html 502',
+                  adv.get('/api/immich/assets/bad-mime/thumbnail').status_code == 502)
+            check('immich thumbnail rejects svg 502',
+                  adv.get('/api/immich/assets/svg-mime/thumbnail').status_code == 502)
+        finally:
+            _settings.immich_url = orig_url
+            _settings.immich_api_key = orig_key
+            _settings.immich_public_url = orig_pub
+            _immich_svc._client = orig_client
+
         adv.delete(f'/api/trips/{tid}')
 
     # Final summary

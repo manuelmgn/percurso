@@ -13,7 +13,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.config import settings
 from app.database import engine, Base, db_session
 from app.auth import get_current_user
-from app.services import user_service
+from app.services import user_service, immich_service
 from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push, immich
 
 # Import all models so they are registered with SQLAlchemy before create_all
@@ -116,6 +116,7 @@ async def lifespan(app: FastAPI):
     with db_session() as db:
         user_service.seed_default_admin(db)
     yield
+    await immich_service.close_client()
 
 
 app = FastAPI(

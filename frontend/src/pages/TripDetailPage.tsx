@@ -348,7 +348,7 @@ export function TripDetailPage() {
         </div>
       </div>
 
-      <ImmichGallery trip={trip} />
+      <ImmichGallery key={trip.id} trip={trip} />
 
       <TripPhotos trip={trip} />
     </div>
