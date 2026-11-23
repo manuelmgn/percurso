@@ -1093,6 +1093,31 @@ def main():
                         {'id': 'vid-1', 'type': 'VIDEO', 'originalFileName': 'clip.mp4'},
                     ],
                 })
+            if path == '/api/albums/alb-2':
+                # Immich v3+: GET /api/albums/{id} omits `assets`, requiring POST /api/search/metadata.
+                return _httpx.Response(200, json={
+                    'id': 'alb-2',
+                    'albumName': 'Açores',
+                    'assetCount': 2,
+                    'order': 'asc',
+                })
+            if path == '/api/search/metadata' and request.method == 'POST':
+                import json as _json
+                req_body = _json.loads(request.content.decode())
+                page = req_body.get('page', 1)
+                if page == 1:
+                    return _httpx.Response(200, json={
+                        'assets': {
+                            'items': [{'id': 'img-v3-1', 'type': 'IMAGE', 'originalFileName': 'lagoa.jpg'}],
+                            'nextPage': '2',
+                        }
+                    })
+                return _httpx.Response(200, json={
+                    'assets': {
+                        'items': [{'id': 'img-v3-2', 'type': 'IMAGE', 'originalFileName': 'mar.jpg'}],
+                        'nextPage': None,
+                    }
+                })
             if path == '/api/assets/img-1/thumbnail':
                 return _httpx.Response(200, content=b'\xff\xd8\xff\xe0jpeg', headers={'content-type': 'image/jpeg'})
             if path == '/api/assets/bad-mime/thumbnail':
@@ -1126,6 +1151,16 @@ def main():
                   and alb_body['assets'][0]['caption'] == 'Ponte Luís I'
                   and alb_body['assets'][0]['lat'] == 41.14,
                   r_alb.text[:200])
+
+            # Immich v3+ album (no inline `assets`, paginated via POST /api/search/metadata).
+            adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'alb-2'})
+            r_alb_v3 = adv.get(f'/api/immich/trips/{tid}/album')
+            v3_body = r_alb_v3.json() if r_alb_v3.status_code == 200 else {}
+            check('immich v3 album fetched via search/metadata pagination',
+                  r_alb_v3.status_code == 200
+                  and v3_body.get('asset_count') == 2
+                  and [a['id'] for a in v3_body.get('assets', [])] == ['img-v3-1', 'img-v3-2'],
+                  r_alb_v3.text[:200])
 
             r_thumb = adv.get('/api/immich/assets/img-1/thumbnail?size=preview')
             check('immich thumbnail proxy serves image/jpeg private',

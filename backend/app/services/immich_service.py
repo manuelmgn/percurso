@@ -178,6 +178,57 @@ async def list_albums() -> list[dict]:
     return dated + undated
 
 
+async def _fetch_album_assets_via_search(
+    client: httpx.AsyncClient,
+    base: str,
+    headers: dict[str, str],
+    album_id: str,
+    order: str,
+) -> list[dict]:
+    """Immich v3+ omits `assets` from GET /api/albums/{id}; fetch them via
+    POST /api/search/metadata with pagination (capped at 10 pages / 10k items)."""
+    items: list[dict] = []
+    page = 1
+    max_pages = 10
+    sort_order = order if order in ("asc", "desc") else "asc"
+    while page <= max_pages:
+        payload = {
+            "albumIds": [album_id],
+            "type": "IMAGE",
+            "withExif": True,
+            "order": sort_order,
+            "size": 1000,
+            "page": page,
+        }
+        try:
+            response = await client.post(f"{base}/api/search/metadata", json=payload, headers=headers)
+        except httpx.RequestError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Não foi possível contactar o servidor Immich",
+            )
+        _raise_for_immich_status(response, "Álbum não encontrado no Immich")
+        body = _parse_json(response)
+        assets_block = body.get("assets") if isinstance(body, dict) else None
+        if not isinstance(assets_block, dict):
+            break
+        page_items = assets_block.get("items") or []
+        if not page_items:
+            break
+        items.extend(page_items)
+        next_page = assets_block.get("nextPage")
+        if not next_page:
+            break
+        try:
+            next_page_int = int(next_page)
+        except (TypeError, ValueError):
+            break
+        if next_page_int <= page:
+            break
+        page = next_page_int
+    return items
+
+
 async def get_album(album_id: str, external_url_override: Optional[str] = None) -> dict:
     if not is_valid_id(album_id):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="ID de álbum Immich inválido")
@@ -193,8 +244,15 @@ async def get_album(album_id: str, external_url_override: Optional[str] = None) 
     _raise_for_immich_status(response, "Álbum não encontrado no Immich")
     data = _parse_json(response)
 
+    raw_assets = data.get("assets")
+    expected_count = int(data.get("assetCount") or 0)
+    if raw_assets is None or (len(raw_assets) == 0 and expected_count > 0):
+        raw_assets = await _fetch_album_assets_via_search(
+            client, base, headers, album_id, str(data.get("order") or "asc")
+        )
+
     assets = []
-    for item in data.get("assets") or []:
+    for item in raw_assets or []:
         if not isinstance(item, dict):
             continue
         asset_id = item.get("id")
