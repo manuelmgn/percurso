@@ -10,6 +10,9 @@ services:
     restart: unless-stopped
     ports:
       - "5010:8000"
+    networks:
+      - default
+      - immich
     volumes:
       - percursos-data:/data
       - percursos-uploads:/app/uploads
@@ -89,3 +92,8 @@ volumes:
   percursos-uploads:
   percursos-tiles:
   percursos-backups:
+
+networks:
+  immich:
+    external: true
+    name: immich_network
