@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
+import { AlertBanner } from '@/components/ui/ErrorBanner'
 import type { PlaceSearchResult, PlaceType } from '@/types'
 import { formatHierarchy } from '@/utils/format'
 
@@ -215,11 +216,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
         )}
       </div>
 
-      {error && (
-        <p className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </p>
-      )}
+      <AlertBanner small className="mt-2 text-sm" message={error} />
     </div>
   )
 }

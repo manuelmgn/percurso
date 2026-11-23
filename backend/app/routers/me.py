@@ -76,8 +76,7 @@ def delete_account(
     # the files on disk are removed only after the delete has committed.
     urls = user_service.delete_user_account(db, user)
     response.delete_cookie(key=settings.session_cookie_name)
-    for url in urls:
-        image_service.unlink_upload(url)
+    image_service.unlink_uploads(urls)
     return None
 
 

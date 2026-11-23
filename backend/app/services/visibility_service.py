@@ -74,6 +74,17 @@ def can_user_edit_entity(user: User, entity) -> bool:
     return any(p.id == user.id for p in entity.participants)
 
 
+def apply_user_links(db: Session, entity, data) -> None:
+    """Replace an entity's participants/allowed viewers by the payload ids.
+    Shared by trips and projects; each block only runs when its key was sent
+    (PATCH may omit them), while on create assigning an empty list is a
+    harmless no-op."""
+    if data.participant_ids is not None:
+        entity.participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
+    if data.visible_user_ids is not None:
+        entity.visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
+
+
 def can_user_see_trip(db: Session, user: User, trip: Trip) -> bool:
     """Single-trip check via the same SQL rule as the list filters."""
     return (

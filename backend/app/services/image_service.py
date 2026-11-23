@@ -4,7 +4,7 @@ WebP (HEIC/HEIF included) and store in the uploads volume."""
 import io
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Iterable, Optional
 
 from fastapi import HTTPException, status
 from PIL import Image, ImageOps
@@ -89,6 +89,12 @@ def unlink_upload(url: Optional[str]) -> None:
         (settings.uploads_dir / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
     except OSError:
         pass
+
+
+def unlink_uploads(urls: Iterable[Optional[str]]) -> None:
+    """Batch form of unlink_upload (account/trip deletes detach many files)."""
+    for url in urls:
+        unlink_upload(url)
 
 
 def process_and_save(content: bytes, content_type: str) -> tuple[str, int, int]:

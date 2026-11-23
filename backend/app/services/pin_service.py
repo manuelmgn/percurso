@@ -66,3 +66,12 @@ def unpin(db: Session, user: User, entity_type: EntityType, entity_id: int) -> N
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Elemento não fixado")
     db.delete(pin_row)
     db.commit()
+
+
+def delete_pins_for_entity(db: Session, entity_type: EntityType, entity_id: int) -> None:
+    """Remove every pin pointing at an entity about to be deleted. Pins carry
+    a plain entity id with no FK, so without this they would dangle on other
+    users' dashboards."""
+    db.query(Pin).filter(Pin.entity_type == entity_type, Pin.entity_id == entity_id).delete(
+        synchronize_session=False
+    )

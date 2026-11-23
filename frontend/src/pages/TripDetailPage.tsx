@@ -8,6 +8,7 @@ import { useTranslation } from '@/i18n'
 import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
+import { AlertBanner } from '@/components/ui/ErrorBanner'
 import { DetailPageSkeleton } from '@/components/ui/Skeleton'
 import { TripLinks } from '@/components/TripLinks'
 import { TripPhotos } from '@/components/TripPhotos'
@@ -190,11 +191,7 @@ export function TripDetailPage() {
         </div>
       </div>
 
-      {(error || actionError) && (
-        <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error || actionError}
-        </div>
-      )}
+      <AlertBanner className="rounded-2xl" message={error || actionError} />
 
       {isConfirmingDelete && deleteWarning && (
         <div className="card border-2 border-red-300 dark:border-red-800">

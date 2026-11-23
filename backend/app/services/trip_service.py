@@ -5,10 +5,10 @@ from urllib.parse import urlparse
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo, Pin, EntityType
+from app.models import User, Trip, TripPlace, TripProject, Place, Project, Photo, EntityType
 from app.sanitize import sanitize_notes
 from app.schemas import TripCreate, TripUpdate, ExternalLinkInput
-from app.services import visibility_service, project_service, notification_service, image_service
+from app.services import visibility_service, project_service, notification_service, image_service, pin_service
 
 
 def trip_display_name(trip: Trip) -> str:
@@ -188,11 +188,7 @@ def _update_relations(db: Session, user: User, trip: Trip, data) -> None:
         for project_id in valid_project_ids:
             db.add(TripProject(trip_id=trip.id, project_id=project_id))
 
-    if data.participant_ids is not None:
-        trip.participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
-
-    if data.visible_user_ids is not None:
-        trip.visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
+    visibility_service.apply_user_links(db, trip, data)
 
 
 def delete_trip(db: Session, trip: Trip) -> None:
@@ -209,15 +205,10 @@ def delete_trip(db: Session, trip: Trip) -> None:
     # non-nullable trip_id and the delete would fail.
     for photo in photos:
         db.delete(photo)
-    # Pins carry a plain entity id with no FK, so they must be removed
-    # explicitly or they would dangle on other users' dashboards.
-    db.query(Pin).filter(Pin.entity_type == EntityType.TRIP, Pin.entity_id == trip.id).delete(
-        synchronize_session=False
-    )
+    pin_service.delete_pins_for_entity(db, EntityType.TRIP, trip.id)
     db.delete(trip)
     db.commit()
-    for photo in photos:
-        image_service.unlink_upload(photo.url)
+    image_service.unlink_uploads(photo.url for photo in photos)
 
 
 def get_affected_projects(db: Session, user: User, trip: Trip) -> list[Project]:

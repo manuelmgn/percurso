@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { api } from '@/api'
-import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { AlertBanner, ErrorBanner } from '@/components/ui/ErrorBanner'
 import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
+import { useFlashMessage } from '@/hooks/useFlashMessage'
 import { useTranslation } from '@/i18n'
 import type { User, UserCreate } from '@/types'
 
@@ -14,7 +15,7 @@ export function AdminPage() {
     [],
   )
   const [actionError, setActionError] = useState('')
-  const [successNotice, setSuccessNotice] = useState('')
+  const [successNotice, flashSuccessNotice] = useFlashMessage()
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<UserCreate['role']>('user')
@@ -86,8 +87,7 @@ export function AdminPage() {
       // Session revoke on the backend also invalidates that user's logins.
       setResetPasswordUser(null)
       setResetPasswordValue('')
-      setSuccessNotice(t('admin.resetPasswordSuccess'))
-      setTimeout(() => setSuccessNotice(''), 3000)
+      flashSuccessNotice(t('admin.resetPasswordSuccess'))
     } catch (err) {
       setActionError(getErrorMessage(err, t('admin.resetPasswordError')))
     } finally {
@@ -115,11 +115,7 @@ export function AdminPage() {
       <h2 className="font-display text-2xl font-bold">{t('admin.title')}</h2>
       <ErrorBanner message={error || actionError} />
 
-      {successNotice && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300" role="status">
-          {successNotice}
-        </div>
-      )}
+      <AlertBanner message={successNotice} variant="success" />
 
       <div className="card">
         <h3 className="mb-4 font-display text-lg font-semibold">{t('admin.createUserTitle')}</h3>

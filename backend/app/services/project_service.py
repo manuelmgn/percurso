@@ -4,9 +4,9 @@ from typing import Collection, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, Pin, EntityType
+from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, EntityType
 from app.schemas import ProjectCreate, ProjectUpdate
-from app.services import visibility_service, notification_service
+from app.services import visibility_service, notification_service, pin_service
 
 
 def create_project(db: Session, user: User, data: ProjectCreate) -> Project:
@@ -20,13 +20,7 @@ def create_project(db: Session, user: User, data: ProjectCreate) -> Project:
     db.add(project)
     db.flush()
 
-    if data.participant_ids:
-        participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
-        project.participants = participants
-
-    if data.visible_user_ids:
-        visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
-        project.visible_users = visible_users
+    visibility_service.apply_user_links(db, project, data)
 
     if data.place_ids:
         for place_id in data.place_ids:
@@ -64,13 +58,7 @@ def update_project(db: Session, user: User, project: Project, data: ProjectUpdat
     if data.map_mode is not None:
         project.map_mode = data.map_mode
 
-    if data.participant_ids is not None:
-        participants = db.query(User).filter(User.id.in_(data.participant_ids)).all()
-        project.participants = participants
-
-    if data.visible_user_ids is not None:
-        visible_users = db.query(User).filter(User.id.in_(data.visible_user_ids)).all()
-        project.visible_users = visible_users
+    visibility_service.apply_user_links(db, project, data)
 
     project.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -88,11 +76,7 @@ def update_project(db: Session, user: User, project: Project, data: ProjectUpdat
 
 
 def delete_project(db: Session, user: User, project: Project) -> None:
-    # Pins carry a plain entity id with no FK, so they must be removed
-    # explicitly or they would dangle on other users' dashboards.
-    db.query(Pin).filter(Pin.entity_type == EntityType.PROJECT, Pin.entity_id == project.id).delete(
-        synchronize_session=False
-    )
+    pin_service.delete_pins_for_entity(db, EntityType.PROJECT, project.id)
     db.delete(project)
     db.commit()
 

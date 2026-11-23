@@ -5,7 +5,9 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
+import { useFlashMessage } from '@/hooks/useFlashMessage'
 import { useModalA11y } from '@/hooks/useModalA11y'
+import { AlertBanner } from '@/components/ui/ErrorBanner'
 import { formatDate, formatDateTime, entityDetailPath } from '@/utils/format'
 import { isPushEnabled, subscribePush, unsubscribePush } from '@/utils/push'
 import type { ActivityItem, ThemePreference } from '@/types'
@@ -97,11 +99,7 @@ function DeleteAccountModal({
           {t('settings.deleteModalWarning')}
         </p>
 
-        {error && (
-          <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
-            {error}
-          </div>
-        )}
+        <AlertBanner className="mt-3" message={error} />
 
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -135,7 +133,7 @@ export function SettingsPage() {
   // Profile - Username
   const [usernameInput, setUsernameInput] = useState(user?.username || '')
   const [isSavingUsername, setIsSavingUsername] = useState(false)
-  const [usernameMessage, setUsernameMessage] = useState('')
+  const [usernameMessage, flashUsernameMessage, clearUsernameMessage] = useFlashMessage()
   const [usernameError, setUsernameError] = useState('')
 
   useEffect(() => {
@@ -151,7 +149,7 @@ export function SettingsPage() {
 
   // Preferences
   const [prefsError, setPrefsError] = useState('')
-  const [prefsSuccess, setPrefsSuccess] = useState('')
+  const [prefsSuccess, flashPrefsSuccess, clearPrefsSuccess] = useFlashMessage(2500)
 
   // Push notifications
   const [pushState, setPushState] = useState<'checking' | 'enabled' | 'disabled' | 'denied' | 'unsupported'>('checking')
@@ -176,7 +174,7 @@ export function SettingsPage() {
   // Account - Password
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordMessage, flashPasswordMessage, clearPasswordMessage] = useFlashMessage()
   const [passwordError, setPasswordError] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
 
@@ -226,14 +224,13 @@ export function SettingsPage() {
     if (!trimmed || trimmed === user?.username) return
 
     setUsernameError('')
-    setUsernameMessage('')
+    clearUsernameMessage()
     setIsSavingUsername(true)
 
     try {
       await api.me.update({ username: trimmed })
       await refreshUser()
-      setUsernameMessage(t('settings.usernameUpdated'))
-      setTimeout(() => setUsernameMessage(''), 3000)
+      flashUsernameMessage(t('settings.usernameUpdated'))
     } catch (err) {
       setUsernameError(getErrorMessage(err, t('settings.usernameError')))
     } finally {
@@ -253,12 +250,11 @@ export function SettingsPage() {
 
   const handlePreferenceChange = async (prefs: { timezone?: string; date_format?: string; yearly_trip_goal?: number }) => {
     setPrefsError('')
-    setPrefsSuccess('')
+    clearPrefsSuccess()
     try {
       await api.me.update(prefs)
       await refreshUser()
-      setPrefsSuccess(t('settings.preferencesSaved'))
-      setTimeout(() => setPrefsSuccess(''), 2500)
+      flashPrefsSuccess(t('settings.preferencesSaved'))
     } catch (err) {
       setPrefsError(getErrorMessage(err))
     }
@@ -305,15 +301,14 @@ export function SettingsPage() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
-    setPasswordMessage('')
+    clearPasswordMessage()
     setPasswordError('')
     setIsChangingPassword(true)
     try {
       await api.me.changePassword({ current_password: currentPassword, new_password: newPassword })
-      setPasswordMessage(t('profile.passwordChanged'))
+      flashPasswordMessage(t('profile.passwordChanged'))
       setCurrentPassword('')
       setNewPassword('')
-      setTimeout(() => setPasswordMessage(''), 3000)
     } catch (err) {
       setPasswordError(getErrorMessage(err, t('profile.passwordError')))
     } finally {
@@ -396,11 +391,7 @@ export function SettingsPage() {
 
           {/* Div 2 (right): centred image above with hover-to-change + public name field */}
           <div className="card flex flex-col items-center p-6 text-center">
-            {avatarError && (
-              <div className="mb-4 w-full rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-                {avatarError}
-              </div>
-            )}
+            <AlertBanner className="mb-4 w-full rounded-xl" message={avatarError} />
 
             {/* Centred image with hover-to-change */}
             <div className="group relative">
@@ -452,16 +443,8 @@ export function SettingsPage() {
                 {t('settings.publicNameLabel')}
               </label>
 
-              {usernameMessage && (
-                <div className="mb-2 rounded-lg bg-green-50 p-2.5 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                  {usernameMessage}
-                </div>
-              )}
-              {usernameError && (
-                <div className="mb-2 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
-                  {usernameError}
-                </div>
-              )}
+              <AlertBanner small className="mb-2" message={usernameMessage} variant="success" />
+              <AlertBanner small className="mb-2" message={usernameError} />
 
               <div className="flex gap-2">
                 <input
@@ -536,16 +519,8 @@ export function SettingsPage() {
               </p>
             </div>
 
-            {prefsSuccess && (
-              <div className="rounded-lg bg-green-50 p-2.5 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                {prefsSuccess}
-              </div>
-            )}
-            {prefsError && (
-              <div className="rounded-lg bg-red-50 p-2.5 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
-                {prefsError}
-              </div>
-            )}
+            <AlertBanner small message={prefsSuccess} variant="success" />
+            <AlertBanner small message={prefsError} />
 
             <div className="space-y-4">
               <div>
@@ -702,16 +677,8 @@ export function SettingsPage() {
               {t('settings.passwordDescription')}
             </p>
 
-            {passwordMessage && (
-              <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                {passwordMessage}
-              </div>
-            )}
-            {passwordError && (
-              <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-                {passwordError}
-              </div>
-            )}
+            <AlertBanner className="mt-3" message={passwordMessage} variant="success" />
+            <AlertBanner className="mt-3" message={passwordError} />
 
             <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

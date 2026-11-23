@@ -112,8 +112,7 @@ async def upload_photos(
     except Exception:
         db.rollback()
         # Remove any files already written so a failed batch leaves no orphans.
-        for photo in photos:
-            image_service.unlink_upload(photo.url)
+        image_service.unlink_uploads(photo.url for photo in photos)
         raise
 
     for photo in photos:
