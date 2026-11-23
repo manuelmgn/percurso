@@ -349,11 +349,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ lines, place_type: placeType ?? null }),
       }),
-    bulkImportConfirm: (projectId: number, lines: BulkImportLine[]) =>
-      fetchJson<Project>(`/api/projects/${projectId}/bulk-import/confirm`, {
-        method: 'POST',
-        body: JSON.stringify(lines),
-      }),
+    bulkImportConfirm: (projectId: number, lines: BulkImportLine[], logActivity = true) =>
+      fetchJson<Project>(
+        `/api/projects/${projectId}/bulk-import/confirm${logActivity ? '' : '?log_activity=false'}`,
+        {
+          method: 'POST',
+          body: JSON.stringify(lines),
+        },
+      ),
   },
 
   stats: {

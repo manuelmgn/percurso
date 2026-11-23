@@ -14,19 +14,87 @@ NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup"
 USER_AGENT = "Percursos/0.1 (https://github.com/manuelmgn/percurso)"
 
-# Nominatim usage policy: max 1 request/second. Serialise and pace all
-# outbound requests through this lock.
+# Nominatim usage policy: max 1 request/second, single thread. Hold the lock
+# across the entire HTTP exchange (including retries) and wait a conservative
+# margin *after* each response finishes before starting the next request.
+_NOMINATIM_MIN_INTERVAL = 1.15
+_NOMINATIM_MAX_ATTEMPTS = 3
+_NOMINATIM_RETRY_BASE_DELAY = 2.5
+_NOMINATIM_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+_NOMINATIM_LOOKUP_BATCH_SIZE = 10
+
 _nominatim_lock = asyncio.Lock()
 _last_nominatim_request = 0.0
+_client: Optional[httpx.AsyncClient] = None
+_client_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
-async def _throttle_nominatim() -> None:
+def _get_client() -> httpx.AsyncClient:
+    """Pooled keep-alive client bound to the active event loop so bulk imports
+    reuse one TLS session instead of handshaking 500 times."""
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client.is_closed or (_client_loop is not None and _client_loop is not loop):
+        _client = httpx.AsyncClient(
+            headers={"User-Agent": USER_AGENT},
+            limits=httpx.Limits(max_connections=2, max_keepalive_connections=2),
+        )
+        _client_loop = loop
+    return _client
+
+
+def _retry_delay(attempt: int, response: Optional[httpx.Response] = None) -> float:
+    if response is not None:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return max(_NOMINATIM_RETRY_BASE_DELAY, min(float(retry_after), 20.0))
+            except ValueError:
+                pass
+    return _NOMINATIM_RETRY_BASE_DELAY * (attempt + 1)
+
+
+async def _nominatim_get(url: str, params: dict, timeout: float = 15.0) -> list:
+    """Serialised, rate-limited GET against Nominatim with bounded retries on
+    transient network, timeout, 429, and 5xx errors."""
     global _last_nominatim_request
     async with _nominatim_lock:
-        wait = 1.05 - (time.monotonic() - _last_nominatim_request)
-        if wait > 0:
-            await asyncio.sleep(wait)
-        _last_nominatim_request = time.monotonic()
+        last_exc: Optional[Exception] = None
+        for attempt in range(_NOMINATIM_MAX_ATTEMPTS):
+            wait = _NOMINATIM_MIN_INTERVAL - (time.monotonic() - _last_nominatim_request)
+            if wait > 0:
+                await asyncio.sleep(wait)
+
+            try:
+                response = await _get_client().get(
+                    url,
+                    params=params,
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=timeout,
+                )
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                _last_nominatim_request = time.monotonic()
+                last_exc = exc
+                if attempt + 1 < _NOMINATIM_MAX_ATTEMPTS:
+                    await asyncio.sleep(_retry_delay(attempt))
+                    continue
+                raise
+
+            _last_nominatim_request = time.monotonic()
+
+            if response.status_code in _NOMINATIM_RETRYABLE_STATUSES:
+                if attempt + 1 < _NOMINATIM_MAX_ATTEMPTS:
+                    await asyncio.sleep(_retry_delay(attempt, response))
+                    continue
+                response.raise_for_status()
+
+            response.raise_for_status()
+            data = response.json()
+            return data if isinstance(data, list) else []
+
+        if last_exc is not None:
+            raise last_exc
+        return []
 
 
 def map_osm_tags_to_type(extratags: dict, osm_class: str, osm_type: str) -> PlaceType:
@@ -80,22 +148,17 @@ def build_hierarchy(display_name: str, address: dict) -> dict:
 
 
 async def search_nominatim(query: str, limit: int = 15) -> list[PlaceSearchResult]:
-    await _throttle_nominatim()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            NOMINATIM_URL,
-            params={
-                "q": query,
-                "format": "json",
-                "limit": limit,
-                "addressdetails": 1,
-                "extratags": 1,
-            },
-            headers={"User-Agent": USER_AGENT},
-            timeout=10.0,
-        )
-        response.raise_for_status()
-        data = response.json()
+    data = await _nominatim_get(
+        NOMINATIM_URL,
+        params={
+            "q": query,
+            "format": "json",
+            "limit": limit,
+            "addressdetails": 1,
+            "extratags": 1,
+        },
+        timeout=15.0,
+    )
 
     results = []
     for item in data:
@@ -337,25 +400,45 @@ def simplify_geojson(geometry: Optional[dict], tolerance: float = _SIMPLIFY_TOLE
     return {"type": "MultiPolygon", "coordinates": polygons} if polygons else None
 
 
+async def fetch_places_polygons(targets: list[tuple[str, int]]) -> dict[tuple[str, int], dict]:
+    """Fetch and simplify boundary polygons for up to 50 (osm_type, osm_id)
+    pairs in a single Nominatim /lookup call. Nodes have no polygon."""
+    encoded_ids: list[str] = []
+    seen: set[tuple[str, int]] = set()
+    for osm_type, osm_id in targets:
+        prefix = _OSM_TYPE_PREFIX.get(osm_type)
+        if prefix in ("W", "R") and (osm_type, osm_id) not in seen:
+            seen.add((osm_type, osm_id))
+            encoded_ids.append(f"{prefix}{osm_id}")
+    if not encoded_ids:
+        return {}
+
+    data = await _nominatim_get(
+        NOMINATIM_LOOKUP_URL,
+        params={"osm_ids": ",".join(encoded_ids), "format": "json", "polygon_geojson": 1},
+        timeout=25.0,
+    )
+    polygons: dict[tuple[str, int], dict] = {}
+    for item in data:
+        item_type = item.get("osm_type")
+        raw_id = item.get("osm_id")
+        if not item_type or raw_id is None:
+            continue
+        try:
+            key = (str(item_type), int(raw_id))
+        except (TypeError, ValueError):
+            continue
+        simplified = simplify_geojson(item.get("geojson"))
+        if simplified is not None:
+            polygons[key] = simplified
+    return polygons
+
+
 async def fetch_place_polygon(osm_type: str, osm_id: int) -> Optional[dict]:
     """Fetch and simplify the boundary polygon from Nominatim lookup.
     Nodes have no polygon; ways/relations may."""
-    prefix = _OSM_TYPE_PREFIX.get(osm_type)
-    if prefix is None or prefix == "N":
-        return None
-    await _throttle_nominatim()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            NOMINATIM_LOOKUP_URL,
-            params={"osm_ids": f"{prefix}{osm_id}", "format": "json", "polygon_geojson": 1},
-            headers={"User-Agent": USER_AGENT},
-            timeout=20.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-    if not data:
-        return None
-    return simplify_geojson(data[0].get("geojson"))
+    polygons = await fetch_places_polygons([(osm_type, osm_id)])
+    return polygons.get((osm_type, osm_id))
 
 
 async def ensure_place_polygon(db: Session, place: Place) -> Place:
@@ -371,3 +454,43 @@ async def ensure_place_polygon(db: Session, place: Place) -> Place:
         db.commit()
         db.refresh(place)
     return place
+
+
+async def ensure_places_polygons(db: Session, places: list[Place]) -> None:
+    """Populate missing boundary polygons in small Nominatim /lookup batches,
+    falling back to per-place lookups if a multi-item batch fails. Non-fatal."""
+    pending_by_key: dict[tuple[str, int], Place] = {}
+    for place in places:
+        if place.polygon is None and _OSM_TYPE_PREFIX.get(place.osm_type) in ("W", "R"):
+            pending_by_key[(place.osm_type, place.osm_id)] = place
+
+    pending = list(pending_by_key.values())
+    for start in range(0, len(pending), _NOMINATIM_LOOKUP_BATCH_SIZE):
+        batch = pending[start : start + _NOMINATIM_LOOKUP_BATCH_SIZE]
+        targets = [(p.osm_type, p.osm_id) for p in batch]
+        try:
+            polygons = await fetch_places_polygons(targets)
+        except Exception:
+            polygons = {}
+            if len(batch) > 1:
+                # One oversized relation can time out a whole batch; retry each
+                # place individually so the rest of the batch still gets polygons.
+                for osm_type, osm_id in targets:
+                    try:
+                        poly = await fetch_place_polygon(osm_type, osm_id)
+                    except Exception:
+                        poly = None
+                    if poly is not None:
+                        polygons[(osm_type, osm_id)] = poly
+
+        dirty = False
+        for place in batch:
+            poly = polygons.get((place.osm_type, place.osm_id))
+            if poly is not None:
+                place.polygon = poly
+                dirty = True
+        if dirty:
+            db.commit()
+            for place in batch:
+                if place.polygon is not None:
+                    db.refresh(place)

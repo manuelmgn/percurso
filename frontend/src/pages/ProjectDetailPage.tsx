@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '@/api'
+import { api, ApiError } from '@/api'
 import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
+import { useUnloadGuard } from '@/hooks/useUnloadGuard'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
@@ -20,7 +21,40 @@ import type { Geometry } from 'geojson'
 const VISITED_COLOR = '#f59e0b'
 const PENDING_COLOR = '#7a756d'
 // Mirrors BulkImportRequest's max_length on the backend.
-const MAX_BULK_LINES = 100
+const MAX_BULK_LINES = 500
+// Small sequential batches keep every HTTP request well under reverse-proxy
+// timeouts (~12 s worst case per resolve batch on Nominatim's 1 req/s policy)
+// and allow automatic per-batch retry without losing prior progress.
+const RESOLVE_BATCH_SIZE = 10
+const CONFIRM_BATCH_SIZE = 20
+const BATCH_PAUSE_MS = 250
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504])
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function runBatchWithRetry<T>(
+  task: () => Promise<T>,
+  isAborted: () => boolean,
+  maxAttempts = 3,
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await task()
+    } catch (err) {
+      lastError = err
+      const retryable = !(err instanceof ApiError) || RETRYABLE_STATUSES.has(err.status)
+      if (!retryable || attempt + 1 >= maxAttempts || isAborted()) {
+        throw err
+      }
+      await sleep(3000 * (attempt + 1))
+      if (isAborted()) throw err
+    }
+  }
+  throw lastError
+}
 
 function formatCandidate(result: PlaceSearchResult): string {
   const hierarchy = formatHierarchy(result.hierarchy)
@@ -59,6 +93,23 @@ export function ProjectDetailPage() {
   const [bulkConflicts, setBulkConflicts] = useState<Set<number>>(new Set())
   const [isResolving, setIsResolving] = useState(false)
   const [isImportingBulk, setIsImportingBulk] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
+  const mountedRef = useRef(true)
+  // Remembers lines resolved in the current session so retrying after a mid-way
+  // network drop resumes instantaneously without re-querying OpenStreetMap.
+  const resolvedCacheRef = useRef<{ type: PlaceType | ''; byKey: Map<string, BulkImportLine> }>({
+    type: '',
+    byKey: new Map(),
+  })
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useUnloadGuard(isResolving || isImportingBulk)
 
   // Map data is derived from the project — memoise it so typing in the bulk
   // import textarea or toggling a place doesn't rebuild the map (and refit
@@ -170,14 +221,72 @@ export function ProjectDetailPage() {
     }
     setActionError('')
     setIsResolving(true)
+    setBulkLines(null)
+    setBulkConflicts(new Set())
+
+    if (resolvedCacheRef.current.type !== bulkType) {
+      resolvedCacheRef.current = { type: bulkType, byKey: new Map() }
+    }
+    const cache = resolvedCacheRef.current.byKey
+    const collected: BulkImportLine[] = new Array(lines.length)
+    const pendingIndices: number[] = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const cached = cache.get(lines[i].toLowerCase())
+      if (cached) {
+        collected[i] = {
+          ...cached,
+          line: lines[i],
+          candidates: [...cached.candidates],
+          selected: cached.selected ? { ...cached.selected } : null,
+        }
+      } else {
+        pendingIndices.push(i)
+      }
+    }
+
+    let doneCount = lines.length - pendingIndices.length
+    setBulkProgress({ done: doneCount, total: lines.length })
+
     try {
-      const response = await api.projects.bulkImport(projectId, lines, bulkType || null)
-      setBulkLines(response.lines)
+      for (let start = 0; start < pendingIndices.length; start += RESOLVE_BATCH_SIZE) {
+        if (!mountedRef.current) return
+        const batchIndices = pendingIndices.slice(start, start + RESOLVE_BATCH_SIZE)
+        const batchStrings = batchIndices.map((idx) => lines[idx])
+        const response = await runBatchWithRetry(
+          () => api.projects.bulkImport(projectId, batchStrings, bulkType || null),
+          () => !mountedRef.current,
+        )
+        if (!mountedRef.current) return
+
+        for (let j = 0; j < batchIndices.length; j++) {
+          const resolvedLine = response.lines[j]
+          if (resolvedLine) {
+            collected[batchIndices[j]] = resolvedLine
+            if (resolvedLine.status !== 'not_found') {
+              cache.set(batchStrings[j].toLowerCase(), resolvedLine)
+            }
+          }
+        }
+        doneCount += batchIndices.length
+        setBulkProgress({ done: doneCount, total: lines.length })
+
+        if (start + RESOLVE_BATCH_SIZE < pendingIndices.length) {
+          await sleep(BATCH_PAUSE_MS)
+        }
+      }
+      if (!mountedRef.current) return
+      setBulkLines(collected)
       setBulkConflicts(new Set())
     } catch (err) {
-      setActionError(getErrorMessage(err, t('projects.bulkResolveError')))
+      if (mountedRef.current) {
+        setActionError(getErrorMessage(err, t('projects.bulkResolveError')))
+      }
     } finally {
-      setIsResolving(false)
+      if (mountedRef.current) {
+        setIsResolving(false)
+        setBulkProgress(null)
+      }
     }
   }
 
@@ -244,15 +353,74 @@ export function ProjectDetailPage() {
     if (!bulkLines) return
     setActionError('')
     setIsImportingBulk(true)
-    try {
-      setProject(await api.projects.bulkImportConfirm(projectId, bulkLines))
+
+    const selectedLines = bulkLines.filter((l) => l.selected)
+    if (selectedLines.length === 0) {
       setBulkLines(null)
       setBulkText('')
       setShowBulk(false)
+      setIsImportingBulk(false)
+      return
+    }
+
+    setBulkProgress({ done: 0, total: selectedLines.length })
+    let importedCount = 0
+
+    try {
+      let latestProject: Project | null = null
+      for (let start = 0; start < selectedLines.length; start += CONFIRM_BATCH_SIZE) {
+        if (!mountedRef.current) return
+        const batch = selectedLines.slice(start, start + CONFIRM_BATCH_SIZE)
+        const isLastBatch = start + CONFIRM_BATCH_SIZE >= selectedLines.length
+        latestProject = await runBatchWithRetry(
+          () => api.projects.bulkImportConfirm(projectId, batch, isLastBatch),
+          () => !mountedRef.current,
+        )
+        if (!mountedRef.current) return
+        importedCount += batch.length
+        setBulkProgress({ done: importedCount, total: selectedLines.length })
+
+        if (!isLastBatch) {
+          await sleep(BATCH_PAUSE_MS)
+        }
+      }
+      if (!mountedRef.current) return
+      if (latestProject) setProject(latestProject)
+      resolvedCacheRef.current = { type: bulkType, byKey: new Map() }
+      setBulkLines(null)
+      setBulkText('')
+      setShowBulk(false)
+      checkAndCelebrate()
     } catch (err) {
+      if (!mountedRef.current) return
+      // Drop already-imported lines so manual disambiguations on the remaining
+      // lines stay intact and clicking Confirm again resumes cleanly.
+      if (importedCount > 0) {
+        let remainingToDrop = importedCount
+        setBulkLines((prev) =>
+          prev
+            ? prev.filter((l) => {
+                if (l.selected && remainingToDrop > 0) {
+                  remainingToDrop--
+                  return false
+                }
+                return true
+              })
+            : prev,
+        )
+        api.projects
+          .get(projectId)
+          .then((p) => {
+            if (mountedRef.current) setProject(p)
+          })
+          .catch(() => {})
+      }
       setActionError(getErrorMessage(err, t('projects.bulkImportError')))
     } finally {
-      setIsImportingBulk(false)
+      if (mountedRef.current) {
+        setIsImportingBulk(false)
+        setBulkProgress(null)
+      }
     }
   }
 
@@ -521,13 +689,26 @@ export function ProjectDetailPage() {
                   ))}
                 </select>
               </div>
+              <p className="text-xs text-muted">
+                {t('bulkImport.slowHint', { max: MAX_BULK_LINES })}
+              </p>
               <button
                 onClick={handleResolve}
                 disabled={isResolving || isImportingBulk || !bulkText.trim()}
                 className="btn-primary"
               >
-                {isResolving ? t('bulkImport.resolving') : t('bulkImport.resolve')}
+                {isResolving
+                  ? bulkProgress
+                    ? t('bulkImport.resolvingProgress', { done: bulkProgress.done, total: bulkProgress.total })
+                    : t('bulkImport.resolving')
+                  : t('bulkImport.resolve')}
               </button>
+              {isResolving && bulkProgress && (
+                <ProgressBar
+                  percent={(bulkProgress.done / Math.max(1, bulkProgress.total)) * 100}
+                  label={t('bulkImport.resolving')}
+                />
+              )}
 
               {bulkLines && (
                 <div className="space-y-3 rounded-xl border border-line p-4">
@@ -549,7 +730,7 @@ export function ProjectDetailPage() {
                       ))}
                     </div>
                   )}
-                  <ul className="space-y-3">
+                  <ul className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
                     {bulkLines.map((line, index) => (
                       <li
                         key={index}
@@ -618,13 +799,23 @@ export function ProjectDetailPage() {
                       </ul>
                     </div>
                   )}
+                  {isImportingBulk && bulkProgress && (
+                    <ProgressBar
+                      percent={(bulkProgress.done / Math.max(1, bulkProgress.total)) * 100}
+                      label={t('bulkImport.importing')}
+                    />
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={handleConfirmBulk}
                       disabled={isImportingBulk || hasUnresolvedAmbiguous}
                       className="btn-primary"
                     >
-                      {isImportingBulk ? t('bulkImport.importing') : t('bulkImport.confirm')}
+                      {isImportingBulk
+                        ? bulkProgress
+                          ? t('bulkImport.importingProgress', { done: bulkProgress.done, total: bulkProgress.total })
+                          : t('bulkImport.importing')
+                        : t('bulkImport.confirm')}
                     </button>
                     <button
                       onClick={() => setBulkLines(null)}

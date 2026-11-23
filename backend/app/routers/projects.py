@@ -1,11 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user, validate_csrf
 from app.models import User, Project, Place, Trip, TripProject
-from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse, BulkImportRequest, BulkImportResponse, BulkImportLine, PlaceSearchResult, UserResponse
+from app.schemas import (
+    MAX_BULK_IMPORT_LINES,
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+    ProjectListResponse,
+    BulkImportRequest,
+    BulkImportResponse,
+    BulkImportLine,
+    PlaceSearchResult,
+    UserResponse,
+)
 from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
 from app.services import project_service, place_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
@@ -133,23 +144,33 @@ async def bulk_import_places(
 
     place_type = payload.place_type
 
-    lines = []
+    lines: list[BulkImportLine] = []
+    # Reuse resolutions for duplicate lines within the same payload so repeated
+    # entries never burn extra Nominatim requests.
+    seen_queries: dict[str, BulkImportLine] = {}
     for raw_line in payload.lines:
         line = raw_line.strip()
         if not line:
             continue
 
+        norm_key = line.lower()
+        if norm_key in seen_queries:
+            lines.append(seen_queries[norm_key].model_copy(update={"line": line}, deep=True))
+            continue
+
         # Exact name match in the local cache resolves without hitting OSM —
         # even if OSM would return same-named duplicates that would make the
         # line ambiguous later.
-        exact_query = db.query(Place).filter(func.lower(Place.name) == line.lower())
+        exact_query = db.query(Place).filter(func.lower(Place.name) == norm_key)
         if place_type is not None:
             exact_query = exact_query.filter(Place.place_type == place_type)
         exact_cached = exact_query.all()
 
         if len(exact_cached) == 1:
             result = to_search_result(exact_cached[0])
-            lines.append(BulkImportLine(line=line, status="resolved", candidates=[result], selected=result))
+            resolved_line = BulkImportLine(line=line, status="resolved", candidates=[result], selected=result)
+            seen_queries[norm_key] = resolved_line
+            lines.append(resolved_line)
             continue
 
         cached_results = [to_search_result(p) for p in exact_cached]
@@ -158,10 +179,20 @@ async def bulk_import_places(
             for p in place_service.find_cached_places(db, line, limit=5)
             if p not in exact_cached
         ]
+        if place_type is not None:
+            cached_results = [c for c in cached_results if c.place_type == place_type]
 
         try:
             osm_results = await place_service.search_nominatim(line, limit=5)
         except Exception:
+            # When nothing matched locally, swallowing an upstream outage after
+            # all retries would mislabel valid places as "not_found". Fail the
+            # batch with 503 instead so the client can pause and retry safely.
+            if not cached_results:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="O serviço de geocodificação (OpenStreetMap) está temporariamente indisponível — tenta novamente dentro de instantes.",
+                )
             osm_results = []
         if place_type is not None:
             # A type hint restricts resolution to candidates of that type
@@ -169,7 +200,9 @@ async def bulk_import_places(
 
         # Merge, deduplicating by OSM identity (cache first), then resolve
         candidates = place_service.merge_dedup_rank(cached_results + osm_results, limit=8)
-        lines.append(_resolve_line(line, candidates))
+        resolved_line = _resolve_line(line, candidates)
+        seen_queries[norm_key] = resolved_line
+        lines.append(resolved_line)
 
     return BulkImportResponse(lines=lines)
 
@@ -177,14 +210,17 @@ async def bulk_import_places(
 @router.post("/{project_id}/bulk-import/confirm", response_model=ProjectResponse)
 async def confirm_bulk_import(
     project_id: int,
-    lines: list[BulkImportLine],
+    lines: list[BulkImportLine] = Body(..., max_length=MAX_BULK_IMPORT_LINES),
+    log_activity: bool = Query(True),
     db: Session = Depends(get_db),
     user: User = Depends(validate_csrf),
 ):
     project = get_editable_project_or_404(db, project_id, user)
 
-    # Any line with a selected candidate is imported, whatever its original
-    # status (the user resolves ambiguous lines in the review screen).
+    # Persist all places and project links first so no place is ever lost if a
+    # later boundary-polygon lookup fails; fetch missing polygons afterwards in
+    # Nominatim /lookup batches.
+    imported_places: list[Place] = []
     for line in lines:
         if line.selected:
             place, _ = place_service.get_or_create_place(
@@ -197,10 +233,14 @@ async def confirm_bulk_import(
                 lat=line.selected.lat,
                 lon=line.selected.lon,
             )
-            place = await place_service.ensure_place_polygon(db, place)
             project_service.add_place_to_project(db, user, project, place)
+            imported_places.append(place)
 
-    activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.PROJECT, project.id, project.name)
+    await place_service.ensure_places_polygons(db, imported_places)
+
+    if log_activity:
+        activity_service.log_activity(db, user, EntityAction.UPDATED, EntityType.PROJECT, project.id, project.name)
+    db.refresh(project)
     return _project_to_response(db, user, project)
 
 

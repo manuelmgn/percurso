@@ -210,6 +210,9 @@ class ProjectListResponse(BaseModel):
     updated_at: datetime
 
 
+MAX_BULK_IMPORT_LINES = 500
+
+
 class BulkImportLine(BaseModel):
     line: str
     status: str  # resolved, ambiguous, not_found
@@ -218,7 +221,7 @@ class BulkImportLine(BaseModel):
 
 
 class BulkImportRequest(BaseModel):
-    lines: list[str] = Field(..., min_length=1, max_length=100)
+    lines: list[str] = Field(..., min_length=1, max_length=MAX_BULK_IMPORT_LINES)
     # Optional type hint: when set, the user asserts every line is a place of
     # this type and resolution only considers candidates of that type.
     place_type: Optional[PlaceType] = None

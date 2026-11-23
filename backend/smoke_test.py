@@ -1211,6 +1211,128 @@ def main():
 
         adv.delete(f'/api/trips/{tid}')
 
+    # Bulk import resilience & 500-line cap (mocked Nominatim)
+    from app.services import place_service as _place_svc
+    import httpx as _httpx2
+
+    r_bulk_proj = adv.post('/api/projects/', json={'name': 'Bulk 500 Smoke', 'visibility': 'all', 'map_mode': 'auto'})
+    check('bulk 500 test project created', r_bulk_proj.status_code == 201, r_bulk_proj.text[:200])
+    if r_bulk_proj.status_code == 201:
+        bpid = r_bulk_proj.json()['id']
+        # 501 lines rejected with 422; 500 cached/deduped lines accepted quickly
+        r_over = adv.post(f'/api/projects/{bpid}/bulk-import', json={'lines': ['Santiago de Compostela'] * 501})
+        check('bulk import >500 rejected 422', r_over.status_code == 422, r_over.text[:200])
+        r_500 = adv.post(f'/api/projects/{bpid}/bulk-import', json={'lines': ['Santiago de Compostela'] * 500})
+        check('bulk import 500 lines accepted',
+              r_500.status_code == 200 and len(r_500.json().get('lines', [])) == 500,
+              r_500.text[:200])
+
+        # Mock Nominatim to test: (1) 429 retry recovery, (2) 503 surfaced on
+        # persistent upstream failure for uncached lines, (3) batched /lookup polygons.
+        search_calls: dict[str, int] = {}
+        lookup_batches: list[str] = []
+
+        def _mock_nominatim(request: _httpx2.Request) -> _httpx2.Response:
+            if request.url.path == '/search':
+                q = request.url.params.get('q', '')
+                search_calls[q] = search_calls.get(q, 0) + 1
+                if q == 'RetryTown' and search_calls[q] == 1:
+                    return _httpx2.Response(429, headers={'Retry-After': '0'})
+                if q == 'RetryTown':
+                    return _httpx2.Response(200, json=[{
+                        'osm_type': 'relation',
+                        'osm_id': 990001,
+                        'display_name': 'RetryTown, Galiza, Espanha',
+                        'class': 'boundary',
+                        'type': 'administrative',
+                        'extratags': {'admin_level': '8'},
+                        'address': {'country': 'Espanha', 'state': 'Galiza'},
+                        'lat': '42.50',
+                        'lon': '-8.10',
+                    }])
+                if q == 'RetryTown2':
+                    return _httpx2.Response(200, json=[{
+                        'osm_type': 'relation',
+                        'osm_id': 990002,
+                        'display_name': 'RetryTown2, Galiza, Espanha',
+                        'class': 'boundary',
+                        'type': 'administrative',
+                        'extratags': {'admin_level': '8'},
+                        'address': {'country': 'Espanha', 'state': 'Galiza'},
+                        'lat': '42.60',
+                        'lon': '-8.20',
+                    }])
+                if q == 'AlwaysDown':
+                    return _httpx2.Response(503)
+                return _httpx2.Response(200, json=[])
+            if request.url.path == '/lookup':
+                osm_ids_param = request.url.params.get('osm_ids', '')
+                lookup_batches.append(osm_ids_param)
+                poly = {
+                    'type': 'Polygon',
+                    'coordinates': [[[-8.1, 42.5], [-8.0, 42.5], [-8.0, 42.6], [-8.1, 42.6], [-8.1, 42.5]]],
+                }
+                return _httpx2.Response(200, json=[
+                    {'osm_type': 'relation', 'osm_id': 990001, 'geojson': poly},
+                    {'osm_type': 'relation', 'osm_id': 990002, 'geojson': poly},
+                ])
+            return _httpx2.Response(404)
+
+        orig_nom_client, orig_nom_loop, orig_interval, orig_base_delay = (
+            _place_svc._client,
+            _place_svc._client_loop,
+            _place_svc._NOMINATIM_MIN_INTERVAL,
+            _place_svc._NOMINATIM_RETRY_BASE_DELAY,
+        )
+        try:
+            _place_svc._client = _httpx2.AsyncClient(transport=_httpx2.MockTransport(_mock_nominatim))
+            _place_svc._client_loop = None
+            _place_svc._NOMINATIM_MIN_INTERVAL = 0.0
+            _place_svc._NOMINATIM_RETRY_BASE_DELAY = 0.01
+
+            # Duplicate lines in payload only hit Nominatim once; 429 recovers on retry
+            r_res = adv.post(f'/api/projects/{bpid}/bulk-import', json={
+                'lines': ['RetryTown', 'retrytown', 'RetryTown2']
+            })
+            check('bulk import retries 429 and deduplicates lines',
+                  r_res.status_code == 200
+                  and len(r_res.json()['lines']) == 3
+                  and all(l['status'] == 'resolved' for l in r_res.json()['lines'])
+                  and search_calls.get('RetryTown') == 2
+                  and search_calls.get('retrytown', 0) == 0,
+                  r_res.text[:200])
+
+            # Persistent Nominatim 503 on uncached query returns 503 instead of false not_found
+            r_down = adv.post(f'/api/projects/{bpid}/bulk-import', json={'lines': ['AlwaysDown']})
+            check('bulk import surfaces 503 on persistent upstream failure',
+                  r_down.status_code == 503,
+                  r_down.text[:200])
+
+            # Confirm batches multiple missing polygons into a single /lookup request
+            resolved_pair = [r_res.json()['lines'][0], r_res.json()['lines'][2]]
+            act_before = len(adv.get('/api/activities/').json())
+            r_conf = adv.post(f'/api/projects/{bpid}/bulk-import/confirm?log_activity=false', json=resolved_pair)
+            act_after = len(adv.get('/api/activities/').json())
+            check('bulk confirm batches polygon lookup and respects log_activity=false',
+                  r_conf.status_code == 200
+                  and len(r_conf.json()['places']) == 2
+                  and all(p['place_polygon'] is not None for p in r_conf.json()['places'])
+                  and lookup_batches == ['R990001,R990002']
+                  and act_after == act_before,
+                  r_conf.text[:200])
+        finally:
+            _place_svc._client = orig_nom_client
+            _place_svc._client_loop = orig_nom_loop
+            _place_svc._NOMINATIM_MIN_INTERVAL = orig_interval
+            _place_svc._NOMINATIM_RETRY_BASE_DELAY = orig_base_delay
+            adv.delete(f'/api/projects/{bpid}')
+            db = SessionLocal()
+            try:
+                db.query(Place).filter(Place.osm_id.in_([990001, 990002])).delete(synchronize_session=False)
+                db.commit()
+            finally:
+                db.close()
+
     # Final summary
     passed = sum(1 for _, s, _ in results if s == 'PASS')
     failed = sum(1 for _, s, _ in results if s == 'FAIL')
