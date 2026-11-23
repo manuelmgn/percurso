@@ -19,21 +19,17 @@ for d in [data_dir, uploads_dir, tiles_dir, backups_dir, Path("/var/log")]:
 # Run DB schema + migrations
 sys.path.insert(0, "/app")
 from app.main import _apply_lightweight_migrations
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base
 from app import models  # ensure models imported
 
 Base.metadata.create_all(bind=engine)
 _apply_lightweight_migrations()
 
-# Seed admin if needed
+# Ensure the admin configured in .env exists with the configured password
 try:
-    from app.services import user_service
-    db = SessionLocal()
-    try:
-        user_service.seed_default_admin(db)
-    finally:
-        db.close()
+    from app.manage import reset_admin_cmd
+    reset_admin_cmd()
 except Exception as e:
-    print(f"init: seed warning: {e}", flush=True)
+    print(f"init: admin sync warning: {e}", flush=True)
 
 print("init: preparation complete", flush=True)
