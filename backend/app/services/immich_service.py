@@ -214,8 +214,10 @@ def _parse_json(response: httpx.Response):
 
 
 async def validate_api_key(api_key: str) -> None:
-    """Verify a user-supplied Immich API key against GET /api/users/me before
-    storing it."""
+    """Verify a user-supplied Immich API key against GET /api/albums before
+    storing it. Validating against /api/albums (instead of /api/users/me) lets
+    least-privilege scoped Immich keys (album.read + asset.read + asset.view)
+    work without requiring user.read."""
     base = _require_server()
     cleaned = api_key.strip()
     if not cleaned:
@@ -226,7 +228,7 @@ async def validate_api_key(api_key: str) -> None:
     client = _get_client()
     try:
         response = await client.get(
-            f"{base}/api/users/me",
+            f"{base}/api/albums",
             headers={"x-api-key": cleaned, "Accept": "application/json"},
         )
     except httpx.RequestError:

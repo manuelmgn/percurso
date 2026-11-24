@@ -1100,7 +1100,8 @@ def main():
             if api_key not in ('key-u1', 'key-u2'):
                 return _httpx.Response(401, json={'message': 'Invalid API key'})
             if path == '/api/users/me':
-                return _httpx.Response(200, json={'id': api_key, 'email': f'{api_key}@example.com'})
+                # Simulate a least-privilege scoped Immich key without user.read.
+                return _httpx.Response(403, json={'message': 'Missing user.read permission'})
 
             # Per-user albums & assets in Immich
             if api_key == 'key-u1':

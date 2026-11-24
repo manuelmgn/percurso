@@ -398,7 +398,7 @@
   "settings.immichDescription": "Associa a tua chave API pessoal do Immich para ligares os teus próprios álbuns às viagens. Cada utilizador só acede aos seus álbuns.",
   "settings.immichKeyLabel": "Chave API do Immich",
   "settings.immichKeyPlaceholder": "Cola aqui a tua chave API...",
-  "settings.immichKeyHint": "Cria uma chave no Immich em Definições da conta → Chaves API.",
+  "settings.immichKeyHint": "Cria uma chave no Immich em Definições da conta → Chaves API (permissões: album.read, asset.read, asset.view).",
   "settings.immichConfigured": "Chave API configurada. Podes ligar os teus álbuns nas viagens ou substituí-la abaixo.",
   "settings.immichSave": "Guardar chave",
   "settings.immichRemove": "Remover chave",
