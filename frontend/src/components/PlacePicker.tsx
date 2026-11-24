@@ -3,6 +3,7 @@ import { useTranslation } from '@/i18n'
 import { api } from '@/api'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { AlertBanner } from '@/components/ui/ErrorBanner'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
 import type { PlaceSearchResult, PlaceType } from '@/types'
 import { formatHierarchy } from '@/utils/format'
 
@@ -208,7 +209,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
                   {formatHierarchy(result.hierarchy) && (
                     <span className="text-muted"> — {formatHierarchy(result.hierarchy)}</span>
                   )}
-                  <span className="text-muted"> [{result.place_type}]</span>
+                  <span className="text-muted"> [<PlaceTypeLabel type={result.place_type} />]</span>
                 </button>
               </li>
             ))}

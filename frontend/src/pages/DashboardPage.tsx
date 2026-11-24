@@ -8,10 +8,11 @@ import { MapView, type MapMarker } from '@/components/MapView'
 import { RouteOverlay } from '@/components/map/RouteOverlay'
 import { TripCard } from '@/components/ui/TripCard'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { DashboardSkeleton } from '@/components/ui/Skeleton'
+import { Header } from '@/components/Header'
+import { PageShell } from '@/components/PageShell'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressGoal } from '@/components/ui/ProgressGoal'
-import { entityDetailPath, formatTripDateRange, formatTripTitle } from '@/utils/format'
+import { entityDetailPath, formatPlaceType, formatTripDateRange, formatTripTitle, placeTypeTitle } from '@/utils/format'
 import { getTripStatus } from '@/utils/tripStatus'
 import type { Pin, PinEntityType, Place, ProjectListItem, StatsResponse, TripListItem } from '@/types'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -69,7 +70,8 @@ export function DashboardPage() {
           lat: place.lat,
           lon: place.lon,
           title: place.name,
-          subtitle: place.place_type,
+          subtitle: formatPlaceType(place.place_type),
+          subtitleTitle: placeTypeTitle(place.place_type),
           href: `/lugares/${place.id}`,
         })
       ),
@@ -181,13 +183,10 @@ export function DashboardPage() {
     ].slice(0, 5)
   }, [projects, trips, t, user])
 
-  if (isLoading) {
-    return <DashboardSkeleton />
-  }
-
   return (
-    <div className="space-y-8">
-      {/* Summary line lives here; the greeting itself is rendered by Header. */}
+    <PageShell skeleton="dashboard" isLoading={isLoading} className="space-y-8">
+      <Header />
+      {/* Summary line and quick CTAs */}
       {isEmpty ? (
         <div className="flex flex-wrap items-center gap-3">
           <Link to="/projetos/novo" className="btn-primary">{t('dashboard.createFirstProject')}</Link>
@@ -367,6 +366,6 @@ export function DashboardPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   )
 }

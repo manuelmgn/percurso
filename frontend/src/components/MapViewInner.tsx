@@ -25,6 +25,7 @@ export interface MapMarker {
   lon: number
   title: string
   subtitle?: string
+  subtitleTitle?: string
   href?: string
   color?: string
 }
@@ -34,6 +35,7 @@ export interface MapPolygon {
   geojson: Geometry
   title: string
   subtitle?: string
+  subtitleTitle?: string
   href?: string
   visited?: boolean
 }
@@ -75,9 +77,18 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function popupHtml(title: string, subtitle: string | undefined, href: string | undefined, viewPageText: string): string {
+function popupHtml(
+  title: string,
+  subtitle: string | undefined,
+  subtitleTitle: string | undefined,
+  href: string | undefined,
+  viewPageText: string,
+): string {
   let html = `<strong>${escapeHtml(title)}</strong>`
-  if (subtitle) html += `<br><span>${escapeHtml(subtitle)}</span>`
+  if (subtitle) {
+    const titleAttr = subtitleTitle ? ` title="${escapeHtml(subtitleTitle)}"` : ''
+    html += `<br><span${titleAttr}>${escapeHtml(subtitle)}</span>`
+  }
   // href is always an internal router path built by us, never user input.
   if (href) html += `<br><a href="${href}">${viewPageText}</a>`
   return html
@@ -191,7 +202,7 @@ export default function MapViewInner({
         fillColor: color,
         fillOpacity: 0.9,
       })
-        .bindPopup(popupHtml(marker.title, marker.subtitle, marker.href, t('map.popup.viewPage')))
+        .bindPopup(popupHtml(marker.title, marker.subtitle, marker.subtitleTitle, marker.href, t('map.popup.viewPage')))
         .addTo(group)
       bounds.push([marker.lat, marker.lon])
     }
@@ -207,7 +218,7 @@ export default function MapViewInner({
           fillOpacity: style.fillOpacity,
         },
       })
-      layer.bindPopup(popupHtml(polygon.title, polygon.subtitle, polygon.href, t('map.popup.viewPage')))
+      layer.bindPopup(popupHtml(polygon.title, polygon.subtitle, polygon.subtitleTitle, polygon.href, t('map.popup.viewPage')))
       group.addLayer(layer)
       const polygonBounds = layer.getBounds()
       if (polygonBounds.isValid()) {

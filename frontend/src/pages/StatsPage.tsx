@@ -6,9 +6,11 @@ import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useTheme } from '@/components/ThemeProvider'
 import { StatCard } from '@/components/ui/StatCard'
-import { StatsPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { AreaChart, BarChart, DonutChart } from '@/components/ui/Charts'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
+import { formatPlaceType, placeTypeTitle } from '@/utils/format'
 import type { ActivityItem, StatsResponse, TripListItem } from '@/types'
 
 const monthFormatter = new Intl.DateTimeFormat('pt-PT', { month: 'short' })
@@ -52,7 +54,12 @@ export function StatsPage() {
   // every visible visited place (deriving it from the top-10 most visited
   // list silently dropped every place outside the ranking).
   const placesByType = useMemo(
-    () => stats?.place_type_stats.map((s) => ({ label: s.place_type, value: s.count })) ?? [],
+    () =>
+      stats?.place_type_stats.map((s) => ({
+        label: formatPlaceType(s.place_type),
+        title: placeTypeTitle(s.place_type),
+        value: s.count,
+      })) ?? [],
     [stats],
   )
 
@@ -74,25 +81,19 @@ export function StatsPage() {
       })
   }, [activities])
 
-  if (isLoading) {
-    return <StatsPageSkeleton />
-  }
-
-  if (!stats) {
-    return (
-      <div className="space-y-6">
-        <h1 className="font-display text-[28px] font-bold tracking-tight md:text-[40px]">{t('stats.title')}</h1>
-        <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || t('stats.loadError')}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const maxRegionCount = Math.max(1, ...stats.region_stats.map((r) => r.count))
+  const maxRegionCount = stats ? Math.max(1, ...stats.region_stats.map((r) => r.count)) : 1
 
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="stats" isLoading={isLoading}>
+      {!stats ? (
+        <>
+          <h1 className="font-display text-[28px] font-bold tracking-tight md:text-[40px]">{t('stats.title')}</h1>
+          <div className="card">
+            <p className="text-red-700 dark:text-red-300">{error || t('stats.loadError')}</p>
+          </div>
+        </>
+      ) : (
+        <>
       <h1 className="font-display text-[28px] font-bold tracking-tight md:text-[40px]">{t('stats.title')}</h1>
 
       {/* KPI row */}
@@ -215,7 +216,7 @@ export function StatsPage() {
                     <Link to={`/lugares/${place.place_id}`} className="font-medium text-primary hover:underline">
                       {place.place_name}
                     </Link>
-                    <span className="text-sm text-muted"> [{place.place_type}]</span>
+                    <span className="text-sm text-muted"> [<PlaceTypeLabel type={place.place_type} />]</span>
                   </p>
                   <span className="text-sm text-muted">
                     {place.visit_count} {t(place.visit_count === 1 ? 'units.visit.one' : 'units.visit.other')}
@@ -226,6 +227,8 @@ export function StatsPage() {
           </ol>
         )}
       </section>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

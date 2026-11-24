@@ -8,10 +8,11 @@ import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { DetailPageSkeleton } from '@/components/ui/Skeleton'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
+import { PageShell } from '@/components/PageShell'
 import type { BulkImportLine, PlaceSearchResult, PlaceType, Project } from '@/types'
 import { PLACE_TYPES, isPolygonMode } from '@/types'
-import { formatHierarchy, formatTripTitle, formatDate as formatUserDate, visibilityLabelKey } from '@/utils/format'
+import { formatHierarchy, formatPlaceType, formatTripTitle, formatDate as formatUserDate, placeTypeTitle, visibilityLabelKey } from '@/utils/format'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { checkAndCelebrate } from '@/utils/milestones'
@@ -56,9 +57,14 @@ async function runBatchWithRetry<T>(
   throw lastError
 }
 
-function formatCandidate(result: PlaceSearchResult): string {
+function CandidateLabel({ result }: { result: PlaceSearchResult }) {
   const hierarchy = formatHierarchy(result.hierarchy)
-  return `${result.name}${hierarchy ? ` — ${hierarchy}` : ''} [${result.place_type}]`
+  return (
+    <>
+      {result.name}
+      {hierarchy ? ` — ${hierarchy}` : ''} [<PlaceTypeLabel type={result.place_type} />]
+    </>
+  )
 }
 
 export function ProjectDetailPage() {
@@ -425,23 +431,6 @@ export function ProjectDetailPage() {
   }
 
 
-  if (isLoading) {
-    return <DetailPageSkeleton />
-  }
-
-  if (!project) {
-    return (
-      <div className="space-y-6">
-        <Link to="/projetos" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
-          ← {t('projects.back')}
-        </Link>
-        <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || t('projects.notFound')}</p>
-        </div>
-      </div>
-    )
-  }
-
   const mapModeLabelKey: Record<Project['map_mode'], string> = {
     points: 'projects.mapPoints',
     polygons: 'projects.mapPolygons',
@@ -449,10 +438,21 @@ export function ProjectDetailPage() {
   }
   // Users who can only *see* the project get no mutation UI — every action
   // would 404.
-  const canEdit = canEditEntity(user, project)
+  const canEdit = project ? canEditEntity(user, project) : false
 
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="detail" isLoading={isLoading}>
+      {!project ? (
+        <>
+          <Link to="/projetos" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
+            ← {t('projects.back')}
+          </Link>
+          <div className="card">
+            <p className="text-red-700 dark:text-red-300">{error || t('projects.notFound')}</p>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="flex items-center justify-between">
         <Link to="/projetos" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
           ← {t('projects.back')}
@@ -567,7 +567,7 @@ export function ProjectDetailPage() {
                   >
                     {place.place_name}
                   </Link>
-                  <span className="text-sm text-muted">[{place.place_type}]</span>
+                  <span className="text-sm text-muted">[<PlaceTypeLabel type={place.place_type} />]</span>
                   {place.is_unmarked ? (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                       {t('projects.unmarked')}
@@ -683,8 +683,8 @@ export function ProjectDetailPage() {
                 >
                   <option value="">{t('bulkImport.typeMixed')}</option>
                   {PLACE_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {t('bulkImport.typeAll', { type })}
+                    <option key={type} value={type} title={placeTypeTitle(type)}>
+                      {t('bulkImport.typeAll', { type: formatPlaceType(type) })}
                     </option>
                   ))}
                 </select>
@@ -725,7 +725,7 @@ export function ProjectDetailPage() {
                           className="btn-outline px-2 py-1 text-xs"
                           title={t('bulkImport.selectAllTitle')}
                         >
-                          {type} ({count})
+                          <PlaceTypeLabel type={type} /> ({count})
                         </button>
                       ))}
                     </div>
@@ -743,7 +743,7 @@ export function ProjectDetailPage() {
                         <p className="text-sm font-medium text-ink">{line.line}</p>
                         {line.status === 'resolved' && line.selected && (
                           <p className="mt-1 text-sm text-green-700 dark:text-green-300">
-                            ✓ {formatCandidate(line.selected)}
+                            ✓ <CandidateLabel result={line.selected} />
                           </p>
                         )}
                         {line.status === 'ambiguous' && (
@@ -763,7 +763,7 @@ export function ProjectDetailPage() {
                                   onChange={() => handleSelectCandidate(index, candidate)}
                                   className="h-4 w-4 border-line text-primary-600 focus:ring-primary"
                                 />
-                                {formatCandidate(candidate)}
+                                <span><CandidateLabel result={candidate} /></span>
                               </label>
                             ))}
                             {!line.selected && (
@@ -860,6 +860,8 @@ export function ProjectDetailPage() {
           </ul>
         )}
       </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
-import { ListPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
 import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
-import { formatHierarchy } from '@/utils/format'
+import { formatHierarchy, formatPlaceType, placeTypeTitle } from '@/utils/format'
 import { PLACE_TYPES, type PlaceOverviewItem, type PlaceType } from '@/types'
 import { MapPin } from 'lucide-react'
 
@@ -70,12 +71,8 @@ export function PlacesPage() {
 
   const updateFilters = (patch: Partial<PlacesFilters>) => setFilters((prev) => ({ ...prev, ...patch }))
 
-  if (isLoading) {
-    return <ListPageSkeleton />
-  }
-
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="list" isLoading={isLoading}>
       <h2 className="font-display text-2xl font-bold">{t('places.title')}</h2>
       <ErrorBanner message={error} />
 
@@ -119,7 +116,9 @@ export function PlacesPage() {
               >
                 <option value="">{t('places.typeAll')}</option>
                 {PLACE_TYPES.map((type) => (
-                  <option key={type} value={type}>{type}</option>
+                  <option key={type} value={type} title={placeTypeTitle(type)}>
+                    {formatPlaceType(type)}
+                  </option>
                 ))}
               </select>
             </div>
@@ -188,7 +187,7 @@ export function PlacesPage() {
                       </div>
                     </div>
                     <p className="mt-2 text-sm text-muted">
-                      {place.place_type}
+                      <PlaceTypeLabel type={place.place_type} />
                       {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
                     </p>
                   </Link>
@@ -198,6 +197,6 @@ export function PlacesPage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

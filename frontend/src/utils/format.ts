@@ -114,3 +114,14 @@ export function entityDetailPath(entityType: string, entityId: number): string |
 export function visibilityLabelKey(visibility: string): string {
   return `visibility.option${visibility.charAt(0).toUpperCase()}${visibility.slice(1)}`
 }
+
+// Short display label for a PlaceType: the canonical taxonomy keeps
+// 'concelho/município' (stored in the DB/API), but the UI shows 'concelho'
+// with the full label exposed via hover tooltip (placeTypeTitle).
+export function formatPlaceType(type: string): string {
+  return type === 'concelho/município' ? 'concelho' : type
+}
+
+export function placeTypeTitle(type: string): string | undefined {
+  return type === 'concelho/município' ? 'concelho/município' : undefined
+}

@@ -9,13 +9,14 @@ import { MapView, type MapMarker } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
 import { StatusChip } from '@/components/ui/StatusChip'
 import { AlertBanner } from '@/components/ui/ErrorBanner'
-import { DetailPageSkeleton } from '@/components/ui/Skeleton'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
+import { PageShell } from '@/components/PageShell'
 import { TripLinks } from '@/components/TripLinks'
 import { TripPhotos } from '@/components/TripPhotos'
 import { ImmichGallery } from '@/components/ImmichGallery'
 import { getTripStatus } from '@/utils/tripStatus'
 import { canEditEntity } from '@/utils/permissions'
-import { formatDate, formatTripDateRange, formatTripTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
+import { formatDate, formatPlaceType, formatTripDateRange, formatTripTitle, placeTypeTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
 
 // Rotating accent colours for the itinerary timeline nodes.
@@ -74,7 +75,8 @@ export function TripDetailPage() {
           lat: place.place_lat,
           lon: place.place_lon,
           title: place.place_name,
-          subtitle: place.place_type,
+          subtitle: formatPlaceType(place.place_type),
+          subtitleTitle: placeTypeTitle(place.place_type),
           href: `/lugares/${place.place_id}`,
         })
       ) ?? [],
@@ -105,34 +107,28 @@ export function TripDetailPage() {
     }
   }
 
-  if (isLoading) {
-    return <DetailPageSkeleton />
-  }
-
-  if (!trip) {
-    return (
-      <div className="space-y-6">
-        <Link
-          to="/viagens"
-          className="inline-flex items-center gap-2 rounded-pill bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-card"
-        >
-          <ArrowLeft size={14} /> {t('trips.back')}
-        </Link>
-        <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || t('trips.notFound')}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const status = getTripStatus(trip.start_date, trip.end_date)
-  const dayCount = tripDayCount(trip.start_date, trip.end_date)
+  const status = trip ? getTripStatus(trip.start_date, trip.end_date) : 'planeada'
+  const dayCount = trip ? tripDayCount(trip.start_date, trip.end_date) : 0
   // Users who can only *see* the trip get no mutation actions — every one
   // of them would fail with a 404.
-  const canEdit = canEditEntity(user, trip)
+  const canEdit = trip ? canEditEntity(user, trip) : false
 
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="detail" isLoading={isLoading}>
+      {!trip ? (
+        <>
+          <Link
+            to="/viagens"
+            className="inline-flex items-center gap-2 rounded-pill bg-surface px-4 py-2 text-[13px] font-semibold text-ink shadow-card"
+          >
+            <ArrowLeft size={14} /> {t('trips.back')}
+          </Link>
+          <div className="card">
+            <p className="text-red-700 dark:text-red-300">{error || t('trips.notFound')}</p>
+          </div>
+        </>
+      ) : (
+        <>
       {/* Hero full-bleed: trip map (or brand gradient) with a legibility veil. */}
       <div className="relative h-56 overflow-hidden rounded-card shadow-card md:h-72">
         {trip.places.length > 0 ? (
@@ -255,7 +251,9 @@ export function TripDetailPage() {
                         {place.place_name}
                       </Link>
                     </h3>
-                    <p className="mt-1 text-[13px] leading-relaxed text-muted">{place.place_type}</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                      <PlaceTypeLabel type={place.place_type} />
+                    </p>
                   </li>
                 )
               })}
@@ -351,6 +349,8 @@ export function TripDetailPage() {
       <ImmichGallery key={trip.id} trip={trip} onTripUpdate={setTrip} />
 
       <TripPhotos trip={trip} onTripUpdate={setTrip} />
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

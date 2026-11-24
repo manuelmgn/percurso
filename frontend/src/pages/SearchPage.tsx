@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '@/api'
+import { PageShell } from '@/components/PageShell'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/format'
@@ -64,7 +66,7 @@ export function SearchPage() {
     results.places.length === 0
 
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="search">
       <div className="search-pill w-full">
         <Search size={18} className="shrink-0 text-muted" aria-hidden="true" />
         <input
@@ -161,7 +163,7 @@ export function SearchPage() {
                       {place.name}
                     </p>
                     <p className="mt-2 text-sm text-muted">
-                      {place.place_type}
+                      <PlaceTypeLabel type={place.place_type} />
                       {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
                     </p>
                   </Link>
@@ -171,6 +173,6 @@ export function SearchPage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

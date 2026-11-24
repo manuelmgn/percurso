@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
-import { DetailPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
+import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
 import type { PlaceDetail } from '@/types'
-import { formatHierarchy, formatTripDateRange, formatTripTitle } from '@/utils/format'
+import { formatHierarchy, formatPlaceType, formatTripDateRange, formatTripTitle, placeTypeTitle } from '@/utils/format'
 import type { Geometry } from 'geojson'
 
 export function PlaceDetailPage() {
@@ -31,36 +32,38 @@ export function PlaceDetailPage() {
           id: place.id,
           geojson: place.polygon as unknown as Geometry,
           title: place.name,
-          subtitle: place.place_type,
+          subtitle: formatPlaceType(place.place_type),
+          subtitleTitle: placeTypeTitle(place.place_type),
           visited: true,
         }] as MapPolygon[],
       }
     }
     return {
-      markers: [{ id: place.id, lat: place.lat, lon: place.lon, title: place.name, subtitle: place.place_type }] as MapMarker[],
+      markers: [{
+        id: place.id,
+        lat: place.lat,
+        lon: place.lon,
+        title: place.name,
+        subtitle: formatPlaceType(place.place_type),
+        subtitleTitle: placeTypeTitle(place.place_type),
+      }] as MapMarker[],
       polygons: [] as MapPolygon[],
     }
   }, [place])
 
-  if (isLoading) {
-    return <DetailPageSkeleton />
-  }
-
-  if (!place) {
-    return (
-      <div className="space-y-6">
-        <Link to="/lugares" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
-          ← {t('places.back')}
-        </Link>
-        <div className="card">
-          <p className="text-red-700 dark:text-red-300">{error || t('places.detailLoadError')}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="detail" isLoading={isLoading}>
+      {!place ? (
+        <>
+          <Link to="/lugares" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
+            ← {t('places.back')}
+          </Link>
+          <div className="card">
+            <p className="text-red-700 dark:text-red-300">{error || t('places.detailLoadError')}</p>
+          </div>
+        </>
+      ) : (
+        <>
       <Link to="/lugares" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
         ← {t('places.back')}
       </Link>
@@ -68,7 +71,7 @@ export function PlaceDetailPage() {
       <div className="card">
         <h2 className="font-display text-2xl font-bold">{place.name}</h2>
         <p className="mt-1 text-sm text-muted">
-          {place.place_type}
+          <PlaceTypeLabel type={place.place_type} />
           {formatHierarchy(place.hierarchy) && ` · ${formatHierarchy(place.hierarchy)}`}
         </p>
         <p className="mt-1 text-xs text-muted">
@@ -129,6 +132,8 @@ export function PlaceDetailPage() {
           </ul>
         )}
       </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

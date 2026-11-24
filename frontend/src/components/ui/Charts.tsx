@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent,
 export interface ChartDatum {
   label: string
   value: number
+  title?: string
 }
 
 interface ThemeStrokes {
@@ -187,7 +188,9 @@ export function DonutChart({ data, label }: { data: ChartDatum[]; label?: string
                     opacity={hover !== null && hover !== i ? 0.55 : 1}
                     onMouseEnter={() => setHover(i)}
                     onMouseLeave={() => setHover(null)}
-                  />
+                  >
+                    {d.title && <title>{d.title}</title>}
+                  </circle>
                 )
               })}
           </g>
@@ -201,6 +204,7 @@ export function DonutChart({ data, label }: { data: ChartDatum[]; label?: string
           <li
             key={d.label}
             className="flex items-center gap-2"
+            title={d.title}
             onMouseEnter={() => setHover(i)}
             onMouseLeave={() => setHover(null)}
           >
