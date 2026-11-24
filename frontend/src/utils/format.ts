@@ -43,9 +43,14 @@ function dateParts(value: DateLike, prefs?: DatePrefs | null): { day: string; mo
 // Format an administrative hierarchy for display, smallest → largest,
 // e.g. "Narón / Ferrol / Galicia / Spain". Hierarchy dicts are stored
 // ordered largest → smallest (country first), so values are reversed.
-export function formatHierarchy(hierarchy: Record<string, string> | null): string {
+// Pass `omitKey` when items are already grouped by that administrative level.
+export function formatHierarchy(hierarchy: Record<string, string> | null, omitKey?: string | null): string {
   if (!hierarchy) return ''
-  return Object.values(hierarchy).filter(Boolean).reverse().join(' / ')
+  return Object.entries(hierarchy)
+    .filter(([key, value]) => Boolean(value) && key !== omitKey)
+    .map(([, value]) => value)
+    .reverse()
+    .join(' / ')
 }
 
 // Format a date honouring the user's preferred format (default: dd/mm/aaaa).

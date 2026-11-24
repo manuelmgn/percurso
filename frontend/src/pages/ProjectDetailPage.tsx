@@ -6,6 +6,7 @@ import { useUnloadGuard } from '@/hooks/useUnloadGuard'
 import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { MapView, type MapMarker, type MapPolygon } from '@/components/MapView'
 import { PinButton } from '@/components/PinButton'
+import { ProjectPlacesSection } from '@/components/ProjectPlacesSection'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
@@ -547,93 +548,16 @@ export function ProjectDetailPage() {
       )}
 
       <div className="card">
-        <h3 className="mb-4 font-display text-lg font-semibold">{t('projects.targetPlaces')}</h3>
-
-        {project.places.length === 0 ? (
-          <p className="text-sm text-muted">
-            {t('projects.noPlaces')}
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {project.places.map((place) => (
-              <li
-                key={place.id}
-                className="rounded-xl border border-line p-3"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    to={`/lugares/${place.place_id}`}
-                    className="font-medium text-primary-700 hover:underline dark:text-primary-300"
-                  >
-                    {place.place_name}
-                  </Link>
-                  <span className="text-sm text-muted">[<PlaceTypeLabel type={place.place_type} />]</span>
-                  {place.is_unmarked ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                      {t('projects.unmarked')}
-                    </span>
-                  ) : place.is_visited ? (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                      {t('projects.visited')}
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-line/40 px-2 py-0.5 text-xs font-medium text-muted dark:bg-fill dark:text-muted">
-                      {t('projects.pending')}
-                    </span>
-                  )}
-                </div>
-                {formatHierarchy(place.place_hierarchy) && (
-                  <p className="mt-1 text-xs text-muted">
-                    {formatHierarchy(place.place_hierarchy)}
-                  </p>
-                )}
-                {place.is_visited && place.visited_at && (
-                  <p className="mt-1 text-xs text-muted">
-                    {t('projects.visitedOn', { date: formatUserDate(place.visited_at, user) })}
-                  </p>
-                )}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {canEdit && (place.is_visited || place.is_unmarked) && (
-                    <button
-                      onClick={() => handleToggleUnmark(place.place_id)}
-                      disabled={busyPlaceId === place.place_id}
-                      className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line disabled:opacity-50 dark:bg-fill dark:hover:bg-fill"
-                    >
-                      {place.is_unmarked ? t('projects.markVisitedAgain') : t('projects.unmarkVisit')}
-                    </button>
-                  )}
-                  {canEdit &&
-                    (removingPlaceId === place.place_id ? (
-                      <>
-                        <button
-                          onClick={() => handleRemovePlace(place.place_id)}
-                          disabled={busyPlaceId === place.place_id}
-                          className="btn-danger"
-                        >
-                          {busyPlaceId === place.place_id ? t('projects.removing') : t('projects.confirmRemove')}
-                        </button>
-                        <button
-                          onClick={() => setRemovingPlaceId(null)}
-                          disabled={busyPlaceId === place.place_id}
-                          className="rounded-lg bg-line/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-line dark:hover:bg-fill"
-                        >
-                          {t('actions.cancel')}
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setRemovingPlaceId(place.place_id)}
-                        disabled={busyPlaceId === place.place_id}
-                        className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
-                      >
-                        {t('projects.removePlace')}
-                      </button>
-                    ))}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ProjectPlacesSection
+          places={project.places}
+          user={user}
+          canEdit={canEdit}
+          busyPlaceId={busyPlaceId}
+          removingPlaceId={removingPlaceId}
+          onRequestRemove={setRemovingPlaceId}
+          onToggleUnmark={handleToggleUnmark}
+          onRemovePlace={handleRemovePlace}
+        />
 
         {canEdit && (
           <div className="mt-6 border-t border-line pt-4">

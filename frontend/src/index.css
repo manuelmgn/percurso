@@ -216,6 +216,21 @@
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23A09A92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
   }
 
+  /* Collapsible group headers (<details>/<summary>) without the default browser triangle. */
+  .group-disclosure > summary {
+    list-style: none;
+  }
+  .group-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+  .group-disclosure > summary .group-disclosure-chevron {
+    transform: rotate(-90deg);
+    transition: transform 150ms ease;
+  }
+  .group-disclosure[open] > summary .group-disclosure-chevron {
+    transform: rotate(0deg);
+  }
+
   /* Filter chip (listing pages) */
   .chip {
     @apply inline-flex items-center rounded-pill border border-line bg-surface px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-ink;
