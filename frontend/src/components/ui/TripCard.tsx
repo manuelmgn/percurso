@@ -19,7 +19,7 @@ export function TripCard({ trip, prefs, coverUrl }: TripCardProps) {
   const cover = coverUrl ?? '/images/trips/lisboa.png'
 
   return (
-    <Link to={`/viagens/${trip.id}`} className="card group flex flex-col gap-4 p-3">
+    <Link to={`/viagens/${trip.id}`} className="card group flex h-full flex-col gap-4 p-3">
       <div className="relative overflow-hidden rounded-2xl">
         {coverFailed ? (
           <div className="grid h-40 w-full place-items-center bg-primary-tint dark:bg-primary/20">
@@ -37,17 +37,29 @@ export function TripCard({ trip, prefs, coverUrl }: TripCardProps) {
         <StatusChip status={getTripStatus(trip.start_date, trip.end_date)} className="absolute right-3 top-3" />
       </div>
 
-      <div className="flex flex-col gap-2 px-2 pb-2">
-        <h3 className="font-display text-[17px] font-bold">{formatTripTitle(trip, prefs)}</h3>
-        <div className="flex items-center gap-4 text-[13px] text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarDays size={13} aria-hidden="true" /> {formatTripDateRange(trip.start_date, trip.end_date, prefs)}
+      {/* Fixed-height body: every slot reserves its space so all cards in a
+          grid line up regardless of title length or date range. */}
+      <div className="flex flex-1 flex-col gap-2 px-2 pb-2">
+        <h3 className="line-clamp-2 min-h-[2.75em] font-display text-[17px] font-bold leading-[1.375]" title={formatTripTitle(trip, prefs)}>
+          {formatTripTitle(trip, prefs)}
+        </h3>
+        <div className="flex h-5 items-center gap-4 text-[13px] text-muted">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <CalendarDays size={13} className="shrink-0" aria-hidden="true" />
+            <span className="truncate tabular-nums">{formatTripDateRange(trip.start_date, trip.end_date, prefs, true)}</span>
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin size={13} aria-hidden="true" /> {t(trip.place_count === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.place_count })}
+          <span
+            className="inline-flex shrink-0 items-center gap-1.5"
+            title={t(trip.place_count === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.place_count })}
+          >
+            <MapPin size={13} aria-hidden="true" />
+            <span className="tabular-nums" aria-hidden="true">{trip.place_count}</span>
+            <span className="sr-only">
+              {t(trip.place_count === 1 ? 'trip.placeCount.one' : 'trip.placeCount.other', { count: trip.place_count })}
+            </span>
           </span>
         </div>
-        <div className="mt-1 flex items-center justify-between">
+        <div className="mt-auto flex h-7 items-center justify-between pt-1">
           <span
             className="grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-brand text-[11px] font-bold text-white"
             title={trip.creator_username}

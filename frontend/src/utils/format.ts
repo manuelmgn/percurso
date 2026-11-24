@@ -54,15 +54,18 @@ export function formatHierarchy(hierarchy: Record<string, string> | null, omitKe
 }
 
 // Format a date honouring the user's preferred format (default: dd/mm/aaaa).
-export function formatDate(value: DateLike, prefs?: DatePrefs | null): string {
+// `shortYear` uses a two-digit year (dd/mm/aa) for compact layouts such as
+// trip cards; ISO dates always keep the full year.
+export function formatDate(value: DateLike, prefs?: DatePrefs | null, shortYear = false): string {
   const { day, month, year } = dateParts(value, prefs)
+  const yy = shortYear ? year.slice(-2) : year
   switch (prefs?.date_format) {
     case '%m/%d/%Y':
-      return `${month}/${day}/${year}`
+      return `${month}/${day}/${yy}`
     case '%Y-%m-%d':
       return `${year}-${month}-${day}`
     default:
-      return `${day}/${month}/${year}`
+      return `${day}/${month}/${yy}`
   }
 }
 
@@ -77,9 +80,9 @@ export function formatDateTime(value: DateLike, prefs?: DatePrefs | null): strin
 }
 
 // "12/08/2026 – 15/08/2026" (or a single date when both are equal).
-export function formatTripDateRange(start: string, end: string, prefs?: DatePrefs | null): string {
-  const startFmt = formatDate(start, prefs)
-  const endFmt = formatDate(end, prefs)
+export function formatTripDateRange(start: string, end: string, prefs?: DatePrefs | null, shortYear = false): string {
+  const startFmt = formatDate(start, prefs, shortYear)
+  const endFmt = formatDate(end, prefs, shortYear)
   return startFmt === endFmt ? startFmt : `${startFmt} – ${endFmt}`
 }
 
