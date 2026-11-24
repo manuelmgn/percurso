@@ -32,6 +32,7 @@ def _apply_lightweight_migrations():
 
     _ADDED_COLUMNS = {
         "project_places": {"is_unmarked": "BOOLEAN NOT NULL DEFAULT 0"},
+        "trip_place_relations": {"position": "INTEGER", "visit_dates": "JSON"},
         "trips": {
             "title": "VARCHAR(255)",
             # Plain INTEGER on purpose: SQLite cannot attach the FK to an
@@ -99,6 +100,34 @@ def _apply_lightweight_migrations():
                     {"p": next_by_trip[trip_id], "id": photo_id},
                 )
                 next_by_trip[trip_id] += 1
+
+    # Backfill trip_place_relations.position the same way, preserving the
+    # previous implicit order (added_at, id) per trip. Idempotent: only NULL
+    # positions are touched and new rows always get an explicit position.
+    inspector = inspect(engine)
+    if inspector.has_table("trip_place_relations") and "position" in {
+        c["name"] for c in inspector.get_columns("trip_place_relations")
+    }:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT id, trip_id FROM trip_place_relations WHERE position IS NULL "
+                    "ORDER BY trip_id, added_at, id"
+                )
+            ).fetchall()
+            next_stop: dict[int, int] = {}
+            for row_id, trip_id in rows:
+                if trip_id not in next_stop:
+                    max_pos = conn.execute(
+                        text("SELECT COALESCE(MAX(position), -1) FROM trip_place_relations WHERE trip_id = :t"),
+                        {"t": trip_id},
+                    ).scalar()
+                    next_stop[trip_id] = int(max_pos) + 1
+                conn.execute(
+                    text("UPDATE trip_place_relations SET position = :p WHERE id = :id"),
+                    {"p": next_stop[trip_id], "id": row_id},
+                )
+                next_stop[trip_id] += 1
 
     # A fresh inspector: the one above may have cached column info from
     # before the ALTER statements ran.

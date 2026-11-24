@@ -5,7 +5,8 @@ import { getErrorMessage } from '@/hooks/useApiResource'
 import { useDirtyForm } from '@/hooks/useDirtyForm'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
-import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
+import type { PickedPlace } from '@/components/PlacePicker'
+import { TripStopsEditor } from '@/components/TripStopsEditor'
 import { NotesEditor } from '@/components/NotesEditor'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
@@ -13,7 +14,7 @@ import { DateInput } from '@/components/ui/DateInput'
 import { PageShell } from '@/components/PageShell'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
-import { formatTripDateRange } from '@/utils/format'
+import { formatTripDateRange, tripDays } from '@/utils/format'
 import { toggleId } from '@/utils/forms'
 import type { ProjectListItem, UserDirectoryItem, Visibility } from '@/types'
 
@@ -80,6 +81,7 @@ export function TripEditPage() {
               name: p.place_name,
               place_type: p.place_type,
               hierarchy: p.place_hierarchy,
+              visit_dates: p.visit_dates ?? [],
             }))
           )
           setParticipantIds(trip.participants.map((u) => u.id))
@@ -150,6 +152,8 @@ export function TripEditPage() {
     }
     setIsSubmitting(true)
 
+    // Drop visit days left outside the (possibly edited) trip range.
+    const inRange = new Set(tripDays(startDate, endDate || startDate))
     const data = {
       title: title.trim() || undefined,
       start_date: startDate,
@@ -159,7 +163,10 @@ export function TripEditPage() {
       notes: isEdit ? notes : notesToHtml(notes),
       companions_text: companionsText,
       visibility,
-      place_ids: places.map((p) => p.id),
+      stops: places.map((p) => ({
+        place_id: p.id,
+        visit_dates: (p.visit_dates ?? []).filter((d) => inRange.has(d)),
+      })),
       project_ids: projectIds,
       participant_ids: participantIds,
       visible_user_ids: visibility === 'specific' ? visibleUserIds : [],
@@ -233,7 +240,7 @@ export function TripEditPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t('tripEdit.placesLabel')}</label>
-            <PlacePicker selected={places} onChange={setPlaces} />
+            <TripStopsEditor stops={places} onChange={setPlaces} startDate={startDate} endDate={endDate} />
           </div>
 
           <div>

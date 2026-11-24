@@ -16,7 +16,7 @@ import { TripPhotos } from '@/components/TripPhotos'
 import { ImmichGallery } from '@/components/ImmichGallery'
 import { getTripStatus } from '@/utils/tripStatus'
 import { canEditEntity } from '@/utils/permissions'
-import { formatDate, formatPlaceType, formatTripDateRange, formatTripTitle, placeTypeTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
+import { formatDate, formatPlaceType, formatShortDay, formatTripDateRange, formatTripTitle, placeTypeTitle, tripDayCount, visibilityLabelKey } from '@/utils/format'
 import type { Trip, TripDeleteWarning } from '@/types'
 
 // Rotating accent colours for the itinerary timeline nodes.
@@ -242,9 +242,19 @@ export function TripDetailPage() {
                       className="text-[11px] font-bold uppercase tracking-[1.5px]"
                       style={{ color }}
                     >
-                      {/* "Paragem N", not "Dia N": the day each place was
-                          visited is not tracked (and must not be implied). */}
+                      {/* "Paragem N" always (order is manual); the visit
+                          day(s) are appended only when actually recorded. */}
                       {t('trip.stopLabel', { n: index + 1 })}
+                      {place.visit_dates.length > 0 && (
+                        <>
+                          {' · '}
+                          {place.visit_dates.length === 1
+                            ? t('trip.stopDay', { n: tripDayCount(trip.start_date, place.visit_dates[0]) })
+                            : t('trip.stopDays', {
+                                list: place.visit_dates.map((d) => tripDayCount(trip.start_date, d)).join(', '),
+                              })}
+                        </>
+                      )}
                     </p>
                     <h3 className="mt-1 font-display text-base font-bold">
                       <Link to={`/lugares/${place.place_id}`} className="text-primary hover:underline">
@@ -253,6 +263,9 @@ export function TripDetailPage() {
                     </h3>
                     <p className="mt-1 text-[13px] leading-relaxed text-muted">
                       <PlaceTypeLabel type={place.place_type} />
+                      {place.visit_dates.length > 0 && (
+                        <> · {place.visit_dates.map((d) => formatShortDay(d, user)).join(', ')}</>
+                      )}
                     </p>
                   </li>
                 )

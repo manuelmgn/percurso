@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -172,6 +172,8 @@ def update_trip(
                 # Immich cover belonging to the previous album.
                 trip.cover_immich_asset_id = None
 
+    if (data.start_date is not None or data.end_date is not None) and _requested_stops(data) is None:
+        _prune_visit_dates(trip)
     _update_relations(db, user, trip, data)
     trip.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -188,6 +190,46 @@ def update_trip(
     return trip
 
 
+def _requested_stops(data) -> Optional[list[tuple[int, list[date]]]]:
+    """Ordered (place_id, sorted unique visit dates) pairs from the payload,
+    or None when it carries no place list. `stops` wins over the legacy
+    `place_ids`; a place repeated in the list keeps its first position and
+    merges the visit days of every occurrence."""
+    if data.stops is not None:
+        raw = [(s.place_id, s.visit_dates) for s in data.stops]
+    elif data.place_ids is not None:
+        raw = [(place_id, []) for place_id in data.place_ids]
+    else:
+        return None
+    merged: dict[int, set[date]] = {}
+    for place_id, visit_dates in raw:
+        merged.setdefault(place_id, set()).update(visit_dates)
+    return [(place_id, sorted(days)) for place_id, days in merged.items()]
+
+
+def _check_visit_dates(trip: Trip, stops: list[tuple[int, list[date]]]) -> None:
+    for _, visit_dates in stops:
+        if any(d < trip.start_date or d > trip.end_date for d in visit_dates):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="As datas de visita dos lugares têm de estar dentro das datas da viagem",
+            )
+
+
+def _prune_visit_dates(trip: Trip) -> None:
+    """Drop visit days left outside the trip range after its dates changed
+    (only when the payload did not resend the stops)."""
+    for trip_place in trip.places:
+        if not trip_place.visit_dates:
+            continue
+        kept = [
+            d for d in trip_place.visit_dates
+            if trip.start_date.isoformat() <= d <= trip.end_date.isoformat()
+        ]
+        if kept != trip_place.visit_dates:
+            trip_place.visit_dates = kept or None
+
+
 def _update_relations(db: Session, user: User, trip: Trip, data) -> None:
     """Replace the trip's places/projects/participants/viewers by what the
     payload carries. Each block only runs when the ids key was sent (PATCH
@@ -195,18 +237,33 @@ def _update_relations(db: Session, user: User, trip: Trip, data) -> None:
     behaviour elsewhere; project ids must also be visible to the editor,
     otherwise linking a trip would leak a hidden project to every viewer of
     the trip. Participant ids resolve through orml."""
-    if data.place_ids is not None:
-        # Rebuild the whole list (the association carries no per-row state
-        # worth diffing). Validate all ids in one IN query instead of one
-        # query per id.
+    stops = _requested_stops(data)
+    if stops is not None:
+        # Rebuild the whole list in the requested order. Validate all ids
+        # in one IN query instead of one query per id.
+        _check_visit_dates(trip, stops)
         db.query(TripPlace).filter(TripPlace.trip_id == trip.id).delete()
+        requested_ids = {place_id for place_id, _ in stops}
         valid_place_ids = (
-            {row[0] for row in db.query(Place.id).filter(Place.id.in_(set(data.place_ids)))}
-            if data.place_ids
+            {row[0] for row in db.query(Place.id).filter(Place.id.in_(requested_ids))}
+            if requested_ids
             else set()
         )
-        for place_id in valid_place_ids:
-            db.add(TripPlace(trip_id=trip.id, place_id=place_id, added_at=datetime.now(timezone.utc)))
+        now = datetime.now(timezone.utc)
+        position = 0
+        for place_id, visit_dates in stops:
+            if place_id not in valid_place_ids:
+                continue
+            db.add(
+                TripPlace(
+                    trip_id=trip.id,
+                    place_id=place_id,
+                    added_at=now,
+                    position=position,
+                    visit_dates=[d.isoformat() for d in visit_dates] or None,
+                )
+            )
+            position += 1
 
     if data.project_ids is not None:
         db.query(TripProject).filter(TripProject.trip_id == trip.id).delete()

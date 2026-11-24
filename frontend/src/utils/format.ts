@@ -101,6 +101,31 @@ export function tripDayCount(startDate: string, endDate: string): number {
   return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
 }
 
+// Every calendar day of a trip as ISO dates, inclusive of both ends. Done in
+// UTC so DST changes never skip or repeat a day. Capped as a safety net
+// against absurd ranges.
+export function tripDays(startDate: string, endDate: string, max = 366): string[] {
+  const days: string[] = []
+  const start = Date.parse(`${startDate}T00:00:00Z`)
+  const end = Date.parse(`${endDate}T00:00:00Z`)
+  if (Number.isNaN(start) || Number.isNaN(end)) return days
+  for (let ms = start; ms <= end && days.length < max; ms += 86_400_000) {
+    days.push(new Date(ms).toISOString().slice(0, 10))
+  }
+  return days
+}
+
+// Compact day label for a calendar date: "sáb. 12/10" (month/day order
+// follows the user's date format).
+export function formatShortDay(isoDate: string, prefs?: DatePrefs | null): string {
+  const { day, month } = dateParts(isoDate, prefs)
+  const weekday = getDateTimeFormat({ weekday: 'short', timeZone: 'UTC' }).format(
+    new Date(`${isoDate}T00:00:00Z`),
+  )
+  const dm = prefs?.date_format === '%m/%d/%Y' ? `${month}/${day}` : `${day}/${month}`
+  return `${weekday} ${dm}`
+}
+
 // Detail-page route for an entity type/id pair (`trip` | `project` | `place`)
 // → `/viagens/1` etc., null for anything else. Callers add their own
 // fallback: notifications navigate to '/', activity items render plain text.

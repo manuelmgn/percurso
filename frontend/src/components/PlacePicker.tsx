@@ -12,14 +12,18 @@ export interface PickedPlace {
   name: string
   place_type: PlaceType
   hierarchy: Record<string, string> | null
+  /** Days the place was visited (ISO dates); only used by trip stops. */
+  visit_dates?: string[]
 }
 
 interface PlacePickerProps {
   selected: PickedPlace[]
   onChange: (places: PickedPlace[]) => void
+  /** Hide the chip list when the parent renders the selection itself. */
+  hideSelected?: boolean
 }
 
-export function PlacePicker({ selected, onChange }: PlacePickerProps) {
+export function PlacePicker({ selected, onChange, hideSelected = false }: PlacePickerProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceSearchResult[]>([])
@@ -136,7 +140,7 @@ export function PlacePicker({ selected, onChange }: PlacePickerProps) {
 
   return (
     <div ref={containerRef}>
-      {selected.length > 0 && (
+      {!hideSelected && selected.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {selected.map((place) => (
             <span

@@ -253,6 +253,13 @@ class ExternalLink(ExternalLinkInput):
     type: ExternalLinkType
 
 
+class TripStopInput(BaseModel):
+    """One itinerary stop: a place plus the optional days it was visited
+    (each inside the trip's date range). List order = itinerary order."""
+    place_id: int
+    visit_dates: list[date] = Field(default_factory=list, max_length=366)
+
+
 class TripBase(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
     start_date: date
@@ -265,6 +272,8 @@ class TripBase(BaseModel):
 
 class TripCreate(TripBase):
     place_ids: list[int] = Field(default_factory=list)
+    # Ordered stops with visit days; takes precedence over place_ids.
+    stops: Optional[list[TripStopInput]] = Field(default=None, max_length=500)
     project_ids: list[int] = Field(default_factory=list)
     participant_ids: list[int] = Field(default_factory=list)
     visible_user_ids: list[int] = Field(default_factory=list)
@@ -286,6 +295,8 @@ class TripUpdate(BaseModel):
     # Replace the full list (1-3 links) or clear it with an empty list.
     external_links: Optional[list[ExternalLinkInput]] = Field(default=None, max_length=3)
     place_ids: Optional[list[int]] = None
+    # Ordered stops with visit days; takes precedence over place_ids.
+    stops: Optional[list[TripStopInput]] = Field(default=None, max_length=500)
     project_ids: Optional[list[int]] = None
     participant_ids: Optional[list[int]] = None
     visible_user_ids: Optional[list[int]] = None
@@ -315,6 +326,8 @@ class TripPlaceResponse(BaseModel):
     place_hierarchy: Optional[dict] = None
     place_lat: float
     place_lon: float
+    position: Optional[int] = None
+    visit_dates: list[date] = Field(default_factory=list)
 
 
 class TripResponse(TripBase):

@@ -158,6 +158,8 @@ def _trip_to_response(db: Session, user: User, trip: Trip) -> TripResponse:
                 "place_hierarchy": tp.place.hierarchy,
                 "place_lat": tp.place.lat,
                 "place_lon": tp.place.lon,
+                "position": tp.position,
+                "visit_dates": tp.visit_dates or [],
             }
             for tp in trip.places
         ],

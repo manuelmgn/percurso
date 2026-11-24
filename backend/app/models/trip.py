@@ -67,7 +67,13 @@ class Trip(Base, TimestampMixin):
     immich_owner = relationship("User", foreign_keys=[immich_owner_id])
     participants = relationship("User", secondary=trip_participants, backref="participating_trips")
     visible_users = relationship("User", secondary=trip_visible_users, backref="visible_trips")
-    places = relationship("TripPlace", back_populates="trip", cascade="all, delete-orphan")
+    # Stops in itinerary order (manual order chosen by the user).
+    places = relationship(
+        "TripPlace",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+        order_by="(TripPlace.position, TripPlace.id)",
+    )
     projects = relationship("TripProject", back_populates="trip", cascade="all, delete-orphan")
 
 
@@ -78,6 +84,12 @@ class TripPlace(Base):
     trip_id = Column(Integer, ForeignKey("trips.id", ondelete="CASCADE"), nullable=False, index=True)
     place_id = Column(Integer, ForeignKey("places.id", ondelete="CASCADE"), nullable=False, index=True)
     added_at = Column(DateTime(timezone=True), nullable=False)
+    # Itinerary order within the trip (0-based). Nullable only for rows
+    # predating the column; the lightweight migration backfills them.
+    position = Column(Integer, nullable=True)
+    # Optional days the place was visited: sorted ISO dates ("YYYY-MM-DD")
+    # inside the trip's date range. Empty/NULL = day not recorded.
+    visit_dates = Column(JSON, nullable=True)
 
     trip = relationship("Trip", back_populates="places")
     place = relationship("Place", back_populates="trips")

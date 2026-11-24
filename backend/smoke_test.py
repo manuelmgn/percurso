@@ -1483,6 +1483,56 @@ def main():
             finally:
                 db.close()
 
+    # Trip stops: manual order and optional visit days per place.
+    db = SessionLocal()
+    try:
+        stop_ids = [
+            p.id for p in db.query(Place).filter(Place.osm_id.in_([1001, 2001, 3001])).order_by(Place.osm_id)
+        ]  # santiago, lugo1, coruna
+    finally:
+        db.close()
+    s_id, l_id, c_id = stop_ids
+    r = client1.post('/api/trips/', json={
+        'title': 'Paragens', 'start_date': '2026-06-01', 'end_date': '2026-06-04',
+        'stops': [
+            {'place_id': c_id, 'visit_dates': ['2026-06-03', '2026-06-02', '2026-06-03']},
+            {'place_id': s_id},
+            {'place_id': l_id, 'visit_dates': ['2026-06-01']},
+        ],
+    })
+    check('create trip with stops', r.status_code == 201, r.text[:200])
+    stops_trip_id = r.json()['id']
+    places = client1.get(f'/api/trips/{stops_trip_id}').json()['places']
+    check('stops keep manual order', [p['place_id'] for p in places] == [c_id, s_id, l_id], str(places)[:200])
+    check('stop positions 0..n', [p['position'] for p in places] == [0, 1, 2])
+    check('visit dates sorted + deduped', places[0]['visit_dates'] == ['2026-06-02', '2026-06-03'], str(places[0]))
+    check('stop without dates -> []', places[1]['visit_dates'] == [])
+
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={
+        'stops': [{'place_id': l_id, 'visit_dates': ['2026-06-01']}, {'place_id': c_id}, {'place_id': s_id}],
+    })
+    check('reorder stops', r.status_code == 200
+          and [p['place_id'] for p in r.json()['places']] == [l_id, c_id, s_id], r.text[:200])
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={
+        'stops': [{'place_id': l_id, 'visit_dates': ['2026-06-09']}],
+    })
+    check('visit date outside trip 422', r.status_code == 422, r.text[:200])
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={'stops': [{'place_id': l_id, 'visit_dates': ['bad']}]})
+    check('invalid visit date 422', r.status_code == 422)
+    check('stops unchanged after 422',
+          [p['place_id'] for p in client1.get(f'/api/trips/{stops_trip_id}').json()['places']] == [l_id, c_id, s_id])
+
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={'place_ids': [s_id, c_id]})
+    check('legacy place_ids keeps order', r.status_code == 200
+          and [p['place_id'] for p in r.json()['places']] == [s_id, c_id], r.text[:200])
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={
+        'stops': [{'place_id': s_id, 'visit_dates': ['2026-06-01', '2026-06-04']}],
+    })
+    r = client1.patch(f'/api/trips/{stops_trip_id}', json={'start_date': '2026-06-02', 'end_date': '2026-06-05'})
+    check('date change prunes out-of-range visit days',
+          r.status_code == 200 and r.json()['places'][0]['visit_dates'] == ['2026-06-04'], r.text[:300])
+    client1.delete(f'/api/trips/{stops_trip_id}')
+
     # Final summary
     passed = sum(1 for _, s, _ in results if s == 'PASS')
     failed = sum(1 for _, s, _ in results if s == 'FAIL')

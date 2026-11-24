@@ -236,6 +236,16 @@ export interface TripPlace {
   place_hierarchy: Record<string, string> | null
   place_lat: number
   place_lon: number
+  /** Itinerary order (0-based). */
+  position: number | null
+  /** Days the place was visited (ISO dates, sorted); empty = not recorded. */
+  visit_dates: string[]
+}
+
+/** Ordered itinerary stop sent on create/update (replaces place_ids). */
+export interface TripStopInput {
+  place_id: number
+  visit_dates?: string[]
 }
 
 // An external link attached to a trip (album on Google Photos / Immich or a
@@ -292,6 +302,7 @@ export interface TripCreate {
   companions_text?: string
   external_links?: { url: string }[]
   place_ids?: number[]
+  stops?: TripStopInput[]
   project_ids?: number[]
   participant_ids?: number[]
   visible_user_ids?: number[]
@@ -307,6 +318,7 @@ export interface TripUpdate {
   /** Replaces the full list (1-3 links); send an empty list to clear. */
   external_links?: { url: string }[]
   place_ids?: number[]
+  stops?: TripStopInput[]
   project_ids?: number[]
   participant_ids?: number[]
   visible_user_ids?: number[]
