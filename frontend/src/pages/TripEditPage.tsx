@@ -9,6 +9,7 @@ import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { DateInput } from '@/components/ui/DateInput'
 import { PageShell } from '@/components/PageShell'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
@@ -139,6 +140,14 @@ export function TripEditPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!startDate) {
+      setError(t('tripEdit.invalidDate'))
+      return
+    }
+    if (endDate && endDate < startDate) {
+      setError(t('tripEdit.endBeforeStart'))
+      return
+    }
     setIsSubmitting(true)
 
     const data = {
@@ -211,28 +220,14 @@ export function TripEditPage() {
           <div className="grid min-w-0 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="start_date">{t('tripEdit.startDateLabel')}</label>
-              <input
-                id="start_date"
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="input"
-              />
+              <DateInput id="start_date" required value={startDate} onChange={setStartDate} />
             </div>
             <div>
               <div className="mb-1 flex items-center gap-2">
                 <label className="block text-sm font-medium" htmlFor="end_date">{t('tripEdit.endDateLabel')}</label>
                 <InfoTooltip text={t('tripEdit.endDateHint')} />
               </div>
-              <input
-                id="end_date"
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="input"
-              />
+              <DateInput id="end_date" value={endDate} min={startDate || undefined} onChange={setEndDate} />
             </div>
           </div>
 

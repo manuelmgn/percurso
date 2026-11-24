@@ -59,7 +59,7 @@ export function TripCard({ trip, prefs, coverUrl }: TripCardProps) {
             </span>
           </span>
         </div>
-        <div className="mt-auto flex h-7 items-center justify-between pt-1">
+        <div className="mt-auto flex items-center justify-between pt-1">
           <span
             className="grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-brand text-[11px] font-bold text-white"
             title={trip.creator_username}
