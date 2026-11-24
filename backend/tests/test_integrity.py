@@ -226,13 +226,13 @@ class TestSchemaAndMigrations(unittest.TestCase):
 
         insp = inspect(legacy_engine)
         trip_cols = {c["name"] for c in insp.get_columns("trips")}
-        for col in ("title", "cover_photo_id", "cover_immich_asset_id", "external_links", "immich_album_id"):
+        for col in ("title", "cover_photo_id", "cover_immich_asset_id", "external_links", "immich_album_id", "immich_owner_id"):
             self.assertIn(col, trip_cols)
         photo_cols = {c["name"] for c in insp.get_columns("photos")}
         for col in ("position", "taken_at", "lat", "lon"):
             self.assertIn(col, photo_cols)
         user_cols = {c["name"] for c in insp.get_columns("users")}
-        for col in ("theme", "yearly_trip_goal"):
+        for col in ("theme", "yearly_trip_goal", "immich_api_key"):
             self.assertIn(col, user_cols)
         self.assertIn("is_unmarked", {c["name"] for c in insp.get_columns("project_places")})
         self.assertIn("csrf_token", {c["name"] for c in insp.get_columns("sessions")})
@@ -969,6 +969,17 @@ class TestStatsPlacesNotificationsPushMilestonesBackup(unittest.TestCase):
         self.assertEqual(res.status_code, 200, f"/api/immich/status crashed: {res.status_code} {res.text}")
         body = res.json()
         self.assertIn("enabled", body)
+        self.assertIn("server_configured", body)
+        self.assertIn("has_api_key", body)
+
+        # Deleting key is idempotent and clears has_api_key
+        del_res = self.u1.delete("/api/immich/key")
+        self.assertEqual(del_res.status_code, 200)
+        self.assertFalse(del_res.json()["has_api_key"])
+
+        # Trip asset thumbnail rejects invalid asset_id (422) and invisible/missing trip (404)
+        self.assertEqual(self.u1.get("/api/immich/trips/999999/assets/bad!id/thumbnail").status_code, 422)
+        self.assertEqual(self.u1.get("/api/immich/trips/999999/assets/abc-123/thumbnail").status_code, 404)
 
 
 if __name__ == "__main__":
