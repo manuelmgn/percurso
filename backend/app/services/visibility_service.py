@@ -3,7 +3,7 @@ from typing import Collection
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import User, UserRole, Trip, TripPlace, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
+from app.models import User, UserRole, Trip, TripPlace, TripProject, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
 
 
 def _trip_list_options():
@@ -15,7 +15,7 @@ def _trip_list_options():
         joinedload(Trip.immich_owner),
         joinedload(Trip.cover_photo),
         selectinload(Trip.places).joinedload(TripPlace.place),
-        selectinload(Trip.projects),
+        selectinload(Trip.projects).joinedload(TripProject.project),
     )
 
 

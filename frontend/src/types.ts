@@ -277,6 +277,7 @@ export interface TripListItem {
   creator_username: string
   place_count: number
   project_count: number
+  projects: { id: number; name: string }[]
   cover_photo_url: string | null
   created_at: string
   updated_at: string

@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, MapPin, Route } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { StatusChip } from './StatusChip'
-import { getTripStatus } from '@/utils/tripStatus'
 import { formatTripDateRange, formatTripTitle, type DatePrefs } from '@/utils/format'
 import type { TripListItem } from '@/types'
 
@@ -34,7 +32,26 @@ export function TripCard({ trip, prefs, coverUrl }: TripCardProps) {
             onError={() => setCoverFailed(true)}
           />
         )}
-        <StatusChip status={getTripStatus(trip.start_date, trip.end_date)} className="absolute right-3 top-3" />
+        {trip.projects.length > 0 && (
+          <div
+            className="absolute right-3 top-3 flex max-w-[85%] flex-wrap justify-end gap-1"
+            title={trip.projects.map((p) => p.name).join(', ')}
+          >
+            {trip.projects.slice(0, 2).map((p) => (
+              <span
+                key={p.id}
+                className="status-chip max-w-[10rem] truncate bg-white/70 text-ink backdrop-blur-sm dark:bg-black/50 dark:text-white"
+              >
+                {p.name}
+              </span>
+            ))}
+            {trip.projects.length > 2 && (
+              <span className="status-chip bg-white/70 text-ink backdrop-blur-sm dark:bg-black/50 dark:text-white">
+                +{trip.projects.length - 2}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fixed-height body: every slot reserves its space so all cards in a

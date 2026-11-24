@@ -336,6 +336,11 @@ class TripResponse(TripBase):
     updated_at: datetime
 
 
+class TripProjectRef(BaseModel):
+    id: int
+    name: str
+
+
 class TripListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -347,6 +352,7 @@ class TripListResponse(BaseModel):
     creator_username: str
     place_count: int
     project_count: int
+    projects: list[TripProjectRef] = Field(default_factory=list)
     cover_photo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

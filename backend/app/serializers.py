@@ -44,11 +44,11 @@ def to_trip_list_response(
     visible_project_ids: Optional[Collection[int]] = None,
 ) -> TripListResponse:
     """Compact row used by every listing of trips."""
-    project_count = (
-        sum(1 for tp in trip.projects if tp.project_id in visible_project_ids)
-        if visible_project_ids is not None
-        else len(trip.projects)
-    )
+    links = [
+        tp for tp in trip.projects
+        if visible_project_ids is None or tp.project_id in visible_project_ids
+    ]
+    project_count = len(links)
     return TripListResponse(
         id=trip.id,
         title=trip.title,
@@ -58,6 +58,7 @@ def to_trip_list_response(
         creator_username=trip.creator.username,
         place_count=len(trip.places),
         project_count=project_count,
+        projects=[{"id": tp.project_id, "name": tp.project.name} for tp in links],
         cover_photo_url=resolve_cover_photo_url(trip),
         created_at=trip.created_at,
         updated_at=trip.updated_at,
