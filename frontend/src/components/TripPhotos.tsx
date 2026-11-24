@@ -12,9 +12,10 @@ interface TripPhotosProps {
   trip: Trip
   /** When true, renders bare (no card frame or heading) for embedding in forms. */
   embedded?: boolean
+  onTripUpdate?: (trip: Trip) => void
 }
 
-export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
+export function TripPhotos({ trip, embedded = false, onTripUpdate }: TripPhotosProps) {
   const { user } = useAuth()
   const { t } = useTranslation()
 
@@ -29,11 +30,10 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   // that 404s and surfaces an error even though the photo was removed.
   const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  // Local override of the trip cover: the parent refetches on its own
-  // schedule, so a plain useState(init) could go stale. Until the user
-  // changes the cover here, the prop stays the source of truth.
+  const [isUpdatingCover, setIsUpdatingCover] = useState(false)
+  // Local fallback override when rendered without an onTripUpdate callback.
   const [coverOverride, setCoverOverride] = useState<number | null | undefined>(undefined)
-  const coverPhotoId = coverOverride ?? trip.cover_photo_id
+  const coverPhotoId = onTripUpdate ? trip.cover_photo_id : (coverOverride ?? trip.cover_photo_id)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canEditTrip = canEditEntity(user, trip)
@@ -127,22 +127,38 @@ export function TripPhotos({ trip, embedded = false }: TripPhotosProps) {
   }
 
   const handleSetCover = async (photo: Photo) => {
+    if (isUpdatingCover) return
     setError('')
+    setIsUpdatingCover(true)
     try {
-      await api.trips.update(trip.id, { cover_photo_id: photo.id })
-      setCoverOverride(photo.id)
+      const updated = await api.trips.update(trip.id, { cover_photo_id: photo.id })
+      if (onTripUpdate) {
+        onTripUpdate(updated)
+      } else {
+        setCoverOverride(photo.id)
+      }
     } catch (err) {
       setError(getErrorMessage(err, t('trip.coverSetError')))
+    } finally {
+      setIsUpdatingCover(false)
     }
   }
 
   const handleClearCover = async () => {
+    if (isUpdatingCover) return
     setError('')
+    setIsUpdatingCover(true)
     try {
-      await api.trips.update(trip.id, { clear_cover: true })
-      setCoverOverride(null)
+      const updated = await api.trips.update(trip.id, { clear_cover: true })
+      if (onTripUpdate) {
+        onTripUpdate(updated)
+      } else {
+        setCoverOverride(null)
+      }
     } catch (err) {
       setError(getErrorMessage(err, t('trip.coverSetError')))
+    } finally {
+      setIsUpdatingCover(false)
     }
   }
 

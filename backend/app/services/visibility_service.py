@@ -12,6 +12,7 @@ def _trip_list_options():
     TripPlace.place also covers the search-by-place-name fan-out."""
     return (
         joinedload(Trip.creator),
+        joinedload(Trip.immich_owner),
         joinedload(Trip.cover_photo),
         selectinload(Trip.places).joinedload(TripPlace.place),
         selectinload(Trip.projects),

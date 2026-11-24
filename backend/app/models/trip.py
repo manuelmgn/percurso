@@ -44,6 +44,12 @@ class Trip(Base, TimestampMixin):
     # Optional linked Immich album UUID (used to render an inline gallery
     # proxied through the backend without storing photos locally).
     immich_album_id = Column(String(64), nullable=True)
+    # User who linked `immich_album_id`; their Immich API key is used to proxy
+    # ONLY the assets belonging to this album to authorised viewers of the trip.
+    immich_owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Optional Immich asset UUID used as the trip cover (mutually exclusive
+    # with cover_photo_id; proxied through /api/immich/trips/{id}/assets/{aid}/thumbnail).
+    cover_immich_asset_id = Column(String(64), nullable=True)
     # Manual cover chosen from the trip's gallery. SQLite cannot add this
     # FK to an existing table (ALTER ADD COLUMN drops FK constraints), so on
     # legacy databases referential integrity is enforced in the service
@@ -57,7 +63,8 @@ class Trip(Base, TimestampMixin):
 
     cover_photo = relationship("Photo", foreign_keys=[cover_photo_id])
 
-    creator = relationship("User", back_populates="trips")
+    creator = relationship("User", back_populates="trips", foreign_keys=[creator_id])
+    immich_owner = relationship("User", foreign_keys=[immich_owner_id])
     participants = relationship("User", secondary=trip_participants, backref="participating_trips")
     visible_users = relationship("User", secondary=trip_visible_users, backref="visible_trips")
     places = relationship("TripPlace", back_populates="trip", cascade="all, delete-orphan")

@@ -10,8 +10,8 @@ import { useModalA11y } from '@/hooks/useModalA11y'
 import { AlertBanner } from '@/components/ui/ErrorBanner'
 import { formatDate, formatDateTime, entityDetailPath } from '@/utils/format'
 import { isPushEnabled, subscribePush, unsubscribePush } from '@/utils/push'
-import type { ActivityItem, ThemePreference } from '@/types'
-import { Sun, Moon, Monitor, CircleUser, ArrowRight, Camera, LogOut, Trash2 } from 'lucide-react'
+import type { ActivityItem, ImmichStatus, ThemePreference } from '@/types'
+import { Sun, Moon, Monitor, CircleUser, ArrowRight, Camera, HardDrive, LogOut, Trash2 } from 'lucide-react'
 
 const activityActionKeys: Record<ActivityItem['action'], string> = {
   created: 'dashboard.activityCreated',
@@ -155,6 +155,31 @@ export function SettingsPage() {
   const [pushState, setPushState] = useState<'checking' | 'enabled' | 'disabled' | 'denied' | 'unsupported'>('checking')
   const [isTogglingPush, setIsTogglingPush] = useState(false)
 
+  // Immich personal API key
+  const [immichStatus, setImmichStatus] = useState<ImmichStatus | null>(null)
+  const [immichKeyInput, setImmichKeyInput] = useState('')
+  const [isSavingImmich, setIsSavingImmich] = useState(false)
+  const [isRemovingImmich, setIsRemovingImmich] = useState(false)
+  const [immichMessage, flashImmichMessage, clearImmichMessage] = useFlashMessage()
+  const [immichError, setImmichError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    api.immich
+      .status()
+      .then((res) => {
+        if (!cancelled) setImmichStatus(res)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setImmichStatus({ enabled: false, server_configured: false, has_api_key: false, public_url: null })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     const check = async () => {
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -296,6 +321,41 @@ export function SettingsPage() {
       }
     } finally {
       setIsTogglingPush(false)
+    }
+  }
+
+  const handleSaveImmichKey = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = immichKeyInput.trim()
+    if (!trimmed || isSavingImmich) return
+    setImmichError('')
+    clearImmichMessage()
+    setIsSavingImmich(true)
+    try {
+      const updated = await api.immich.setKey(trimmed)
+      setImmichStatus(updated)
+      setImmichKeyInput('')
+      flashImmichMessage(t('settings.immichSaved'))
+    } catch (err) {
+      setImmichError(getErrorMessage(err, t('settings.immichSaveError')))
+    } finally {
+      setIsSavingImmich(false)
+    }
+  }
+
+  const handleRemoveImmichKey = async () => {
+    if (isRemovingImmich) return
+    setImmichError('')
+    clearImmichMessage()
+    setIsRemovingImmich(true)
+    try {
+      const updated = await api.immich.deleteKey()
+      setImmichStatus(updated)
+      flashImmichMessage(t('settings.immichRemoved'))
+    } catch (err) {
+      setImmichError(getErrorMessage(err, t('settings.immichRemoveError')))
+    } finally {
+      setIsRemovingImmich(false)
     }
   }
 
@@ -614,6 +674,69 @@ export function SettingsPage() {
               <p className="text-xs text-green-700 dark:text-green-300">{t('settings.pushEnabled')}</p>
             )}
           </div>
+
+          {/* Div 4 (full width): personal Immich API key (shown only when the server has Immich configured) */}
+          {immichStatus?.server_configured && (
+            <div className="card space-y-4 md:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="flex items-center gap-2 font-display text-base font-semibold text-ink">
+                    <HardDrive size={16} className="text-primary" aria-hidden="true" />
+                    {t('settings.immichTitle')}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted">
+                    {t('settings.immichDescription')}
+                  </p>
+                </div>
+                {immichStatus.has_api_key && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImmichKey}
+                    disabled={isRemovingImmich || isSavingImmich}
+                    className="btn-outline shrink-0 text-muted hover:text-red-600"
+                  >
+                    {isRemovingImmich ? t('settings.saving') : t('settings.immichRemove')}
+                  </button>
+                )}
+              </div>
+
+              {immichStatus.has_api_key && (
+                <p className="text-xs text-green-700 dark:text-green-300">{t('settings.immichConfigured')}</p>
+              )}
+
+              <AlertBanner small message={immichMessage} variant="success" />
+              <AlertBanner small message={immichError} />
+
+              <form onSubmit={handleSaveImmichKey} className="space-y-2">
+                <label htmlFor="settings-immich-key" className="block text-sm font-medium text-ink">
+                  {t('settings.immichKeyLabel')}
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="settings-immich-key"
+                    type="password"
+                    autoComplete="off"
+                    value={immichKeyInput}
+                    onChange={(e) => {
+                      setImmichKeyInput(e.target.value)
+                      setImmichError('')
+                    }}
+                    placeholder={t('settings.immichKeyPlaceholder')}
+                    className="input flex-1"
+                    maxLength={512}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingImmich || isRemovingImmich || !immichKeyInput.trim()}
+                    className="btn-primary shrink-0"
+                  >
+                    {isSavingImmich ? t('settings.saving') : t('settings.immichSave')}
+                  </button>
+                </div>
+                <p className="text-xs text-muted">{t('settings.immichKeyHint')}</p>
+              </form>
+            </div>
+          )}
         </div>
       </section>
 

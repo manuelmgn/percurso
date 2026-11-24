@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship, validates
 
 from app.database import Base
@@ -23,9 +23,11 @@ class User(Base, TimestampMixin):
     theme = Column(Enum(ThemePreference), nullable=False, default=ThemePreference.SYSTEM)
     # Optional annual trip goal shown on the dashboard; None hides the progress bar.
     yearly_trip_goal = Column(Integer, nullable=True)
+    # Per-user Immich API key encrypted at rest (Fernet); never serialised in responses.
+    immich_api_key = Column(Text, nullable=True)
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
-    trips = relationship("Trip", back_populates="creator", cascade="all, delete-orphan")
+    trips = relationship("Trip", back_populates="creator", foreign_keys="Trip.creator_id", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="creator", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan")
     milestones = relationship("Milestone", back_populates="user", cascade="all, delete-orphan")

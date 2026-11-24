@@ -95,7 +95,13 @@ def create_trip(db: Session, user: User, data: TripCreate) -> Trip:
     return trip
 
 
-def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
+def update_trip(
+    db: Session,
+    user: User,
+    trip: Trip,
+    data: TripUpdate,
+    auto_immich_cover: Optional[str] = None,
+) -> Trip:
     # Validate the resulting pair, not just the payload: a PATCH carrying a
     # single date can otherwise leave start_date > end_date (the schema
     # validator only fires when both dates arrive together).
@@ -124,6 +130,7 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
 
     if data.clear_cover:
         trip.cover_photo_id = None
+        trip.cover_immich_asset_id = None
     elif data.cover_photo_id is not None:
         # Deliberate 404 (not 403/422) so ids of other trips' photos cannot
         # even be probed, matching the photos router.
@@ -135,11 +142,35 @@ def update_trip(db: Session, user: User, trip: Trip, data: TripUpdate) -> Trip:
         if not photo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fotografia não encontrada")
         trip.cover_photo_id = photo.id
+        trip.cover_immich_asset_id = None
+    elif data.cover_immich_asset_id is not None:
+        trip.cover_immich_asset_id = data.cover_immich_asset_id
+        trip.cover_photo_id = None
+        if trip.immich_owner_id is None:
+            trip.immich_owner_id = user.id
 
     if data.clear_immich_album:
         trip.immich_album_id = None
+        trip.immich_owner_id = None
+        # Do not leave a cover pointing at an unlinked Immich album.
+        trip.cover_immich_asset_id = None
     elif data.immich_album_id is not None:
+        album_changed = data.immich_album_id != trip.immich_album_id or trip.immich_owner_id != user.id
         trip.immich_album_id = data.immich_album_id
+        trip.immich_owner_id = user.id
+        explicit_cover = (
+            data.clear_cover
+            or data.cover_photo_id is not None
+            or data.cover_immich_asset_id is not None
+        )
+        if not explicit_cover:
+            if auto_immich_cover:
+                trip.cover_immich_asset_id = auto_immich_cover
+                trip.cover_photo_id = None
+            elif album_changed:
+                # Switched to an album with no detectable cover: drop any
+                # Immich cover belonging to the previous album.
+                trip.cover_immich_asset_id = None
 
     _update_relations(db, user, trip, data)
     trip.updated_at = datetime.now(timezone.utc)
@@ -220,7 +251,10 @@ def get_affected_projects(db: Session, user: User, trip: Trip) -> list[Project]:
     projects = []
     for trip_project in trip.projects:
         project = trip_project.project
-        if project_service.can_user_edit_project(user, project):
+        if (
+            project_service.can_user_edit_project(user, project)
+            and visibility_service.can_user_see_project(db, user, project)
+        ):
             projects.append(project)
     return projects
 

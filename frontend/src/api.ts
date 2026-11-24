@@ -72,16 +72,17 @@ function invalidateCaches(...pathPrefixes: string[]): void {
 
 /** GET cache families touched by a mutation under each API resource. */
 const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
-  trips: ['/api/trips', '/api/immich/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  trips: ['/api/trips', '/api/immich/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public', '/api/pins'],
   photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
-  projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
+  projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public', '/api/pins'],
   pins: ['/api/pins'],
   // me/users rename or avatar changes: trip/project/activity/search payloads
   // embed usernames, so those caches must refresh too.
   me: ['/api/me', '/api/auth/me', '/api/users/public', '/api/users/directory', '/api/trips', '/api/projects', '/api/activities', '/api/search'],
-  users: ['/api/users', '/api/trips', '/api/projects'],
+  users: ['/api/users', '/api/trips', '/api/projects', '/api/activities', '/api/search', '/api/stats', '/api/places', '/api/pins'],
   auth: ['/api/'],
   admin: ['/api/'],
+  immich: ['/api/immich', '/api/trips'],
   // Resources whose mutations touch nothing cached
   notifications: [],
   push: [],
@@ -238,8 +239,6 @@ async function uploadFiles<T>(path: string, field: string, files: File[]): Promi
 }
 
 export const api = {
-  health: () => fetchJson<{ status: string }>('/api/health'),
-
   auth: {
     login: (data: LoginRequest) => fetchJson<MeResponse>('/api/auth/login', {
       method: 'POST',
@@ -250,7 +249,6 @@ export const api = {
   },
 
   me: {
-    get: () => fetchJson<User>('/api/me/'),
     update: (data: UserPreferencesUpdate) => fetchJson<User>('/api/me/', {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -419,6 +417,12 @@ export const api = {
 
   immich: {
     status: () => fetchJson<ImmichStatus>('/api/immich/status'),
+    setKey: (apiKey: string) =>
+      fetchJson<ImmichStatus>('/api/immich/key', {
+        method: 'PUT',
+        body: JSON.stringify({ api_key: apiKey }),
+      }),
+    deleteKey: () => fetchJson<ImmichStatus>('/api/immich/key', { method: 'DELETE' }),
     albums: () => fetchJson<ImmichAlbumSummary[]>('/api/immich/albums'),
     tripAlbum: (tripId: number) => fetchJson<ImmichAlbumDetail>(`/api/immich/trips/${tripId}/album`),
   },

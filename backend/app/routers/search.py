@@ -5,7 +5,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.models import User, Place
 from app.schemas import SearchResult, PlaceResponse
-from app.serializers import to_trip_list_response, to_project_list_responses
+from app.serializers import to_trip_list_responses, to_project_list_responses
 from app.services import visibility_service, place_service
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -49,7 +49,7 @@ def search(
     ) if visible_place_ids else []
 
     return SearchResult(
-        trips=[to_trip_list_response(t) for t in matching_trips[:10]],
+        trips=to_trip_list_responses(db, user, matching_trips[:10]),
         projects=to_project_list_responses(db, user, matching_projects[:10]),
         places=[PlaceResponse.model_validate(p) for p in matching_places],
     )

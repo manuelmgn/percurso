@@ -9,6 +9,7 @@ from app.auth import hash_password, verify_password, needs_rehash
 from app.config import settings
 from app.models import User, UserRole, Trip, Photo, Pin, EntityType
 from app.schemas import UserCreate, UserUpdate, UserPasswordChange
+from app.services import immich_service
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,19 @@ def delete_user_account(db: Session, user: User) -> list[str]:
             synchronize_session=False
         )
 
+    # Detach Immich albums/covers owned by this user on other people's trips
+    # (legacy SQLite ALTER columns do not enforce ON DELETE SET NULL).
+    db.query(Trip).filter(Trip.immich_owner_id == user.id).update(
+        {
+            Trip.immich_owner_id: None,
+            Trip.immich_album_id: None,
+            Trip.cover_immich_asset_id: None,
+        },
+        synchronize_session=False,
+    )
+
+    owner_id = user.id
     db.delete(user)
     db.commit()
+    immich_service.invalidate_owner_cache(owner_id)
     return urls

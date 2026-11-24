@@ -14,6 +14,9 @@ class Settings(BaseSettings):
         env_prefix="PERCURSOS_",
         env_file=_REPO_ROOT / ".env",
         env_file_encoding="utf-8",
+        # Ignore retired env vars (e.g. legacy PERCURSOS_IMMICH_API_KEY) so
+        # existing .env files keep working across upgrades.
+        extra="ignore",
     )
 
     env: str = "development"
@@ -52,15 +55,15 @@ class Settings(BaseSettings):
     vapid_public_key: str | None = None
     vapid_subject: str = "mailto:admin@percurso.local"
     # Optional Immich integration: server-to-server base URL (e.g.
-    # http://192.168.0.133:2283) and API key. immich_public_url defaults to
-    # immich_url when omitted.
+    # http://192.168.0.133:2283). Each user configures their own personal API
+    # key in Settings so users only access their own Immich albums.
+    # immich_public_url defaults to immich_url when omitted.
     immich_url: str = ""
-    immich_api_key: str = ""
     immich_public_url: str = ""
 
     @property
-    def immich_enabled(self) -> bool:
-        return bool(self.immich_url.strip() and self.immich_api_key.strip())
+    def immich_server_configured(self) -> bool:
+        return bool(self.immich_url.strip())
 
     @property
     def session_cookie_secure_resolved(self) -> bool:

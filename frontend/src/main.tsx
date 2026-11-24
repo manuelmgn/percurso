@@ -11,8 +11,6 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/sora/600.css'
 import '@fontsource/sora/700.css'
-import '@fontsource/montserrat/600.css'
-import '@fontsource/montserrat/700.css'
 import './index.css'
 
 // Register the push service worker in production builds only (dev uses Vite's own SW handling off).

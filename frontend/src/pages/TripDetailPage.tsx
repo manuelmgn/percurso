@@ -30,7 +30,7 @@ export function TripDetailPage() {
   // Page data via the shared hook: cancellation guard included (a slow
   // response for trip A can no longer overwrite trip B after a fast
   // navigation between them).
-  const { data: trip, isLoading, error } = useApiResource<Trip>(
+  const { data: trip, setData: setTrip, isLoading, error } = useApiResource<Trip>(
     () => api.trips.get(Number(id)),
     [id],
   )
@@ -348,9 +348,9 @@ export function TripDetailPage() {
         </div>
       </div>
 
-      <ImmichGallery key={trip.id} trip={trip} />
+      <ImmichGallery key={trip.id} trip={trip} onTripUpdate={setTrip} />
 
-      <TripPhotos trip={trip} />
+      <TripPhotos trip={trip} onTripUpdate={setTrip} />
     </div>
   )
 }

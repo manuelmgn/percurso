@@ -9,8 +9,41 @@ from app.services import visibility_service
 MAX_PINS_PER_TYPE = 2
 
 
+def _prune_invisible_pins(db: Session, user: User, pins: list[Pin]) -> list[Pin]:
+    """Drop pins whose target entity was deleted or whose visibility was
+    narrowed so the user can no longer see it. Prevents information leaks and
+    stops inaccessible pins from consuming the per-type cap."""
+    if not pins:
+        return []
+    visible_trip_ids = (
+        visibility_service.get_visible_trip_ids(db, user)
+        if any(p.entity_type == EntityType.TRIP for p in pins)
+        else set()
+    )
+    visible_project_ids = (
+        visibility_service.get_visible_project_ids(db, user)
+        if any(p.entity_type == EntityType.PROJECT for p in pins)
+        else set()
+    )
+    kept: list[Pin] = []
+    stale: list[Pin] = []
+    for p in pins:
+        if p.entity_type == EntityType.TRIP and p.entity_id in visible_trip_ids:
+            kept.append(p)
+        elif p.entity_type == EntityType.PROJECT and p.entity_id in visible_project_ids:
+            kept.append(p)
+        else:
+            stale.append(p)
+    if stale:
+        for p in stale:
+            db.delete(p)
+        db.commit()
+    return kept
+
+
 def list_pins(db: Session, user: User) -> list[Pin]:
-    return db.query(Pin).filter(Pin.user_id == user.id).order_by(Pin.created_at).all()
+    pins = db.query(Pin).filter(Pin.user_id == user.id).order_by(Pin.created_at).all()
+    return _prune_invisible_pins(db, user, pins)
 
 
 def _get_visible_entity(db: Session, user: User, entity_type: EntityType, entity_id: int):
@@ -41,8 +74,13 @@ def pin(db: Session, user: User, entity_type: EntityType, entity_id: int) -> Pin
     if existing:
         return existing
 
-    count = db.query(Pin).filter(Pin.user_id == user.id, Pin.entity_type == entity_type).count()
-    if count >= MAX_PINS_PER_TYPE:
+    existing_same_type = (
+        db.query(Pin)
+        .filter(Pin.user_id == user.id, Pin.entity_type == entity_type)
+        .all()
+    )
+    visible_same_type = _prune_invisible_pins(db, user, existing_same_type)
+    if len(visible_same_type) >= MAX_PINS_PER_TYPE:
         label = "viagens" if entity_type == EntityType.TRIP else "projetos"
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

@@ -261,6 +261,7 @@ export interface Trip {
   places: TripPlace[]
   projects: ProjectListItem[]
   cover_photo_id: number | null
+  cover_immich_asset_id: string | null
   cover_photo_url: string | null
   immich_album_id: string | null
   created_at: string
@@ -308,8 +309,9 @@ export interface TripUpdate {
   project_ids?: number[]
   participant_ids?: number[]
   visible_user_ids?: number[]
-  /** Photo id of this trip to use as cover; send clear_cover to unset. */
+  /** Photo id of this trip or Immich asset UUID to use as cover; send clear_cover to unset. */
   cover_photo_id?: number
+  cover_immich_asset_id?: string
   clear_cover?: boolean
   /** Immich album UUID to link to this trip; send clear_immich_album to unset. */
   immich_album_id?: string
@@ -318,6 +320,8 @@ export interface TripUpdate {
 
 export interface ImmichStatus {
   enabled: boolean
+  server_configured: boolean
+  has_api_key: boolean
   public_url: string | null
 }
 
@@ -327,6 +331,7 @@ export interface ImmichAlbumSummary {
   asset_count: number
   start_date: string | null
   end_date: string | null
+  thumbnail_asset_id: string | null
   thumbnail_url: string | null
 }
 
@@ -347,6 +352,7 @@ export interface ImmichAlbumDetail {
   id: string
   name: string
   asset_count: number
+  thumbnail_asset_id: string | null
   external_url: string | null
   assets: ImmichAsset[]
 }

@@ -23,7 +23,7 @@ def create_project(db: Session, user: User, data: ProjectCreate) -> Project:
     visibility_service.apply_user_links(db, project, data)
 
     if data.place_ids:
-        for place_id in data.place_ids:
+        for place_id in dict.fromkeys(data.place_ids):
             place = db.query(Place).filter(Place.id == place_id).first()
             if place:
                 project_place = ProjectPlace(

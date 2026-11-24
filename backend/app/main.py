@@ -38,8 +38,10 @@ def _apply_lightweight_migrations():
             # ALTER-added column, so the service layer clears dangling
             # covers (see the photos router and the Trip model comment).
             "cover_photo_id": "INTEGER",
+            "cover_immich_asset_id": "VARCHAR(64)",
             "external_links": "JSON",
             "immich_album_id": "VARCHAR(64)",
+            "immich_owner_id": "INTEGER",
         },
         "photos": {
             "position": "INTEGER",
@@ -50,6 +52,7 @@ def _apply_lightweight_migrations():
         "users": {
             "theme": "VARCHAR(6) NOT NULL DEFAULT 'system'",
             "yearly_trip_goal": "INTEGER",
+            "immich_api_key": "TEXT",
         },
         "sessions": {"csrf_token": "VARCHAR(64)"},
     }

@@ -6,7 +6,7 @@ from app.auth import get_current_user, validate_csrf
 from app.models import User, Place, TripPlace
 from app.models.enums import EntityAction, EntityType
 from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse
-from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
+from app.serializers import to_search_result, to_trip_list_responses, to_project_list_responses
 from app.services import place_service, activity_service, visibility_service
 
 router = APIRouter(prefix="/api/places", tags=["places"])
@@ -109,10 +109,9 @@ def get_place(
         polygon=place.polygon,
         created_at=place.created_at,
         updated_at=place.updated_at,
-        trips=[
-            to_trip_list_response(t)
-            for t in sorted(trips, key=lambda t: t.start_date, reverse=True)
-        ],
+        trips=to_trip_list_responses(
+            db, user, sorted(trips, key=lambda t: t.start_date, reverse=True)
+        ),
         projects=sorted_project_rows,
     )
 

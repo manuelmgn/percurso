@@ -17,7 +17,7 @@ from app.schemas import (
     PlaceSearchResult,
     UserResponse,
 )
-from app.serializers import to_search_result, to_trip_list_response, to_project_list_responses
+from app.serializers import to_search_result, to_trip_list_responses, to_project_list_responses
 from app.services import project_service, place_service, activity_service, visibility_service
 from app.models.enums import EntityAction, EntityType
 from app.routers.guards import get_visible_project_or_404, get_editable_project_or_404
@@ -296,7 +296,7 @@ def _project_to_response(db: Session, user: User, project: Project) -> ProjectRe
         )
         .all()
     )
-    trips = [to_trip_list_response(t) for t in sorted(trips, key=lambda t: t.updated_at, reverse=True)]
+    trips = to_trip_list_responses(db, user, sorted(trips, key=lambda t: t.updated_at, reverse=True))
 
     return ProjectResponse(
         id=project.id,

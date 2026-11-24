@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, ExternalLink, HardDrive, Image as ImageIcon, Loader2, Search, Unlink, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Check, ChevronDown, ChevronUp, ExternalLink, HardDrive, Image as ImageIcon, Loader2, Search, Star, Unlink, X } from 'lucide-react'
 import { api } from '@/api'
 import { useAuth } from '@/context/AuthContext'
 import { getErrorMessage } from '@/hooks/useApiResource'
@@ -182,9 +183,10 @@ function ImmichAlbumPickerModal({
 
 interface ImmichGalleryProps {
   trip: Trip
+  onTripUpdate?: (trip: Trip) => void
 }
 
-export function ImmichGallery({ trip }: ImmichGalleryProps) {
+export function ImmichGallery({ trip, onTripUpdate }: ImmichGalleryProps) {
   const { user } = useAuth()
   const { t } = useTranslation()
 
@@ -194,14 +196,21 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
   const [error, setError] = useState('')
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [isUnlinking, setIsUnlinking] = useState(false)
+  const [isUpdatingCover, setIsUpdatingCover] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  // Local override until parent refetches (same pattern as TripLinks / TripPhotos).
+  // Local fallback overrides when rendered without an onTripUpdate callback.
   const [albumIdOverride, setAlbumIdOverride] = useState<string | null | undefined>(undefined)
+  const [coverOverride, setCoverOverride] = useState<string | null | undefined>(undefined)
 
   const canEditTrip = canEditEntity(user, trip)
   const linkFallback = extractImmichAlbumFromLinks(trip)
-  const explicitAlbumId = albumIdOverride !== undefined ? albumIdOverride : trip.immich_album_id
+  const explicitAlbumId = onTripUpdate
+    ? trip.immich_album_id
+    : (albumIdOverride !== undefined ? albumIdOverride : trip.immich_album_id)
+  const coverImmichAssetId = onTripUpdate
+    ? trip.cover_immich_asset_id
+    : (coverOverride !== undefined ? coverOverride : trip.cover_immich_asset_id)
   const effectiveAlbumId = explicitAlbumId ?? linkFallback?.id ?? null
 
   useEffect(() => {
@@ -212,7 +221,9 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
         if (!cancelled) setStatus(res)
       })
       .catch(() => {
-        if (!cancelled) setStatus({ enabled: false, public_url: null })
+        if (!cancelled) {
+          setStatus({ enabled: false, server_configured: false, has_api_key: false, public_url: null })
+        }
       })
     return () => {
       cancelled = true
@@ -220,7 +231,7 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
   }, [])
 
   useEffect(() => {
-    if (!status?.enabled || !effectiveAlbumId) {
+    if (!status?.server_configured || !effectiveAlbumId) {
       setAlbum(null)
       return
     }
@@ -245,14 +256,19 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
     return () => {
       cancelled = true
     }
-  }, [trip.id, status?.enabled, effectiveAlbumId, t])
+  }, [trip.id, status?.server_configured, effectiveAlbumId, t])
 
   if (!status) return null
-  if (!effectiveAlbumId && (!status.enabled || !canEditTrip)) return null
+  if (!effectiveAlbumId && (!status.server_configured || !canEditTrip)) return null
 
   const handleSelectAlbum = async (chosen: ImmichAlbumSummary) => {
     const updated = await api.trips.update(trip.id, { immich_album_id: chosen.id })
-    setAlbumIdOverride(updated.immich_album_id)
+    if (onTripUpdate) {
+      onTripUpdate(updated)
+    } else {
+      setAlbumIdOverride(updated.immich_album_id)
+      setCoverOverride(updated.cover_immich_asset_id)
+    }
   }
 
   const handleUnlink = async () => {
@@ -260,13 +276,54 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
     setError('')
     setIsUnlinking(true)
     try {
-      await api.trips.update(trip.id, { clear_immich_album: true })
-      setAlbumIdOverride(null)
+      const updated = await api.trips.update(trip.id, { clear_immich_album: true })
+      if (onTripUpdate) {
+        onTripUpdate(updated)
+      } else {
+        setAlbumIdOverride(null)
+        setCoverOverride(updated.cover_immich_asset_id)
+      }
       setAlbum(null)
     } catch (err) {
       setError(getErrorMessage(err, t('trip.immichSaveError')))
     } finally {
       setIsUnlinking(false)
+    }
+  }
+
+  const handleSetCover = async (assetId: string) => {
+    if (isUpdatingCover) return
+    setError('')
+    setIsUpdatingCover(true)
+    try {
+      const updated = await api.trips.update(trip.id, { cover_immich_asset_id: assetId })
+      if (onTripUpdate) {
+        onTripUpdate(updated)
+      } else {
+        setCoverOverride(updated.cover_immich_asset_id)
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.coverSetError')))
+    } finally {
+      setIsUpdatingCover(false)
+    }
+  }
+
+  const handleClearCover = async () => {
+    if (isUpdatingCover) return
+    setError('')
+    setIsUpdatingCover(true)
+    try {
+      const updated = await api.trips.update(trip.id, { clear_cover: true })
+      if (onTripUpdate) {
+        onTripUpdate(updated)
+      } else {
+        setCoverOverride(null)
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, t('trip.coverSetError')))
+    } finally {
+      setIsUpdatingCover(false)
     }
   }
 
@@ -321,14 +378,24 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
               {t('trip.immichOpenExternal')}
             </a>
           )}
-          {canEditTrip && status.enabled && (
-            <button
-              onClick={() => setIsPickerOpen(true)}
-              className="btn-outline inline-flex items-center gap-2"
-            >
-              <HardDrive size={14} aria-hidden="true" />
-              {effectiveAlbumId ? t('trip.immichChange') : t('trip.immichLink')}
-            </button>
+          {canEditTrip && status.server_configured && (
+            status.has_api_key ? (
+              <button
+                onClick={() => setIsPickerOpen(true)}
+                className="btn-outline inline-flex items-center gap-2"
+              >
+                <HardDrive size={14} aria-hidden="true" />
+                {effectiveAlbumId ? t('trip.immichChange') : t('trip.immichLink')}
+              </button>
+            ) : (
+              <Link
+                to="/ajustes"
+                className="btn-outline inline-flex items-center gap-2"
+              >
+                <HardDrive size={14} aria-hidden="true" />
+                {t('trip.immichConfigureLink')}
+              </Link>
+            )
           )}
           {canEditTrip && explicitAlbumId && (
             <button
@@ -351,8 +418,10 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
       <AlertBanner small className="mt-3" message={error} />
 
       {!effectiveAlbumId ? (
-        <p className="mt-3 text-sm text-muted">{t('trip.immichEmpty')}</p>
-      ) : !status.enabled ? (
+        <p className="mt-3 text-sm text-muted">
+          {status.has_api_key ? t('trip.immichEmpty') : t('trip.immichNeedsKey')}
+        </p>
+      ) : !status.server_configured ? (
         <p className="mt-3 text-sm text-muted">{t('trip.immichUnconfigured')}</p>
       ) : loadingAlbum && !album ? (
         <div className="flex items-center justify-center py-8 text-muted">
@@ -364,19 +433,49 @@ export function ImmichGallery({ trip }: ImmichGalleryProps) {
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {visibleAssets.map((asset, index) => (
-              <button
-                key={asset.id}
-                onClick={() => setLightboxIndex(index)}
-                className="group block w-full overflow-hidden rounded-2xl shadow-card"
-                aria-label={asset.caption ?? asset.filename ?? t('trip.openPhoto')}
-              >
-                <img
-                  src={asset.thumbnail_url}
-                  alt={asset.caption ?? ''}
-                  loading="lazy"
-                  className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.85]"
-                />
-              </button>
+              <div key={asset.id} className="group relative">
+                <button
+                  onClick={() => setLightboxIndex(index)}
+                  className="block w-full overflow-hidden rounded-2xl shadow-card"
+                  aria-label={asset.caption ?? asset.filename ?? t('trip.openPhoto')}
+                >
+                  <img
+                    src={asset.thumbnail_url}
+                    alt={asset.caption ?? ''}
+                    loading="lazy"
+                    className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.85]"
+                  />
+                </button>
+                {coverImmichAssetId === asset.id &&
+                  (canEditTrip ? (
+                    <button
+                      onClick={() => handleClearCover()}
+                      disabled={isUpdatingCover}
+                      aria-label={t('trip.clearCover')}
+                      title={t('trip.coverPhoto')}
+                      className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-primary text-white shadow-pop"
+                    >
+                      <Star size={14} fill="currentColor" aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <span
+                      className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-primary text-white shadow-pop"
+                      title={t('trip.coverPhoto')}
+                    >
+                      <Star size={14} fill="currentColor" aria-hidden="true" />
+                    </span>
+                  ))}
+                {canEditTrip && coverImmichAssetId !== asset.id && (
+                  <button
+                    onClick={() => handleSetCover(asset.id)}
+                    disabled={isUpdatingCover}
+                    aria-label={t('trip.setAsCover')}
+                    className="absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-ink/60 text-white opacity-0 shadow-pop transition-opacity hover:bg-primary group-hover:opacity-100 focus:opacity-100"
+                  >
+                    <Star size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
 

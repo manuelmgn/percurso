@@ -1070,107 +1070,164 @@ def main():
     check('tile negative zoom rejected', adv.get('/api/tiles/light/-1/0/0.png').status_code == 400)
     check('tile bogus style rejected', adv.get('/api/tiles/blue/5/0/0.png').status_code == 400)
 
-    # Immich integration (works cleanly both with Immich disabled and with mocked/bad IDs)
+    # Immich integration (per-user API keys, encryption at rest, multi-user isolation & IDOR checks)
     r = adv.get('/api/immich/status')
-    check('immich status 200', r.status_code == 200 and 'enabled' in r.json(), r.text[:200])
-    immich_enabled = r.json().get('enabled', False)
-    if not immich_enabled:
-        check('immich albums 503 when disabled', adv.get('/api/immich/albums').status_code == 503)
+    check('immich status 200',
+          r.status_code == 200 and 'enabled' in r.json() and 'server_configured' in r.json() and 'has_api_key' in r.json(),
+          r.text[:200])
+    check('immich albums 503 when user has no api key', adv.get('/api/immich/albums').status_code == 503)
     check('immich bad asset id 422', adv.get('/api/immich/assets/bad!id/thumbnail').status_code == 422)
 
-    r_trip = adv.post('/api/trips/', json={'start_date': '2026-05-01', 'title': 'Immich Smoke'})
+    r_trip = adv.post('/api/trips/', json={'start_date': '2026-05-01', 'title': 'Immich Smoke', 'visibility': 'all'})
     check('immich test trip created', r_trip.status_code == 201, r_trip.text[:200])
     if r_trip.status_code == 201:
         tid = r_trip.json()['id']
         check('immich trip album 404 when unlinked', adv.get(f'/api/immich/trips/{tid}/album').status_code == 404)
         check('immich invalid album id 422',
               adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'bad/id!'}).status_code == 422)
-        r_link = adv.patch(f'/api/trips/{tid}', json={'immich_album_id': '11111111-2222-3333-4444-555555555555'})
-        check('immich album id saved',
-              r_link.status_code == 200 and r_link.json().get('immich_album_id') == '11111111-2222-3333-4444-555555555555')
-        if not immich_enabled:
-            check('immich trip album 503 when disabled', adv.get(f'/api/immich/trips/{tid}/album').status_code == 503)
-        r_clear = adv.patch(f'/api/trips/{tid}', json={'clear_immich_album': True})
-        check('immich album id cleared',
-              r_clear.status_code == 200 and r_clear.json().get('immich_album_id') is None)
+        check('immich link rejected 503 without user api key',
+              adv.patch(f'/api/trips/{tid}', json={'immich_album_id': '11111111-2222-3333-4444-555555555555'}).status_code == 503)
 
-        # Mocked upstream Immich responses: verify album listing dedup/sorting,
-        # external_links fallback, video filtering, and strict image MIME check.
+        # Mocked upstream Immich with two distinct user accounts (`key-u1`, `key-u2`)
+        # to verify per-user isolation, Fernet encryption, auto-cover, and IDOR blocks.
         import httpx as _httpx
         from app.config import settings as _settings
         from app.services import immich_service as _immich_svc
 
         def _mock_immich_handler(request: _httpx.Request) -> _httpx.Response:
             path = request.url.path
-            if path == '/api/albums' and request.url.params.get('shared') == 'true':
-                return _httpx.Response(200, json=[
-                    {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
-                    {'id': 'alb-2', 'albumName': 'Açores', 'assetCount': 5, 'startDate': None},
-                ])
-            if path == '/api/albums':
-                return _httpx.Response(200, json=[
-                    {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
-                ])
-            if path == '/api/albums/alb-1':
-                return _httpx.Response(200, json={
-                    'id': 'alb-1',
-                    'albumName': 'Porto',
-                    'assets': [
-                        {
-                            'id': 'img-1',
-                            'type': 'IMAGE',
-                            'originalFileName': 'ponte.jpg',
-                            'exifInfo': {'description': 'Ponte Luís I', 'latitude': 41.14, 'longitude': -8.61},
-                        },
-                        {'id': 'vid-1', 'type': 'VIDEO', 'originalFileName': 'clip.mp4'},
-                    ],
-                })
-            if path == '/api/albums/alb-2':
-                # Immich v3+: GET /api/albums/{id} omits `assets`, requiring POST /api/search/metadata.
-                return _httpx.Response(200, json={
-                    'id': 'alb-2',
-                    'albumName': 'Açores',
-                    'assetCount': 2,
-                    'order': 'asc',
-                })
-            if path == '/api/search/metadata' and request.method == 'POST':
-                import json as _json
-                req_body = _json.loads(request.content.decode())
-                page = req_body.get('page', 1)
-                if page == 1:
+            api_key = request.headers.get('x-api-key', '')
+            if api_key not in ('key-u1', 'key-u2'):
+                return _httpx.Response(401, json={'message': 'Invalid API key'})
+            if path == '/api/users/me':
+                return _httpx.Response(200, json={'id': api_key, 'email': f'{api_key}@example.com'})
+
+            # Per-user albums & assets in Immich
+            if api_key == 'key-u1':
+                if path == '/api/albums' and request.url.params.get('shared') == 'true':
+                    return _httpx.Response(200, json=[
+                        {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
+                        {'id': 'alb-2', 'albumName': 'Açores', 'assetCount': 5, 'startDate': None},
+                    ])
+                if path == '/api/albums':
+                    return _httpx.Response(200, json=[
+                        {'id': 'alb-1', 'albumName': 'Porto', 'assetCount': 2, 'startDate': '2026-04-01T00:00:00Z'},
+                    ])
+                if path == '/api/albums/alb-1':
+                    return _httpx.Response(200, json={
+                        'id': 'alb-1',
+                        'albumName': 'Porto',
+                        'albumThumbnailAssetId': 'img-1',
+                        'assets': [
+                            {
+                                'id': 'img-1',
+                                'type': 'IMAGE',
+                                'originalFileName': 'ponte.jpg',
+                                'exifInfo': {'description': 'Ponte Luís I', 'latitude': 41.14, 'longitude': -8.61},
+                            },
+                            {'id': 'vid-1', 'type': 'VIDEO', 'originalFileName': 'clip.mp4'},
+                        ],
+                    })
+                if path == '/api/albums/alb-2':
+                    # Immich v3+: GET /api/albums/{id} omits `assets`, requiring POST /api/search/metadata.
+                    return _httpx.Response(200, json={
+                        'id': 'alb-2',
+                        'albumName': 'Açores',
+                        'assetCount': 2,
+                        'order': 'asc',
+                    })
+                if path == '/api/search/metadata' and request.method == 'POST':
+                    import json as _json
+                    req_body = _json.loads(request.content.decode())
+                    page = req_body.get('page', 1)
+                    if page == 1:
+                        return _httpx.Response(200, json={
+                            'assets': {
+                                'items': [{'id': 'img-v3-1', 'type': 'IMAGE', 'originalFileName': 'lagoa.jpg'}],
+                                'nextPage': '2',
+                            }
+                        })
                     return _httpx.Response(200, json={
                         'assets': {
-                            'items': [{'id': 'img-v3-1', 'type': 'IMAGE', 'originalFileName': 'lagoa.jpg'}],
-                            'nextPage': '2',
+                            'items': [{'id': 'img-v3-2', 'type': 'IMAGE', 'originalFileName': 'mar.jpg'}],
+                            'nextPage': None,
                         }
                     })
+                if path in ('/api/assets/img-1/thumbnail', '/api/assets/secret-u1-img/thumbnail'):
+                    return _httpx.Response(200, content=b'\xff\xd8\xff\xe0jpeg', headers={'content-type': 'image/jpeg'})
+                if path == '/api/assets/bad-mime/thumbnail':
+                    return _httpx.Response(200, content=b'<html>oops</html>', headers={'content-type': 'text/html'})
+                if path == '/api/assets/svg-mime/thumbnail':
+                    return _httpx.Response(200, content=b'<svg></svg>', headers={'content-type': 'image/svg+xml'})
+                return _httpx.Response(404)
+
+            # key-u2: completely separate Immich account
+            if path == '/api/albums':
+                return _httpx.Response(200, json=[
+                    {'id': 'alb-u2', 'albumName': 'Madeira', 'assetCount': 1, 'startDate': '2026-06-01T00:00:00Z'},
+                ])
+            if path == '/api/albums/alb-u2':
                 return _httpx.Response(200, json={
-                    'assets': {
-                        'items': [{'id': 'img-v3-2', 'type': 'IMAGE', 'originalFileName': 'mar.jpg'}],
-                        'nextPage': None,
-                    }
+                    'id': 'alb-u2',
+                    'albumName': 'Madeira',
+                    'albumThumbnailAssetId': 'img-u2-1',
+                    'assets': [{'id': 'img-u2-1', 'type': 'IMAGE', 'originalFileName': 'funchal.jpg'}],
                 })
-            if path == '/api/assets/img-1/thumbnail':
+            if path == '/api/assets/img-u2-1/thumbnail':
                 return _httpx.Response(200, content=b'\xff\xd8\xff\xe0jpeg', headers={'content-type': 'image/jpeg'})
-            if path == '/api/assets/bad-mime/thumbnail':
-                return _httpx.Response(200, content=b'<html>oops</html>', headers={'content-type': 'text/html'})
-            if path == '/api/assets/svg-mime/thumbnail':
-                return _httpx.Response(200, content=b'<svg></svg>', headers={'content-type': 'image/svg+xml'})
             return _httpx.Response(404)
 
-        orig_url, orig_key, orig_pub, orig_client = (
-            _settings.immich_url, _settings.immich_api_key, _settings.immich_public_url, _immich_svc._client
+        orig_url, orig_pub, orig_client = (
+            _settings.immich_url, _settings.immich_public_url, _immich_svc._client
         )
+        adv2 = TestClient(app, raise_server_exceptions=False)
+        login(adv2, 'smoke_user2', 'pass12345')
         try:
             _settings.immich_url = 'http://immich.test:2283'
-            _settings.immich_api_key = 'test-key'
             _settings.immich_public_url = ''
             _immich_svc._client = _httpx.AsyncClient(transport=_httpx.MockTransport(_mock_immich_handler))
+            _immich_svc.clear_album_cache()
 
-            r_list = adv.get('/api/immich/albums')
-            check('immich albums deduped and sorted',
-                  r_list.status_code == 200 and [a['id'] for a in r_list.json()] == ['alb-1', 'alb-2'],
-                  r_list.text[:200])
+            # Invalid API key rejected before saving.
+            check('immich invalid api key rejected 400',
+                  adv.put('/api/immich/key', json={'api_key': 'bogus-key'}).status_code == 400)
+
+            # Save personal API keys for user1 and user2.
+            r_k1 = adv.put('/api/immich/key', json={'api_key': 'key-u1'})
+            check('user1 saves own immich key',
+                  r_k1.status_code == 200 and r_k1.json().get('enabled') is True and r_k1.json().get('has_api_key') is True,
+                  r_k1.text[:200])
+            # Stored encrypted in DB and never leaked in /api/me/ or /api/immich/status.
+            db = SessionLocal()
+            try:
+                u1_raw = db.query(User).filter(User.username == 'smoke_user1').first().immich_api_key
+                check('immich key encrypted at rest in DB',
+                      bool(u1_raw) and u1_raw.startswith('enc:v1:') and 'key-u1' not in u1_raw)
+            finally:
+                db.close()
+            r_me = adv.get('/api/me/')
+            check('immich key never exposed in /api/me/', 'key-u1' not in r_me.text and 'immich_api_key' not in r_me.json())
+
+            r_k2 = adv2.put('/api/immich/key', json={'api_key': 'key-u2'})
+            check('user2 saves own immich key',
+                  r_k2.status_code == 200 and r_k2.json().get('enabled') is True)
+
+            # Isolation: each user ONLY lists their own Immich albums.
+            r_list1 = adv.get('/api/immich/albums')
+            check('immich albums deduped and sorted (user1 only)',
+                  r_list1.status_code == 200 and [a['id'] for a in r_list1.json()] == ['alb-1', 'alb-2'],
+                  r_list1.text[:200])
+            r_list2 = adv2.get('/api/immich/albums')
+            check('immich albums isolated (user2 only sees own albums)',
+                  r_list2.status_code == 200 and [a['id'] for a in r_list2.json()] == ['alb-u2'],
+                  r_list2.text[:200])
+
+            # Isolation: user2 cannot link user1's album to user2's trip.
+            r_u2_trip = adv2.post('/api/trips/', json={'start_date': '2026-06-01', 'title': 'User2 Trip'})
+            u2_tid = r_u2_trip.json()['id']
+            check('user2 cannot link user1 album',
+                  adv2.patch(f'/api/trips/{u2_tid}', json={'immich_album_id': 'alb-1'}).status_code == 404)
+            adv2.delete(f'/api/trips/{u2_tid}')
 
             # Fallback from external_links preserves the pasted album URL.
             adv.patch(f'/api/trips/{tid}', json={'external_links': [{'url': 'https://fotos.immich.example/albums/alb-1'}]})
@@ -1183,9 +1240,59 @@ def main():
                   and alb_body['assets'][0]['caption'] == 'Ponte Luís I'
                   and alb_body['assets'][0]['lat'] == 41.14,
                   r_alb.text[:200])
+            # Fallback external_links never uses another user's key (user2 gets 404 on user1's pasted link).
+            check('external_links fallback does not leak creator immich key to other users',
+                  adv2.get(f'/api/immich/trips/{tid}/album').status_code == 404)
 
-            # Immich v3+ album (no inline `assets`, paginated via POST /api/search/metadata).
-            adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'alb-2'})
+            # Linking alb-1 auto-sets its albumThumbnailAssetId as trip cover (trip-scoped URL).
+            expected_cover_url = f'/api/immich/trips/{tid}/assets/img-1/thumbnail?size=preview'
+            r_auto = adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'alb-1'})
+            auto_body = r_auto.json() if r_auto.status_code == 200 else {}
+            check('immich album auto-sets cover from albumThumbnailAssetId',
+                  r_auto.status_code == 200
+                  and auto_body.get('cover_immich_asset_id') == 'img-1'
+                  and auto_body.get('cover_photo_url') == expected_cover_url,
+                  r_auto.text[:200])
+            r_trips = adv.get('/api/trips/')
+            listed = next((t for t in (r_trips.json() if r_trips.status_code == 200 else []) if t['id'] == tid), None)
+            check('immich cover url appears in trip list',
+                  listed is not None and listed.get('cover_photo_url') == expected_cover_url)
+
+            # Shared trip viewer (user2) CAN see the linked album & cover, but CANNOT probe
+            # arbitrary private assets of user1 (IDOR protection).
+            r_u2_alb = adv2.get(f'/api/immich/trips/{tid}/album')
+            check('authorized viewer sees shared trip immich album',
+                  r_u2_alb.status_code == 200 and r_u2_alb.json().get('asset_count') == 1)
+            r_u2_cov = adv2.get(expected_cover_url)
+            check('authorized viewer fetches shared trip immich cover',
+                  r_u2_cov.status_code == 200 and r_u2_cov.headers.get('content-type', '').startswith('image/jpeg'))
+            check('IDOR blocked: viewer cannot fetch unlinked user1 asset via trip endpoint',
+                  adv2.get(f'/api/immich/trips/{tid}/assets/secret-u1-img/thumbnail').status_code == 404)
+            check('IDOR blocked: viewer cannot fetch user1 asset via personal endpoint',
+                  adv2.get('/api/immich/assets/secret-u1-img/thumbnail').status_code == 404)
+
+            # Co-editor (participant) cannot inject an arbitrary unlinked asset of user1 as cover.
+            u2_id = adv2.get('/api/me/').json()['id']
+            adv.patch(f'/api/trips/{tid}', json={'participant_ids': [u2_id]})
+            check('co-editor cannot set unlinked user1 asset as cover',
+                  adv2.patch(f'/api/trips/{tid}', json={'cover_immich_asset_id': 'secret-u1-img'}).status_code == 404)
+            # Private trip hides Immich album & cover from non-viewers.
+            adv.patch(f'/api/trips/{tid}', json={'visibility': 'private', 'participant_ids': []})
+            check('non-viewer cannot access private trip immich album',
+                  adv2.get(f'/api/immich/trips/{tid}/album').status_code == 404)
+            check('non-viewer cannot access private trip immich cover',
+                  adv2.get(expected_cover_url).status_code == 404)
+            adv.patch(f'/api/trips/{tid}', json={'visibility': 'all'})
+
+            # Immich v3+ album (no inline `assets`, no albumThumbnailAssetId):
+            # switching drops the old album's Immich cover cleanly.
+            r_switch = adv.patch(f'/api/trips/{tid}', json={'immich_album_id': 'alb-2'})
+            switch_body = r_switch.json() if r_switch.status_code == 200 else {}
+            check('switching to album without thumbnail clears previous immich cover',
+                  r_switch.status_code == 200
+                  and switch_body.get('cover_immich_asset_id') is None
+                  and switch_body.get('cover_photo_url') is None,
+                  r_switch.text[:200])
             r_alb_v3 = adv.get(f'/api/immich/trips/{tid}/album')
             v3_body = r_alb_v3.json() if r_alb_v3.status_code == 200 else {}
             check('immich v3 album fetched via search/metadata pagination',
@@ -1193,6 +1300,45 @@ def main():
                   and v3_body.get('asset_count') == 2
                   and [a['id'] for a in v3_body.get('assets', [])] == ['img-v3-1', 'img-v3-2'],
                   r_alb_v3.text[:200])
+
+            # Manual Immich cover selection + invalid ID rejection + clear on unlink.
+            check('immich invalid cover asset id 422',
+                  adv.patch(f'/api/trips/{tid}', json={'cover_immich_asset_id': 'bad/id!'}).status_code == 422)
+            r_manual = adv.patch(f'/api/trips/{tid}', json={'cover_immich_asset_id': 'img-v3-2'})
+            check('manual immich cover asset set',
+                  r_manual.status_code == 200
+                  and r_manual.json().get('cover_immich_asset_id') == 'img-v3-2'
+                  and r_manual.json().get('cover_photo_url') == f'/api/immich/trips/{tid}/assets/img-v3-2/thumbnail?size=preview',
+                  r_manual.text[:200])
+            # Mutual exclusivity with uploaded local cover photo.
+            r_up = adv.post(f'/api/trips/{tid}/photos/', files=[('files', ('cover.png', make_image(), 'image/png'))])
+            local_pid = r_up.json()[0]['id'] if r_up.status_code == 201 else None
+            r_local_cov = adv.patch(f'/api/trips/{tid}', json={'cover_photo_id': local_pid}) if local_pid else None
+            check('setting local cover clears immich cover',
+                  r_local_cov is not None and r_local_cov.status_code == 200
+                  and r_local_cov.json().get('cover_photo_id') == local_pid
+                  and r_local_cov.json().get('cover_immich_asset_id') is None
+                  and (r_local_cov.json().get('cover_photo_url') or '').startswith('/uploads/'))
+            r_back_imm = adv.patch(f'/api/trips/{tid}', json={'cover_immich_asset_id': 'img-v3-1'})
+            check('setting immich cover clears local cover',
+                  r_back_imm.status_code == 200
+                  and r_back_imm.json().get('cover_photo_id') is None
+                  and r_back_imm.json().get('cover_immich_asset_id') == 'img-v3-1')
+
+            # Deleting user1's Immich key gracefully removes cover_photo_url fallback.
+            r_del_k1 = adv.delete('/api/immich/key')
+            check('user1 deletes own immich key',
+                  r_del_k1.status_code == 200 and r_del_k1.json().get('has_api_key') is False and r_del_k1.json().get('enabled') is False)
+            check('trip cover_photo_url becomes None when owner removes immich key',
+                  adv.get(f'/api/trips/{tid}').json().get('cover_photo_url') is None)
+            # Re-set key to verify unlink & MIME checks.
+            adv.put('/api/immich/key', json={'api_key': 'key-u1'})
+            r_unlink_cov = adv.patch(f'/api/trips/{tid}', json={'clear_immich_album': True})
+            check('unlinking immich album clears immich cover',
+                  r_unlink_cov.status_code == 200
+                  and r_unlink_cov.json().get('immich_album_id') is None
+                  and r_unlink_cov.json().get('cover_immich_asset_id') is None
+                  and r_unlink_cov.json().get('cover_photo_url') is None)
 
             r_thumb = adv.get('/api/immich/assets/img-1/thumbnail?size=preview')
             check('immich thumbnail proxy serves image/jpeg private',
@@ -1203,11 +1349,14 @@ def main():
                   adv.get('/api/immich/assets/bad-mime/thumbnail').status_code == 502)
             check('immich thumbnail rejects svg 502',
                   adv.get('/api/immich/assets/svg-mime/thumbnail').status_code == 502)
+
+            adv.delete('/api/immich/key')
+            adv2.delete('/api/immich/key')
         finally:
             _settings.immich_url = orig_url
-            _settings.immich_api_key = orig_key
             _settings.immich_public_url = orig_pub
             _immich_svc._client = orig_client
+            _immich_svc.clear_album_cache()
 
         adv.delete(f'/api/trips/{tid}')
 

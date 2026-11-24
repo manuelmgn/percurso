@@ -289,8 +289,10 @@ class TripUpdate(BaseModel):
     project_ids: Optional[list[int]] = None
     participant_ids: Optional[list[int]] = None
     visible_user_ids: Optional[list[int]] = None
-    # Cover photo: set to a photo id of this trip, or clear with clear_cover.
+    # Cover photo: set to a photo id of this trip or an Immich asset UUID;
+    # clear either with clear_cover.
     cover_photo_id: Optional[int] = None
+    cover_immich_asset_id: Optional[str] = Field(None, max_length=64, pattern=r"^[a-zA-Z0-9-]+$")
     clear_cover: bool = False
     # Linked Immich album UUID, or clear with clear_immich_album.
     immich_album_id: Optional[str] = Field(None, max_length=64, pattern=r"^[a-zA-Z0-9-]+$")
@@ -326,6 +328,7 @@ class TripResponse(TripBase):
     places: list[TripPlaceResponse] = Field(default_factory=list)
     projects: list[ProjectListResponse] = Field(default_factory=list)
     cover_photo_id: Optional[int] = None
+    cover_immich_asset_id: Optional[str] = None
     cover_photo_url: Optional[str] = None
     immich_album_id: Optional[str] = None
     external_links: list[ExternalLink] = Field(default_factory=list)
