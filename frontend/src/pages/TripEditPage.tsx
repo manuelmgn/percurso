@@ -14,7 +14,7 @@ import { DateInput } from '@/components/ui/DateInput'
 import { PageShell } from '@/components/PageShell'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
-import { formatTripDateRange, tripDays } from '@/utils/format'
+import { formatTripDateRange } from '@/utils/format'
 import { toggleId } from '@/utils/forms'
 import type { ProjectListItem, UserDirectoryItem, Visibility } from '@/types'
 
@@ -153,11 +153,11 @@ export function TripEditPage() {
     setIsSubmitting(true)
 
     // Drop visit days left outside the (possibly edited) trip range.
-    const inRange = new Set(tripDays(startDate, endDate || startDate))
+    const effectiveEnd = endDate || startDate
     const data = {
       title: title.trim() || undefined,
       start_date: startDate,
-      end_date: endDate || startDate,
+      end_date: effectiveEnd,
       // In edit mode send the raw value: `|| undefined` would drop the key
       // and make clearing notes/companions impossible.
       notes: isEdit ? notes : notesToHtml(notes),
@@ -165,7 +165,7 @@ export function TripEditPage() {
       visibility,
       stops: places.map((p) => ({
         place_id: p.id,
-        visit_dates: (p.visit_dates ?? []).filter((d) => inRange.has(d)),
+        visit_dates: (p.visit_dates ?? []).filter((d) => d >= startDate && d <= effectiveEnd),
       })),
       project_ids: projectIds,
       participant_ids: participantIds,

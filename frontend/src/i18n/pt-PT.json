@@ -216,7 +216,6 @@
   "tripStops.remove": "Remover {name}",
   "tripStops.days": "Dias da visita",
   "tripStops.daysNone": "Dia não indicado",
-  "tripStops.daysSelected.one": "{count} dia",
   "tripStops.daysSelected.other": "{count} dias",
   "tripStops.chooseDays": "Escolher dias",
   "tripStops.hideDays": "Ocultar dias",

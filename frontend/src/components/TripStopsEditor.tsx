@@ -162,7 +162,13 @@ export function TripStopsEditor({ stops, onChange, startDate, endDate }: TripSto
                           {' · '}
                           {selected.length === 0
                             ? t('tripStops.daysNone')
-                            : t(selected.length === 1 ? 'tripStops.daysSelected.one' : 'tripStops.daysSelected.other', { count: selected.length })}
+                            : selected.length === 1
+                              ? t('trip.stopDay', { n: days.indexOf(selected[0]) + 1 })
+                              : selected.length <= 4
+                                ? t('trip.stopDays', {
+                                    list: selected.map((d) => days.indexOf(d) + 1).join(', '),
+                                  })
+                                : t('tripStops.daysSelected.other', { count: selected.length })}
                         </button>
                       )}
                       {showPills && (
