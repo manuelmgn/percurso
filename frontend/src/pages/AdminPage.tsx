@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '@/api'
+import { PageShell } from '@/components/PageShell'
 import { AlertBanner, ErrorBanner } from '@/components/ui/ErrorBanner'
 import { useApiResource, getErrorMessage } from '@/hooks/useApiResource'
 import { useFlashMessage } from '@/hooks/useFlashMessage'
@@ -9,7 +10,7 @@ import type { User, UserCreate } from '@/types'
 export function AdminPage() {
   const { t } = useTranslation()
   // User list via the shared hook; mutations call `refetch`.
-  const { data: users, error, refetch } = useApiResource<User[]>(
+  const { data: users, isLoading, error, refetch } = useApiResource<User[]>(
     () => api.users.list(),
     [],
     [],
@@ -111,7 +112,7 @@ export function AdminPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="rows" isLoading={isLoading}>
       <h2 className="font-display text-2xl font-bold">{t('admin.title')}</h2>
       <ErrorBanner message={error || actionError} />
 
@@ -327,6 +328,6 @@ export function AdminPage() {
           </p>
         )}
       </div>
-    </div>
+    </PageShell>
   )
 }

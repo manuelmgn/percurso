@@ -13,6 +13,7 @@ import {
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { useUnreadCount } from '@/context/UnreadCountContext'
+import { prefetchRoute } from '@/routes'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
@@ -50,6 +51,9 @@ export function Sidebar() {
             key={to}
             to={to}
             end={end}
+            onMouseEnter={() => prefetchRoute(to)}
+            onFocus={() => prefetchRoute(to)}
+            onTouchStart={() => prefetchRoute(to)}
             className={({ isActive }) =>
               `nav-item ${isActive ? 'bg-primary-tint font-semibold text-primary dark:bg-primary/20' : ''}`
             }
@@ -72,6 +76,9 @@ export function Sidebar() {
         {user?.role === 'admin' && (
           <NavLink
             to="/admin"
+            onMouseEnter={() => prefetchRoute('/admin')}
+            onFocus={() => prefetchRoute('/admin')}
+            onTouchStart={() => prefetchRoute('/admin')}
             className={({ isActive }) =>
               `nav-item ${isActive ? 'bg-primary-tint font-semibold text-primary dark:bg-primary/20' : ''}`
             }
@@ -88,7 +95,13 @@ export function Sidebar() {
 
       {/* User */}
       <div className="mt-auto flex items-center gap-1 rounded-2xl bg-bg p-2">
-        <Link to="/definicoes" className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-opacity hover:opacity-80">
+        <Link
+          to="/definicoes"
+          onMouseEnter={() => prefetchRoute('/definicoes')}
+          onFocus={() => prefetchRoute('/definicoes')}
+          onTouchStart={() => prefetchRoute('/definicoes')}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 transition-opacity hover:opacity-80"
+        >
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
           ) : (

@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Bell, Briefcase, Compass, Home, Search, Settings } from 'lucide-react'
 import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
+import { prefetchRoute } from '@/routes'
 
 const items = [
   { to: '/', icon: Home, key: 'nav.home', end: true },
@@ -26,6 +27,8 @@ export function MobileNav() {
           key={to}
           to={to}
           end={end}
+          onTouchStart={() => prefetchRoute(to)}
+          onFocus={() => prefetchRoute(to)}
           aria-label={t(key)}
           title={t(key)}
           className={({ isActive }) =>
@@ -44,6 +47,8 @@ export function MobileNav() {
       ))}
       <NavLink
         to="/definicoes"
+        onTouchStart={() => prefetchRoute('/definicoes')}
+        onFocus={() => prefetchRoute('/definicoes')}
         aria-label={t('nav.settings')}
         title={t('nav.settings')}
         className={({ isActive }) =>

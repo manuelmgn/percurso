@@ -9,7 +9,7 @@ import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { NotesEditor } from '@/components/NotesEditor'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { FormPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
 import { formatTripDateRange } from '@/utils/format'
@@ -171,23 +171,17 @@ export function TripEditPage() {
     navigate(isEdit ? `/viagens/${id}` : '/viagens')
   }
 
-  if (isLoading) {
-    return <FormPageSkeleton />
-  }
-
-  // A failed load in edit mode leaves the form blank; rendering it would
-  // invite saving empty data over the existing trip. Show just the error.
-  if (isEdit && error) {
-    return (
-      <div className="space-y-6 pb-6">
-        <h2 className="font-display text-2xl font-bold">{t('tripEdit.editTitle')}</h2>
-        <ErrorBanner message={error} />
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6 pb-6">
+    <PageShell skeleton="form" isLoading={isLoading} className="space-y-6 pb-6">
+      {/* A failed load in edit mode leaves the form blank; rendering it would
+          invite saving empty data over the existing trip. Show just the error. */}
+      {isEdit && error ? (
+        <>
+          <h2 className="font-display text-2xl font-bold">{t('tripEdit.editTitle')}</h2>
+          <ErrorBanner message={error} />
+        </>
+      ) : (
+        <>
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('tripEdit.editTitle') : t('tripEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl w-full">
@@ -385,6 +379,8 @@ export function TripEditPage() {
           </div>
         </form>
       </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

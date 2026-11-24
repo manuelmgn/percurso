@@ -7,7 +7,7 @@ import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { TripCard } from '@/components/ui/TripCard'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { ListPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { formatTripTitle } from '@/utils/format'
 import { getTripStatus, type TripStatus } from '@/utils/tripStatus'
 import type { TripListItem } from '@/types'
@@ -59,12 +59,8 @@ export function TripsPage() {
     })
   }, [trips, filters, user])
 
-  if (isLoading) {
-    return <ListPageSkeleton />
-  }
-
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="list" isLoading={isLoading}>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-bold">{t('trips.title')}</h2>
         <Link to="/viagens/novo" className="btn-primary">
@@ -153,6 +149,6 @@ export function TripsPage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

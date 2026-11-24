@@ -6,7 +6,7 @@ import { api } from '@/api'
 import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { ListPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { visibilityLabelKey } from '@/utils/format'
 import type { ProjectListItem } from '@/types'
 import { CircleCheck } from 'lucide-react'
@@ -50,12 +50,8 @@ export function ProjectsPage() {
     })
   }, [projects, filters])
 
-  if (isLoading) {
-    return <ListPageSkeleton />
-  }
-
   return (
-    <div className="space-y-6">
+    <PageShell skeleton="list" isLoading={isLoading}>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-bold">{t('projects.title')}</h2>
         <Link to="/projetos/novo" className="btn-primary">
@@ -152,6 +148,6 @@ export function ProjectsPage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

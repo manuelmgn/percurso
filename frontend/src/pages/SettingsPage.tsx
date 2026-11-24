@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { api } from '@/api'
+import { PageShell } from '@/components/PageShell'
 import { getErrorMessage } from '@/hooks/useApiResource'
 import { useFlashMessage } from '@/hooks/useFlashMessage'
 import { useModalA11y } from '@/hooks/useModalA11y'
@@ -415,7 +416,7 @@ export function SettingsPage() {
   ]
 
   return (
-    <div className="space-y-8 pb-12">
+    <PageShell skeleton="settings" className="space-y-8 pb-12">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{t('settings.title')}</h1>
       </div>
@@ -890,6 +891,6 @@ export function SettingsPage() {
           onConfirm={handleDeleteAccount}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

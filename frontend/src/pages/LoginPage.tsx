@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 import { getErrorMessage } from '@/hooks/useApiResource'
@@ -27,7 +28,12 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-bg dark:to-surface">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+      className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-50 to-white p-4 dark:from-bg dark:to-surface"
+    >
       <div className="mb-6 flex flex-col items-center gap-4 text-center">
         <div className="grid h-16 w-16 place-items-center rounded-3xl bg-primary-tint shadow-card dark:bg-primary/20">
           <img src="/images/percurso-icono.svg" alt="" className="h-10 w-10" />
@@ -79,6 +85,6 @@ export function LoginPage() {
           </button>
         </form>
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { PillChecklist } from '@/components/ui/PillChecklist'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { FormPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { VisibilitySelect, VisibleUsersField } from '@/components/VisibilityFields'
 import { toggleId } from '@/utils/forms'
 import type { MapMode, PlaceType, UserDirectoryItem, Visibility } from '@/types'
@@ -106,23 +106,17 @@ export function ProjectEditPage() {
     navigate(isEdit ? `/projetos/${id}` : '/projetos')
   }
 
-  if (isLoading) {
-    return <FormPageSkeleton />
-  }
-
-  // A failed load in edit mode leaves the form blank; rendering it would
-  // invite saving empty data over the existing project. Show just the error.
-  if (isEdit && error) {
-    return (
-      <div className="space-y-6 pb-6">
-        <h2 className="font-display text-2xl font-bold">{t('projectEdit.editTitle')}</h2>
-        <ErrorBanner message={error} />
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6 pb-6">
+    <PageShell skeleton="form" isLoading={isLoading} className="space-y-6 pb-6">
+      {/* A failed load in edit mode leaves the form blank; rendering it would
+          invite saving empty data over the existing project. Show just the error. */}
+      {isEdit && error ? (
+        <>
+          <h2 className="font-display text-2xl font-bold">{t('projectEdit.editTitle')}</h2>
+          <ErrorBanner message={error} />
+        </>
+      ) : (
+        <>
       <h2 className="font-display text-2xl font-bold">{isEdit ? t('projectEdit.editTitle') : t('projectEdit.newTitle')}</h2>
 
       <div className="card max-w-2xl w-full">
@@ -208,6 +202,8 @@ export function ProjectEditPage() {
           </div>
         </form>
       </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }

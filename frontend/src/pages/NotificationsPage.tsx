@@ -7,7 +7,7 @@ import { useTranslation } from '@/i18n'
 import { useUnreadCount } from '@/context/UnreadCountContext'
 import { entityDetailPath } from '@/utils/format'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import { RowListSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import type { Notification } from '@/types'
 
 function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
@@ -71,7 +71,7 @@ export function NotificationsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <PageShell skeleton="rows" isLoading={isLoading} className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-[28px] font-bold md:text-[40px]">{t('notifications.title')}</h1>
         {unreadCount > 0 && (
@@ -81,12 +81,7 @@ export function NotificationsPage() {
         )}
       </div>
 
-      {isLoading ? (
-        <div role="status" aria-label={t('loading')}>
-          <span className="sr-only">{t('loadingGeneric')}</span>
-          <RowListSkeleton />
-        </div>
-      ) : error ? (
+      {error ? (
         <ErrorBanner message={error} />
       ) : notifications.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-10 text-center">
@@ -126,6 +121,6 @@ export function NotificationsPage() {
           })}
         </ul>
       )}
-    </section>
+    </PageShell>
   )
 }

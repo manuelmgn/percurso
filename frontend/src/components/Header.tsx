@@ -1,15 +1,11 @@
-import { useLocation } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/context/AuthContext'
 
-/** Contextual greeting shown at the top of the dashboard (home only). */
+/** Contextual greeting shown at the top of the dashboard. */
 export function Header() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const location = useLocation()
   const firstName = user?.username.split(' ')[0]
-
-  if (location.pathname !== '/') return null
 
   return (
     <header className="px-2 pt-2 md:px-0">

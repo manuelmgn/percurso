@@ -1,31 +1,125 @@
-import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
-import { useLocation, useOutlet } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import { useLocation, useNavigationType, useOutlet } from 'react-router-dom'
+import { getRouteDepth } from '@/routes'
 
-// Cross-fade + micro slide between routes. Both pages stay mounted for a
-// beat (mode="popLayout" keeps the new page from waiting for the old one to
-// leave) so navigation feels instant; the movement itself is 200ms. The
-// animation runs in the compositor (opacity + transform only).
+type TransitionDirection = 'forward' | 'backward' | 'lateral'
+
+const ENTER_EASE = [0.22, 1, 0.36, 1] as const
+const EXIT_EASE = [0.4, 0, 1, 1] as const
+
+const pageVariants: Variants = {
+  initial: (direction: TransitionDirection) => {
+    if (direction === 'forward') return { opacity: 0, x: 14, y: 0 }
+    if (direction === 'backward') return { opacity: 0, x: -14, y: 0 }
+    return { opacity: 0, x: 0, y: 6 }
+  },
+  animate: {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    transition: {
+      duration: 0.21,
+      ease: ENTER_EASE,
+    },
+  },
+  exit: (direction: TransitionDirection) => {
+    const offset =
+      direction === 'forward'
+        ? { x: -10, y: 0 }
+        : direction === 'backward'
+          ? { x: 10, y: 0 }
+          : { x: 0, y: -4 }
+    return {
+      opacity: 0,
+      ...offset,
+      transition: {
+        duration: 0.11,
+        ease: EXIT_EASE,
+      },
+    }
+  },
+}
+
+/**
+ * Captures the outlet element for the lifetime of a keyed route wrapper so
+ * the exiting page stays visually intact during its exit animation instead of
+ * immediately swapping to the incoming route's tree.
+ */
+function FrozenOutlet({ outlet }: { outlet: React.ReactElement | null }) {
+  const [frozen] = useState(outlet)
+  return <>{frozen}</>
+}
+
+/**
+ * Directional, compositor-only route transitions (transform + opacity):
+ * - Drilling deeper (list -> detail -> edit): gentle glide from the right.
+ * - Navigating back / POP: gentle glide from the left.
+ * - Switching top-level sections: calm vertical micro-lift cross-fade.
+ *
+ * Resets scroll to the top between exit and enter (zero visible scroll jump)
+ * and routes keyboard/screen-reader focus to #main-content on route changes.
+ * Reduced motion is enforced globally by MotionConfig in main.tsx.
+ */
 export function AnimatedOutlet() {
   const location = useLocation()
+  const navigationType = useNavigationType()
   const outlet = useOutlet()
 
+  const prevPathRef = useRef(location.pathname)
+  const directionRef = useRef<TransitionDirection>('lateral')
+  const isFirstRender = useRef(true)
+
+  if (prevPathRef.current !== location.pathname) {
+    const prevDepth = getRouteDepth(prevPathRef.current)
+    const nextDepth = getRouteDepth(location.pathname)
+    if (navigationType === 'POP' || nextDepth < prevDepth) {
+      directionRef.current = 'backward'
+    } else if (nextDepth > prevDepth) {
+      directionRef.current = 'forward'
+    } else {
+      directionRef.current = 'lateral'
+    }
+    prevPathRef.current = location.pathname
+  }
+
+  // Accessibility focus routing after client-side navigation: move focus to
+  // #main-content unless a control inside it (e.g. SearchPage's input) already
+  // claimed focus on mount.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    const raf = window.requestAnimationFrame(() => {
+      const main = document.getElementById('main-content')
+      if (!main) return
+      const active = document.activeElement
+      if (active && active !== document.body && main.contains(active)) return
+      main.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [location.pathname])
+
+  const handleExitComplete = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
+  }
+
+  const direction = directionRef.current
+
   return (
-    <MotionConfig reducedMotion="user">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{
-            opacity: { duration: 0.2, ease: 'easeOut' },
-            y: { duration: 0.2, ease: [0.22, 0.61, 0.36, 1] },
-          }}
-          className="min-w-0"
-        >
-          {outlet}
-        </motion.div>
-      </AnimatePresence>
-    </MotionConfig>
+    <AnimatePresence mode="wait" initial={false} custom={direction} onExitComplete={handleExitComplete}>
+      <motion.div
+        key={location.pathname}
+        custom={direction}
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="min-w-0"
+      >
+        <FrozenOutlet outlet={outlet} />
+      </motion.div>
+    </AnimatePresence>
   )
 }

@@ -1,13 +1,29 @@
 import { t } from '@/i18n'
 
 /**
+ * Named skeleton shapes shared between route-level <Suspense> fallbacks
+ * (routes.tsx) and data-level <PageShell> loading states, so chunk loading
+ * and data loading always render the exact same layout footprint.
+ */
+export type SkeletonVariant =
+  | 'dashboard'
+  | 'list'
+  | 'detail'
+  | 'form'
+  | 'stats'
+  | 'rows'
+  | 'search'
+  | 'settings'
+  | 'none'
+
+/**
  * Loading placeholders shaped like the real pages, so first paint already has
  * the final layout and data arrival is a fill-in, not a jump. Full-page
  * variants announce themselves as status; inline ones are aria-hidden and
  * should sit next to a visible status element.
  */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-lg bg-line/60 ${className}`} />
+  return <div aria-hidden="true" className={`skeleton ${className}`} />
 }
 
 function LoadingStatus() {
@@ -78,12 +94,15 @@ export function FormPageSkeleton() {
   )
 }
 
-/** Dashboard: summary line, hero map + stats panel, card sections. */
+/** Dashboard: greeting header, summary line, hero map + stats panel, card sections. */
 export function DashboardSkeleton() {
   return (
     <div className="space-y-8" role="status" aria-label={t('loading')}>
       <LoadingStatus />
-      <Skeleton className="h-4 w-72 max-w-full" />
+      <div className="space-y-2 px-2 pt-2 md:px-0">
+        <Skeleton className="h-10 w-64 max-w-full" />
+        <Skeleton className="h-4 w-72 max-w-full" />
+      </div>
       <section className="grid gap-6 lg:grid-cols-12">
         <Skeleton className="h-[300px] rounded-card md:h-[390px] lg:col-span-8" />
         <Skeleton className="h-[300px] rounded-card lg:col-span-4" />
@@ -128,7 +147,46 @@ export function StatsPageSkeleton() {
   )
 }
 
-/** Row-shaped blocks for inline list loading (notifications feed). */
+/** Feed/admin pages: header + stacked row cards. */
+export function RowsPageSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label={t('loading')}>
+      <LoadingStatus />
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-10 w-32 rounded-pill" />
+      </div>
+      <RowListSkeleton rows={5} />
+    </div>
+  )
+}
+
+/** Search page: search pill + heading + prompt card. */
+export function SearchPageSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label={t('loading')}>
+      <LoadingStatus />
+      <Skeleton className="h-12 w-full rounded-pill" />
+      <Skeleton className="h-8 w-36" />
+      <Skeleton className="h-28 w-full rounded-card" />
+    </div>
+  )
+}
+
+/** Settings page: heading + stacked preference cards. */
+export function SettingsPageSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label={t('loading')}>
+      <LoadingStatus />
+      <Skeleton className="h-9 w-44" />
+      <Skeleton className="h-44 rounded-card" />
+      <Skeleton className="h-40 rounded-card" />
+      <Skeleton className="h-36 rounded-card" />
+    </div>
+  )
+}
+
+/** Row-shaped blocks for inline list loading (notifications feed, activity log). */
 export function RowListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-2" aria-hidden="true">
@@ -137,4 +195,28 @@ export function RowListSkeleton({ rows = 5 }: { rows?: number }) {
       ))}
     </div>
   )
+}
+
+/** Single dispatcher so route Suspense and PageShell always match. */
+export function PageSkeleton({ variant }: { variant: SkeletonVariant }) {
+  switch (variant) {
+    case 'dashboard':
+      return <DashboardSkeleton />
+    case 'list':
+      return <ListPageSkeleton />
+    case 'detail':
+      return <DetailPageSkeleton />
+    case 'form':
+      return <FormPageSkeleton />
+    case 'stats':
+      return <StatsPageSkeleton />
+    case 'rows':
+      return <RowsPageSkeleton />
+    case 'search':
+      return <SearchPageSkeleton />
+    case 'settings':
+      return <SettingsPageSkeleton />
+    case 'none':
+      return null
+  }
 }

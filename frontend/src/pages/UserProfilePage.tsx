@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
-import { DetailPageSkeleton } from '@/components/ui/Skeleton'
+import { PageShell } from '@/components/PageShell'
 import { api } from '@/api'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
@@ -21,27 +21,21 @@ export function UserProfilePage() {
 
   const isOwnProfile = user?.username === username
 
-  if (isLoading) {
-    return <DetailPageSkeleton />
-  }
+  const counters = profile
+    ? [
+        { label: t('userProfile.trips'), value: profile.trip_count },
+        { label: t('userProfile.places'), value: profile.place_count },
+      ]
+    : []
 
-  if (!profile) {
-    return (
-      <div className="space-y-6">
+  return (
+    <PageShell skeleton="detail" isLoading={isLoading}>
+      {!profile ? (
         <div className="card">
           <p className="text-red-700 dark:text-red-300">{error || t('userProfile.notFound')}</p>
         </div>
-      </div>
-    )
-  }
-
-  const counters = [
-    { label: t('userProfile.trips'), value: profile.trip_count },
-    { label: t('userProfile.places'), value: profile.place_count },
-  ]
-
-  return (
-    <div className="space-y-6">
+      ) : (
+        <>
       <div className="card">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           {profile.avatar_url ? (
@@ -80,6 +74,8 @@ export function UserProfilePage() {
           </div>
         ))}
       </div>
-    </div>
+        </>
+      )}
+    </PageShell>
   )
 }
