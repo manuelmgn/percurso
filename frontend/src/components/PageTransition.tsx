@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { useLocation, useNavigationType, useOutlet } from 'react-router-dom'
 import { getRouteDepth } from '@/routes'
@@ -58,8 +58,8 @@ function FrozenOutlet({ outlet }: { outlet: React.ReactElement | null }) {
  * - Switching top-level sections: calm vertical micro-lift cross-fade.
  *
  * Resets scroll to the top between exit and enter (zero visible scroll jump)
- * and routes keyboard/screen-reader focus to #main-content on route changes.
- * Reduced motion is enforced globally by MotionConfig in main.tsx.
+ * and routes keyboard/screen-reader focus to #main-content once the incoming
+ * page mounts. Reduced motion is enforced globally by MotionConfig in main.tsx.
  */
 export function AnimatedOutlet() {
   const location = useLocation()
@@ -68,7 +68,6 @@ export function AnimatedOutlet() {
 
   const prevPathRef = useRef(location.pathname)
   const directionRef = useRef<TransitionDirection>('lateral')
-  const isFirstRender = useRef(true)
 
   if (prevPathRef.current !== location.pathname) {
     const prevDepth = getRouteDepth(prevPathRef.current)
@@ -83,26 +82,17 @@ export function AnimatedOutlet() {
     prevPathRef.current = location.pathname
   }
 
-  // Accessibility focus routing after client-side navigation: move focus to
-  // #main-content unless a control inside it (e.g. SearchPage's input) already
-  // claimed focus on mount.
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-    const raf = window.requestAnimationFrame(() => {
+  const handleExitComplete = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
+    // Route focus to #main-content once the incoming page mounts, unless a
+    // control inside it (e.g. SearchPage's input) already claimed focus.
+    window.requestAnimationFrame(() => {
       const main = document.getElementById('main-content')
       if (!main) return
       const active = document.activeElement
       if (active && active !== document.body && main.contains(active)) return
       main.focus({ preventScroll: true })
     })
-    return () => window.cancelAnimationFrame(raf)
-  }, [location.pathname])
-
-  const handleExitComplete = () => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
   }
 
   const direction = directionRef.current

@@ -72,6 +72,11 @@
     ::view-transition-new(*) {
       animation: none !important;
     }
+    .skeleton::after,
+    .route-progress-bar::after {
+      animation: none !important;
+      opacity: 0;
+    }
   }
 }
 

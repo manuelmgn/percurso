@@ -36,7 +36,7 @@ export function PageShell({
 }: PageShellProps) {
   const [showSkeleton, setShowSkeleton] = useState(false)
   // Remember if a skeleton was visibly painted so we know to run the smooth
-  // skeleton -> content reveal when data arrives.
+  // skeleton -> content reveal when the loaded branch mounts.
   const hadVisibleSkeleton = useRef(false)
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function PageShell({
     if (!showSkeleton) {
       // Reserve vertical space during the short grace window to avoid footer/scroll
       // jumping if the response lands in <90ms.
-      return <div className="min-h-[40vh]" aria-busy="true" />
+      return <div key="grace" className="min-h-[40vh]" aria-busy="true" />
     }
     return (
       <motion.div
@@ -72,20 +72,20 @@ export function PageShell({
   const animateReveal = hadVisibleSkeleton.current
   hadVisibleSkeleton.current = false
 
-  if (animateReveal) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: REVEAL_EASE }}
-        className={className}
-      >
-        {children}
-      </motion.div>
-    )
-  }
-
-  return <div className={className}>{children}</div>
+  // Always render the same motion.div element type for loaded content so
+  // subsequent re-renders never unmount/remount children (maps, inputs, etc.).
+  // Framer Motion only evaluates `initial` on mount.
+  return (
+    <motion.div
+      key="content"
+      initial={animateReveal ? { opacity: 0, y: 5 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: REVEAL_EASE }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
 }
 
 /**
