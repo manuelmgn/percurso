@@ -89,9 +89,13 @@ export function ProjectPlacesSection({
     return GROUP_OPTIONS.filter((opt) => present[opt.value])
   }, [places])
 
-  // Fall back to ungrouped when the persisted grouping level does not exist
-  // in this project (e.g. a project without comarcas), without overwriting the
+  // Fall back cleanly when persisted preferences are stale or unavailable for
+  // this project (e.g. a project without comarcas), without overwriting the
   // user's saved preference for projects that do have it.
+  const effectiveView: ViewMode =
+    prefs.view === 'cards' || prefs.view === 'table' || prefs.view === 'list'
+      ? prefs.view
+      : 'list'
   const effectiveGroupBy: GroupByKey = availableGroups.some((opt) => opt.value === prefs.groupBy)
     ? prefs.groupBy
     : 'none'
@@ -291,28 +295,28 @@ export function ProjectPlacesSection({
       tabIndex={0}
       role="region"
       aria-label={groupLabel ? `${t('projects.targetPlaces')} — ${groupLabel}` : t('projects.targetPlaces')}
-      className="overflow-x-auto rounded-2xl border border-line focus-visible:ring-2 focus-visible:ring-primary"
+      className="max-h-[70vh] overflow-auto rounded-2xl border border-line focus-visible:ring-2 focus-visible:ring-primary"
     >
       <table className="w-full min-w-[600px] border-separate border-spacing-0 text-left text-sm">
-        <thead>
-          <tr className="bg-fill/70 text-xs font-semibold text-muted">
-            <th scope="col" className="border-b border-line px-4 py-2.5">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-fill text-xs font-semibold text-muted">
+            <th scope="col" className="border-b border-line bg-fill px-4 py-2.5">
               {t('projects.tablePlace')}
             </th>
-            <th scope="col" className="border-b border-line px-3 py-2.5">
+            <th scope="col" className="border-b border-line bg-fill px-3 py-2.5">
               {t('projects.tableType')}
             </th>
-            <th scope="col" className="border-b border-line px-3 py-2.5">
+            <th scope="col" className="border-b border-line bg-fill px-3 py-2.5">
               {t('projects.tableLocation')}
             </th>
-            <th scope="col" className="border-b border-line px-3 py-2.5">
+            <th scope="col" className="border-b border-line bg-fill px-3 py-2.5">
               {t('projects.tableStatus')}
             </th>
-            <th scope="col" className="border-b border-line px-3 py-2.5">
+            <th scope="col" className="border-b border-line bg-fill px-3 py-2.5">
               {t('projects.tableLastVisit')}
             </th>
             {canEdit && (
-              <th scope="col" className="border-b border-line px-4 py-2.5 text-right">
+              <th scope="col" className="border-b border-line bg-fill px-4 py-2.5 text-right">
                 {t('projects.tableActions')}
               </th>
             )}
@@ -359,8 +363,8 @@ export function ProjectPlacesSection({
   )
 
   const renderCollection = (items: ProjectPlace[], omitKey: string | null, groupLabel?: string) => {
-    if (prefs.view === 'cards') return renderCardsView(items, omitKey)
-    if (prefs.view === 'table') return renderTableView(items, omitKey, groupLabel)
+    if (effectiveView === 'cards') return renderCardsView(items, omitKey)
+    if (effectiveView === 'table') return renderTableView(items, omitKey, groupLabel)
     return renderListView(items, omitKey)
   }
 
@@ -415,7 +419,7 @@ export function ProjectPlacesSection({
               className="inline-flex items-center rounded-pill border border-line bg-bg p-0.5 text-xs font-medium"
             >
               {viewOptions.map(({ value, label, Icon }) => {
-                const active = prefs.view === value
+                const active = effectiveView === value
                 return (
                   <button
                     key={value}
