@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import { PageShell } from '@/components/PageShell'
@@ -19,6 +19,10 @@ export function PlaceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const [isEditingRelation, setIsEditingRelation] = useState(false)
+
+  useEffect(() => {
+    setIsEditingRelation(false)
+  }, [id])
 
   const { data: place, setData: setPlace, isLoading, error } = useApiResource<PlaceDetail>(
     () => api.places.get(Number(id)),
@@ -117,6 +121,7 @@ export function PlaceDetailPage() {
         {isEditingRelation ? (
           <div className="mt-4">
             <PlaceRelationEditor
+              key={place.id}
               initial={place.relation}
               onSave={handleSaveRelation}
               onRemove={place.relation ? handleRemoveRelation : undefined}

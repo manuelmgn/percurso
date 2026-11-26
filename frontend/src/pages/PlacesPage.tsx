@@ -182,6 +182,7 @@ export function PlacesPage() {
       )}
 
       {places.length === 0 && !error ? (
+        !showAddMark && (
         <div className="card flex flex-col items-center py-12 text-center">
           <MapPin size={48} strokeWidth={1.5} className="text-muted" aria-hidden="true" />
 
@@ -202,6 +203,7 @@ export function PlacesPage() {
             </button>
           </div>
         </div>
+        )
       ) : (
         <>
           <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
