@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import asyncio
 import time
 
@@ -6,8 +7,8 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Place, PlaceType, TripPlace, Trip, ProjectPlace
-from app.schemas import PlaceSearchResult
+from app.models import Place, UserPlace, PlaceType, TripPlace, Trip, ProjectPlace
+from app.schemas import PlaceSearchResult, PlaceRelationInput
 from app.services import visibility_service
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
@@ -259,11 +260,66 @@ def get_place_by_id(db: Session, place_id: int) -> Optional[Place]:
     return db.query(Place).filter(Place.id == place_id).first()
 
 
-def get_places_overview(db: Session, user) -> list[dict]:
-    """Places relevant to the user: visited (via visible trips) and/or
-    targeted by visible projects, with visit counts and last visit date.
+def get_user_place_relation(db: Session, user_id: int, place_id: int) -> Optional[UserPlace]:
+    return (
+        db.query(UserPlace)
+        .filter(UserPlace.user_id == user_id, UserPlace.place_id == place_id)
+        .first()
+    )
 
-    Computed with two aggregate queries; pure SQL instead of walking every
+
+def get_user_place_relations_map(db: Session, user_id: int) -> dict[int, UserPlace]:
+    rows = db.query(UserPlace).filter(UserPlace.user_id == user_id).all()
+    return {row.place_id: row for row in rows}
+
+
+def get_user_marked_place_ids(db: Session, user_id: int) -> set[int]:
+    return {row[0] for row in db.query(UserPlace.place_id).filter(UserPlace.user_id == user_id)}
+
+
+def upsert_user_place_relation(
+    db: Session,
+    user_id: int,
+    place_id: int,
+    data: PlaceRelationInput,
+) -> UserPlace:
+    rel = get_user_place_relation(db, user_id, place_id)
+    if rel is None:
+        rel = UserPlace(
+            user_id=user_id,
+            place_id=place_id,
+            kind=data.kind,
+            year_from=data.year_from,
+            year_to=data.year_to,
+        )
+        db.add(rel)
+    else:
+        rel.kind = data.kind
+        rel.year_from = data.year_from
+        rel.year_to = data.year_to
+        rel.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(rel)
+    return rel
+
+
+def delete_user_place_relation(db: Session, user_id: int, place_id: int) -> bool:
+    deleted = (
+        db.query(UserPlace)
+        .filter(UserPlace.user_id == user_id, UserPlace.place_id == place_id)
+        .delete(synchronize_session=False)
+    )
+    if deleted:
+        db.commit()
+    return bool(deleted)
+
+
+def get_places_overview(db: Session, user) -> list[dict]:
+    """Places relevant to the user: visited (via visible trips), marked
+    personally (residence / frequent visits) and/or targeted by visible
+    projects, with visit counts and last visit date.
+
+    Computed with aggregate queries; pure SQL instead of walking every
     trip's places collection."""
     visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
 
@@ -295,7 +351,9 @@ def get_places_overview(db: Session, user) -> list[dict]:
             )
         }
 
-    relevant_ids = set(visit_count) | target_ids
+    user_relations = get_user_place_relations_map(db, user.id)
+
+    relevant_ids = set(visit_count) | target_ids | set(user_relations)
     if not relevant_ids:
         return []
 
@@ -306,15 +364,16 @@ def get_places_overview(db: Session, user) -> list[dict]:
             "visit_count": visit_count.get(place.id, 0),
             "last_visited_at": last_visited.get(place.id),
             "is_project_target": place.id in target_ids,
+            "relation": user_relations.get(place.id),
         }
         for place in sorted(places, key=lambda p: p.name)
     ]
 
 
 def get_visible_place_ids(db: Session, user) -> set[int]:
-    """IDs of places the user can see (visited in visible trips and/or
-    targeted by visible projects) — two aggregate queries, no lazy loading."""
-    visible_ids: set[int] = set()
+    """IDs of places the user can see (visited in visible trips, marked
+    personally, and/or targeted by visible projects)."""
+    visible_ids: set[int] = get_user_marked_place_ids(db, user.id)
 
     visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
     if visible_trip_ids:

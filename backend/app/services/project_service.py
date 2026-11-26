@@ -4,7 +4,7 @@ from typing import Collection, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import User, Project, ProjectPlace, Place, Trip, TripProject, TripPlace, EntityType
+from app.models import User, Project, ProjectPlace, Place, UserPlace, Trip, TripProject, TripPlace, EntityType
 from app.schemas import ProjectCreate, ProjectUpdate
 from app.services import visibility_service, notification_service, pin_service
 
@@ -116,18 +116,28 @@ def _compute_progress(project: Project, visited_place_ids: set[int]) -> dict:
 
 
 def get_visited_place_ids_in_project(db: Session, user: User, project_id: int) -> set[int]:
-    """Place IDs of the project that appear in any trip the user can see.
+    """Place IDs of the project that appear in any visible trip linked to
+    the project OR that the user has personally marked (residence / frequent
+    visits)."""
+    result: set[int] = set()
+    if visible_trip_ids := visibility_service.get_visible_trip_ids(db, user):
+        visited = db.query(TripPlace.place_id).filter(
+            TripPlace.trip_id.in_(visible_trip_ids),
+            TripProject.project_id == project_id,
+            TripProject.trip_id == TripPlace.trip_id,
+        )
+        result |= {row[0] for row in visited}
 
-    One aggregate query for the whole project instead of one existence check
-    per place (the old code also re-resolved visible trips per place)."""
-    if not (visible_trip_ids := visibility_service.get_visible_trip_ids(db, user)):
-        return set()
-    visited = db.query(TripPlace.place_id).filter(
-        TripPlace.trip_id.in_(visible_trip_ids),
-        TripProject.project_id == project_id,
-        TripProject.trip_id == TripPlace.trip_id,
+    marked = (
+        db.query(ProjectPlace.place_id)
+        .join(UserPlace, UserPlace.place_id == ProjectPlace.place_id)
+        .filter(
+            ProjectPlace.project_id == project_id,
+            UserPlace.user_id == user.id,
+        )
     )
-    return {row[0] for row in visited}
+    result |= {row[0] for row in marked}
+    return result
 
 
 def get_last_visit_dates_in_project(db: Session, user: User, project_id: int) -> "dict[int, date]":
@@ -174,6 +184,16 @@ def get_progress_by_project(
             )
             for project_id, place_id in rows:
                 visited_map[project_id].add(place_id)
+        marked_rows = (
+            db.query(ProjectPlace.project_id, ProjectPlace.place_id)
+            .join(UserPlace, UserPlace.place_id == ProjectPlace.place_id)
+            .filter(
+                ProjectPlace.project_id.in_(project_ids),
+                UserPlace.user_id == user.id,
+            )
+        )
+        for project_id, place_id in marked_rows:
+            visited_map[project_id].add(place_id)
     return {p.id: _compute_progress(p, visited_map[p.id]) for p in projects}
 
 

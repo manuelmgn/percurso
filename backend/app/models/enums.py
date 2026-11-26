@@ -39,6 +39,11 @@ class PlaceType(str, enum.Enum):
     OTHER = "outro"
 
 
+class PlaceRelationKind(str, enum.Enum):
+    FREQUENT = "frequent"
+    RESIDENCE = "residence"
+
+
 class EntityAction(str, enum.Enum):
     CREATED = "created"
     UPDATED = "updated"

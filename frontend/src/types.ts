@@ -128,7 +128,24 @@ export interface PlaceSearchResult {
   is_cached: boolean
 }
 
-// A place relevant to the current user: visited and/or a project target.
+// Per-user personal mark on a place (residence or frequent visits) with an
+// optional approximate year or year range.
+export type PlaceRelationKind = 'frequent' | 'residence'
+
+export interface PlaceRelation {
+  kind: PlaceRelationKind
+  year_from: number | null
+  year_to: number | null
+  updated_at: string
+}
+
+export interface PlaceRelationInput {
+  kind: PlaceRelationKind
+  year_from?: number | null
+  year_to?: number | null
+}
+
+// A place relevant to the current user: visited, marked personally, and/or a project target.
 export interface PlaceOverviewItem {
   id: number
   name: string
@@ -139,11 +156,13 @@ export interface PlaceOverviewItem {
   visit_count: number
   last_visited_at: string | null
   is_project_target: boolean
+  relation: PlaceRelation | null
   updated_at: string
 }
 
-// Place card with its visible trips and projects.
+// Place card with its personal mark, visible trips and projects.
 export interface PlaceDetail extends Place {
+  relation: PlaceRelation | null
   trips: TripListItem[]
   projects: ProjectListItem[]
 }

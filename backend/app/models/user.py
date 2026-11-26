@@ -31,6 +31,7 @@ class User(Base, TimestampMixin):
     projects = relationship("Project", back_populates="creator", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan")
     milestones = relationship("Milestone", back_populates="user", cascade="all, delete-orphan")
+    place_relations = relationship("UserPlace", back_populates="user", cascade="all, delete-orphan")
 
     @validates("username")
     def validate_username(self, _, value: str) -> str:

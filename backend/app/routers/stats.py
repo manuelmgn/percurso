@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import User, Place, PlaceType, TripPlace, Trip, trip_participants
+from app.models import User, Place, UserPlace, PlaceType, TripPlace, Trip, trip_participants
 from app.schemas import StatsResponse, StatsSummary, ProjectStat, PlaceRanking, RegionStat, PlaceTypeStat
 from app.services import visibility_service, project_service
 
@@ -69,6 +69,22 @@ def get_stats(
                 name = name.strip()
                 if name:
                     companion_names.add(f"text:{name.lower()}")
+
+    # Places personally marked as residence or frequent visits also count as
+    # visited (added when not already represented via a trip).
+    marked_rows = (
+        db.query(UserPlace.place_id, Place.hierarchy, Place.place_type)
+        .join(Place, Place.id == UserPlace.place_id)
+        .filter(UserPlace.user_id == user.id)
+        .all()
+    )
+    for place_id, hierarchy, place_type in marked_rows:
+        if place_id not in place_ids:
+            place_ids.add(place_id)
+            place_type_counter[place_type] += 1
+            region = (hierarchy or {}).get("region")
+            if region:
+                region_counter[region] += 1
 
     # Project progress in two aggregate queries instead of per-project.
     projects = visibility_service.get_visible_projects(db, user)

@@ -3,7 +3,7 @@ from typing import Collection
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import User, UserRole, Trip, TripPlace, TripProject, Project, ProjectPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
+from app.models import User, UserRole, Trip, TripPlace, TripProject, Project, ProjectPlace, UserPlace, Visibility, trip_participants, trip_visible_users, project_participants, project_visible_users
 
 
 def _trip_list_options():
@@ -148,13 +148,16 @@ def get_creator_profile_stats(db: Session, viewer: User, creator_id: int) -> tup
         .subquery()
     )
     trip_count = db.query(func.count()).select_from(subq).scalar() or 0
-    distinct_places = (
-        db.query(func.count(func.distinct(TripPlace.place_id)))
-        .join(subq, TripPlace.trip_id == subq.c.id)
-        .scalar()
-        or 0
-    )
-    return int(trip_count), int(distinct_places)
+    trip_place_ids = {
+        row[0]
+        for row in db.query(TripPlace.place_id).join(subq, TripPlace.trip_id == subq.c.id).distinct()
+    }
+    if viewer.id == creator_id:
+        trip_place_ids |= {
+            row[0]
+            for row in db.query(UserPlace.place_id).filter(UserPlace.user_id == creator_id)
+        }
+    return int(trip_count), len(trip_place_ids)
 
 
 def get_visible_projects(db: Session, user: User) -> list[Project]:

@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from app.models import UserRole, ThemePreference, PlaceType, EntityType, Visibility, MapMode
+from app.models import UserRole, ThemePreference, PlaceType, PlaceRelationKind, EntityType, Visibility, MapMode
 
 
 class UserBase(BaseModel):
@@ -117,9 +117,31 @@ class PlaceSearchResult(BaseModel):
     is_cached: bool = False
 
 
+class PlaceRelationInput(BaseModel):
+    kind: PlaceRelationKind
+    year_from: Optional[int] = Field(None, ge=1900, le=2100)
+    year_to: Optional[int] = Field(None, ge=1900, le=2100)
+
+    @model_validator(mode="after")
+    def validate_year_range(self):
+        if self.year_from is not None and self.year_to is not None and self.year_to < self.year_from:
+            raise ValueError("O ano final não pode ser anterior ao ano inicial")
+        return self
+
+
+class PlaceRelationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: PlaceRelationKind
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+    updated_at: datetime
+
+
 class PlaceOverviewItem(BaseModel):
-    """A place relevant to the current user: visited (in a visible trip)
-    and/or a target of a visible project."""
+    """A place relevant to the current user: visited (in a visible trip),
+    marked personally (residence / frequent visits) and/or a target of a
+    visible project."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -131,6 +153,7 @@ class PlaceOverviewItem(BaseModel):
     visit_count: int  # nº of visible trips that include the place
     last_visited_at: Optional[date] = None  # latest end_date of those trips
     is_project_target: bool
+    relation: Optional[PlaceRelationResponse] = None
     updated_at: datetime
 
 
@@ -378,6 +401,7 @@ class TripDeleteWarning(BaseModel):
 class PlaceDetailResponse(PlaceResponse):
     """Place card plus its context for the current user: visible trips that
     visited it and visible projects that target it."""
+    relation: Optional[PlaceRelationResponse] = None
     trips: list[TripListResponse] = Field(default_factory=list)
     projects: list[ProjectListResponse] = Field(default_factory=list)
 

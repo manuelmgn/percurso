@@ -4,11 +4,12 @@ from app.models.enums import (
     Visibility,
     MapMode,
     PlaceType,
+    PlaceRelationKind,
     EntityAction,
     EntityType,
 )
 from app.models.user import User, Session
-from app.models.place import Place
+from app.models.place import Place, UserPlace
 from app.models.project import Project, ProjectPlace, project_participants, project_visible_users
 from app.models.trip import Trip, TripPlace, TripProject, trip_participants, trip_visible_users, trip_places
 from app.models.activity import Activity
@@ -21,6 +22,7 @@ __all__ = [
     "User",
     "Session",
     "Place",
+    "UserPlace",
     "Project",
     "ProjectPlace",
     "Trip",
@@ -37,6 +39,7 @@ __all__ = [
     "Visibility",
     "MapMode",
     "PlaceType",
+    "PlaceRelationKind",
     "EntityAction",
     "EntityType",
     "project_participants",

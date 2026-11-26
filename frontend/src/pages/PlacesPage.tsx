@@ -1,17 +1,21 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
 import { PageShell } from '@/components/PageShell'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { PlaceTypeLabel } from '@/components/ui/PlaceTypeLabel'
+import { PlaceRelationBadge } from '@/components/PlaceRelationBadge'
+import { PlaceRelationEditor } from '@/components/PlaceRelationEditor'
+import { PlacePicker, type PickedPlace } from '@/components/PlacePicker'
 import { useApiResource, usePersistentFilters } from '@/hooks/useApiResource'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
+import { checkAndCelebrate } from '@/utils/milestones'
 import { formatHierarchy, formatPlaceType, placeTypeTitle } from '@/utils/format'
-import { PLACE_TYPES, type PlaceOverviewItem, type PlaceType } from '@/types'
-import { MapPin } from 'lucide-react'
+import { PLACE_TYPES, type PlaceOverviewItem, type PlaceRelationInput, type PlaceType } from '@/types'
+import { MapPin, Plus } from 'lucide-react'
 
-type StatusFilter = 'all' | 'visited' | 'pending'
+type StatusFilter = 'all' | 'visited' | 'pending' | 'residence' | 'frequent'
 type SortOrder = 'alpha' | 'most_visited' | 'recent'
 
 interface PlacesFilters {
@@ -24,39 +28,68 @@ interface PlacesFilters {
 const DEFAULT_FILTERS: PlacesFilters = { query: '', placeType: '', status: 'all', sort: 'alpha' }
 
 
-// A place in the overview is relevant because it was visited and/or is a
-// project target; "pendente" means on a target list but not yet visited (an
-// unvisited non-target cannot appear in the overview at all). Showing the
-// pending badge on an already-visited target would contradict its visit
-// count and the status filter below.
-function placeStatus(place: PlaceOverviewItem): 'visited' | 'pending' {
-  return place.visit_count > 0 ? 'visited' : 'pending'
+// A place counts as visited when it appears in a visible trip OR carries a
+// personal residence/frequent-visit mark. "Pendente" means on a project target
+// list with neither trips nor a personal mark.
+function isPlaceVisited(place: PlaceOverviewItem): boolean {
+  return place.visit_count > 0 || place.relation !== null
 }
 
-// "Mais recentes": last visit when there is one, otherwise last edit.
+function placeStatus(place: PlaceOverviewItem): 'visited' | 'pending' {
+  return isPlaceVisited(place) ? 'visited' : 'pending'
+}
+
+// "Mais recentes": latest of last visit, personal mark update, or place update.
 function recencyTimestamp(place: PlaceOverviewItem): number {
-  return new Date(place.last_visited_at || place.updated_at).getTime()
+  const candidates = [place.last_visited_at, place.relation?.updated_at, place.updated_at].filter(Boolean) as string[]
+  return Math.max(...candidates.map((d) => new Date(d).getTime()))
 }
 
 export function PlacesPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
-  const { data: places, isLoading, error } = useApiResource<PlaceOverviewItem[]>(
+  const { data: places, setData: setPlaces, isLoading, error } = useApiResource<PlaceOverviewItem[]>(
     () => api.places.overview(),
     [],
     [],
   )
+  const [showAddMark, setShowAddMark] = useState(false)
+  const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
   // Filters are remembered per user, so they survive sessions without leaking
   // to other users of the same device (shared hook).
   const [filters, setFilters] = usePersistentFilters<PlacesFilters>('lugares:filters', user?.id, DEFAULT_FILTERS)
+
+  const existingRelation = useMemo(
+    () => (pickedPlace ? places.find((p) => p.id === pickedPlace.id)?.relation ?? null : null),
+    [pickedPlace, places],
+  )
+
+  const handleSaveMark = async (payload: PlaceRelationInput) => {
+    if (!pickedPlace) return
+    await api.places.setRelation(pickedPlace.id, payload)
+    setPlaces(await api.places.overview())
+    setPickedPlace(null)
+    setShowAddMark(false)
+    checkAndCelebrate()
+  }
+
+  const handleRemoveMark = async () => {
+    if (!pickedPlace) return
+    await api.places.deleteRelation(pickedPlace.id)
+    setPlaces(await api.places.overview())
+    setPickedPlace(null)
+    setShowAddMark(false)
+  }
 
   const visiblePlaces = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
     const filtered = places.filter((place) => {
       if (query && !place.name.toLowerCase().includes(query)) return false
       if (filters.placeType && place.place_type !== filters.placeType) return false
-      if (filters.status === 'visited' && place.visit_count === 0) return false
-      if (filters.status === 'pending' && place.visit_count > 0) return false
+      if (filters.status === 'visited' && !isPlaceVisited(place)) return false
+      if (filters.status === 'pending' && isPlaceVisited(place)) return false
+      if (filters.status === 'residence' && place.relation?.kind !== 'residence') return false
+      if (filters.status === 'frequent' && place.relation?.kind !== 'frequent') return false
       return true
     })
     switch (filters.sort) {
@@ -73,8 +106,80 @@ export function PlacesPage() {
 
   return (
     <PageShell skeleton="list" isLoading={isLoading}>
-      <h2 className="font-display text-2xl font-bold">{t('places.title')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-2xl font-bold">{t('places.title')}</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setShowAddMark((v) => !v)
+            setPickedPlace(null)
+          }}
+          className="btn-primary inline-flex items-center gap-1.5"
+        >
+          <Plus size={16} aria-hidden="true" />
+          {t('places.addMark')}
+        </button>
+      </div>
       <ErrorBanner message={error} />
+
+      {showAddMark && (
+        <div className="card space-y-4">
+          <div>
+            <h3 className="font-display text-lg font-semibold">{t('places.addMarkTitle')}</h3>
+            <p className="mt-1 text-sm text-muted">{t('places.addMarkHint')}</p>
+          </div>
+          {!pickedPlace ? (
+            <div className="space-y-3">
+              <PlacePicker
+                selected={[]}
+                hideSelected
+                onChange={(picked) => {
+                  if (picked.length > 0) setPickedPlace(picked[0])
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAddMark(false)}
+                className="btn-outline"
+              >
+                {t('actions.cancel')}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-bg/60 px-3.5 py-2.5">
+                <div>
+                  <p className="text-xs text-muted">{t('places.addMarkSelected')}</p>
+                  <p className="font-medium text-ink">
+                    {pickedPlace.name}
+                    {formatHierarchy(pickedPlace.hierarchy) && (
+                      <span className="font-normal text-muted"> · {formatHierarchy(pickedPlace.hierarchy)}</span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPickedPlace(null)}
+                  className="btn-outline px-3 py-1 text-xs"
+                >
+                  {t('places.addMarkChange')}
+                </button>
+              </div>
+              <PlaceRelationEditor
+                key={pickedPlace.id}
+                initial={existingRelation}
+                onSave={handleSaveMark}
+                onRemove={existingRelation ? handleRemoveMark : undefined}
+                onCancel={() => {
+                  setPickedPlace(null)
+                  setShowAddMark(false)
+                }}
+                idPrefix="places-add-rel"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {places.length === 0 && !error ? (
         <div className="card flex flex-col items-center py-12 text-center">
@@ -84,9 +189,18 @@ export function PlacesPage() {
           <p className="mt-1 max-w-sm text-sm text-muted">
             {t('places.empty.description')}
           </p>
-          <Link to="/viagens/novo" className="btn-primary mt-6">
-            {t('places.empty.cta')}
-          </Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link to="/viagens/novo" className="btn-primary">
+              {t('places.empty.cta')}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAddMark(true)}
+              className="btn-outline"
+            >
+              {t('places.addMark')}
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -135,6 +249,8 @@ export function PlacesPage() {
                 <option value="all">{t('places.statusAll')}</option>
                 <option value="visited">{t('places.statusVisited')}</option>
                 <option value="pending">{t('places.statusPending')}</option>
+                <option value="residence">{t('places.statusResidence')}</option>
+                <option value="frequent">{t('places.statusFrequent')}</option>
               </select>
             </div>
             <div>
@@ -174,6 +290,7 @@ export function PlacesPage() {
                         {place.name}
                       </p>
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                        {place.relation && <PlaceRelationBadge relation={place.relation} />}
                         {place.visit_count > 0 && (
                           <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/20 dark:text-green-300">
                             {place.visit_count === 1 ? t('places.visitedOnce') : t('places.visitedTimes', { count: place.visit_count })}

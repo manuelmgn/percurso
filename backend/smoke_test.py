@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.main import app
 from app.database import SessionLocal
-from app.models import User, Place, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType, Photo, UserRole
+from app.models import User, Place, UserPlace, Project, Trip, TripPlace, TripProject, ProjectPlace, Milestone, Activity, PlaceType, Photo, UserRole
 from app.auth import hash_password
 
 
@@ -79,8 +79,9 @@ def reset_test_data(db):
             db.query(Trip).filter(Trip.creator_id == u.id).delete()
             db.query(ProjectPlace).filter(ProjectPlace.project_id.in_([p.id for p in u.projects])).delete()
             db.query(Project).filter(Project.creator_id == u.id).delete()
+            db.query(UserPlace).filter(UserPlace.user_id == u.id).delete()
             db.delete(u)
-    for name in ['Santiago de Compostela', 'Lugo', 'Lugo Sur', 'A Coruña', 'Polo Norte Teste']:
+    for name in ['Santiago de Compostela', 'Lugo', 'Lugo Sur', 'A Coruña', 'Polo Norte Teste', 'Vigo Teste']:
         db.query(Place).filter(Place.name == name).delete()
     db.commit()
     for url in orphan_files:
@@ -1532,6 +1533,107 @@ def main():
     check('date change prunes out-of-range visit days',
           r.status_code == 200 and r.json()['places'][0]['visit_dates'] == ['2026-06-04'], r.text[:300])
     client1.delete(f'/api/trips/{stops_trip_id}')
+
+    # Personal place relations (residence / frequent visits + approximate years)
+    db = SessionLocal()
+    try:
+        vigo = Place(
+            name='Vigo Teste',
+            osm_type='node',
+            osm_id=9001,
+            place_type=PlaceType.TOWN,
+            hierarchy={'country': 'Spain', 'region': 'Galiza Teste'},
+            lat=42.24,
+            lon=-8.72,
+        )
+        db.add(vigo)
+        db.commit()
+        vigo_id = vigo.id
+    finally:
+        db.close()
+
+    # Before marking: not in user1's visited or overview
+    check('unmarked place not in visited', vigo_id not in {p['id'] for p in client1.get('/api/places/visited').json()})
+    check('unmarked place not in overview', vigo_id not in {p['id'] for p in client1.get('/api/places/overview').json()})
+    stats_before = client1.get('/api/stats/').json()
+
+    # Create a project targeting vigo_id (no trips)
+    r = client1.post('/api/projects/', json={'name': 'Projeto Relação', 'place_ids': [vigo_id]})
+    check('create project for relation test', r.status_code == 201, r.text[:200])
+    rel_proj_id = r.json()['id']
+    check('project place initially unvisited', r.json()['visited_places'] == 0 and not r.json()['places'][0]['is_visited'])
+
+    # Validation checks
+    check('relation invalid range 422',
+          client1.put(f'/api/places/{vigo_id}/relation', json={'kind': 'residence', 'year_from': 2022, 'year_to': 2018}).status_code == 422)
+    check('relation out-of-range year 422',
+          client1.put(f'/api/places/{vigo_id}/relation', json={'kind': 'residence', 'year_from': 1800}).status_code == 422)
+    check('relation invalid kind 422',
+          client1.put(f'/api/places/{vigo_id}/relation', json={'kind': 'tourist'}).status_code == 422)
+    check('relation missing place 404',
+          client1.put('/api/places/99999999/relation', json={'kind': 'residence'}).status_code == 404)
+
+    # Set residence with range
+    r = client1.put(f'/api/places/{vigo_id}/relation', json={'kind': 'residence', 'year_from': 2015, 'year_to': 2020})
+    check('set place relation residence range',
+          r.status_code == 200 and r.json()['kind'] == 'residence'
+          and r.json()['year_from'] == 2015 and r.json()['year_to'] == 2020, r.text[:200])
+
+    # Appears on detail, overview, visited, search, stats, and project progress
+    detail = client1.get(f'/api/places/{vigo_id}').json()
+    check('place detail includes relation',
+          detail['relation'] is not None and detail['relation']['kind'] == 'residence'
+          and detail['relation']['year_from'] == 2015 and detail['relation']['year_to'] == 2020)
+    ov = {p['id']: p for p in client1.get('/api/places/overview').json()}
+    check('overview includes marked place with relation',
+          vigo_id in ov and ov[vigo_id]['relation'] is not None and ov[vigo_id]['relation']['kind'] == 'residence')
+    check('visited includes marked place', vigo_id in {p['id'] for p in client1.get('/api/places/visited').json()})
+    check('search includes marked place',
+          vigo_id in {p['id'] for p in client1.get('/api/search/?q=Vigo%20Teste').json()['places']})
+
+    stats_after = client1.get('/api/stats/').json()
+    check('stats place_count increments for marked place',
+          stats_after['summary']['place_count'] == stats_before['summary']['place_count'] + 1)
+    check('stats region_stats includes marked place region',
+          any(rs['region'] == 'Galiza Teste' for rs in stats_after['region_stats']))
+
+    proj_after = client1.get(f'/api/projects/{rel_proj_id}').json()
+    check('project marks place visited via relation',
+          proj_after['visited_places'] == 1 and proj_after['places'][0]['is_visited']
+          and proj_after['places'][0]['visited_at'] is None)
+
+    # Isolation: user2 does NOT see user1's personal relation
+    detail_u2 = client2.get(f'/api/places/{vigo_id}').json()
+    check('relation isolated from other users (detail)', detail_u2['relation'] is None)
+    check('relation isolated from other users (visited)',
+          vigo_id not in {p['id'] for p in client2.get('/api/places/visited').json()})
+    proj_u2 = client2.get(f'/api/projects/{rel_proj_id}').json()
+    check('relation isolated from other users (project)', proj_u2['visited_places'] == 0)
+
+    # Update to frequent visits (ongoing since 2021)
+    r = client1.put(f'/api/places/{vigo_id}/relation', json={'kind': 'frequent', 'year_from': 2021, 'year_to': None})
+    check('update relation to frequent since year',
+          r.status_code == 200 and r.json()['kind'] == 'frequent'
+          and r.json()['year_from'] == 2021 and r.json()['year_to'] is None)
+
+    # Remove relation -> reverts visited status everywhere
+    r = client1.delete(f'/api/places/{vigo_id}/relation')
+    check('delete place relation 204', r.status_code == 204)
+    check('place detail relation cleared', client1.get(f'/api/places/{vigo_id}').json()['relation'] is None)
+    check('removed relation no longer in visited',
+          vigo_id not in {p['id'] for p in client1.get('/api/places/visited').json()})
+    check('removed relation reverts project progress',
+          client1.get(f'/api/projects/{rel_proj_id}').json()['visited_places'] == 0)
+    check('removed relation reverts stats place_count',
+          client1.get('/api/stats/').json()['summary']['place_count'] == stats_before['summary']['place_count'])
+
+    client1.delete(f'/api/projects/{rel_proj_id}')
+    db = SessionLocal()
+    try:
+        db.query(Place).filter(Place.id == vigo_id).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
 
     # Final summary
     passed = sum(1 for _, s, _ in results if s == 'PASS')

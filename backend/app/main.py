@@ -17,7 +17,7 @@ from app.services import user_service, immich_service
 from app.routers import auth, me, users, places, projects, trips, trip_photos, activities, images, tiles, search, stats, admin, milestones, pins, notifications, push, immich
 
 # Import all models so they are registered with SQLAlchemy before create_all
-from app.models import User, Session, Place, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription, Photo  # noqa: F401
+from app.models import User, Session, Place, UserPlace, Project, ProjectPlace, Trip, TripPlace, TripProject, Activity, Milestone, Pin, Notification, PushSubscription, Photo  # noqa: F401
 
 
 def _apply_lightweight_migrations():

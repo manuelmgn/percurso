@@ -158,3 +158,18 @@ export function formatPlaceType(type: string): string {
 export function placeTypeTitle(type: string): string | undefined {
   return type === 'concelho/município' ? 'concelho/município' : undefined
 }
+
+// Format a personal place relation's approximate year/range:
+//   2018 & 2018 -> "2018"
+//   2015 & 2020 -> "2015–2020"
+//   2020 & null -> "desde 2020"
+//   null & 2015 -> "até 2015"
+//   null & null -> ""
+export function formatPlaceRelationYears(yearFrom: number | null, yearTo: number | null): string {
+  if (yearFrom != null && yearTo != null) {
+    return yearFrom === yearTo ? String(yearFrom) : `${yearFrom}–${yearTo}`
+  }
+  if (yearFrom != null) return t('places.relation.sinceYear', { year: yearFrom })
+  if (yearTo != null) return t('places.relation.untilYear', { year: yearTo })
+  return ''
+}

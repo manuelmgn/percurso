@@ -5,7 +5,7 @@ from app.database import get_db
 from app.auth import get_current_user, validate_csrf
 from app.models import User, Place, TripPlace
 from app.models.enums import EntityAction, EntityType
-from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse
+from app.schemas import PlaceResponse, PlaceSearchResult, PlaceOverviewItem, PlaceDetailResponse, PlaceRelationInput, PlaceRelationResponse
 from app.serializers import to_search_result, to_trip_list_responses, to_project_list_responses
 from app.services import place_service, activity_service, visibility_service
 
@@ -39,19 +39,22 @@ def visited_places(
     user: User = Depends(get_current_user),
 ):
     """All distinct places visited by the current user (via trips they can
-    see), deduplicated — one entry per place however many times visited."""
+    see OR personal residence/frequent-visit marks), deduplicated."""
+    visited_ids: set[int] = place_service.get_user_marked_place_ids(db, user.id)
     visible_trip_ids = visibility_service.get_visible_trip_ids(db, user)
-    if not visible_trip_ids:
+    if visible_trip_ids:
+        visited_ids |= {
+            row[0]
+            for row in db.query(TripPlace.place_id).filter(TripPlace.trip_id.in_(visible_trip_ids))
+        }
+    if not visited_ids:
         return []
-    places = (
+    return (
         db.query(Place)
-        .join(TripPlace, TripPlace.place_id == Place.id)
-        .filter(TripPlace.trip_id.in_(visible_trip_ids))
-        .distinct()
+        .filter(Place.id.in_(visited_ids))
         .order_by(Place.name)
         .all()
     )
-    return places
 
 
 @router.get("/overview", response_model=list[PlaceOverviewItem])
@@ -59,9 +62,9 @@ def places_overview(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Places relevant to the current user — visited (via trips they can see)
-    and/or targeted by projects they can see — with visit counts. Read-only:
-    places are only created from OSM via trips/projects."""
+    """Places relevant to the current user — visited (via trips they can see),
+    marked personally (residence / frequent visits) and/or targeted by
+    projects they can see — with visit counts."""
     return [
         PlaceOverviewItem(
             id=item["place"].id,
@@ -73,6 +76,7 @@ def places_overview(
             visit_count=item["visit_count"],
             last_visited_at=item["last_visited_at"],
             is_project_target=item["is_project_target"],
+            relation=item["relation"],
             updated_at=item["place"].updated_at,
         )
         for item in place_service.get_places_overview(db, user)
@@ -96,6 +100,7 @@ def get_place(
     sorted_project_rows = to_project_list_responses(
         db, user, sorted(projects, key=lambda p: p.name)
     )
+    relation = place_service.get_user_place_relation(db, user.id, place.id)
 
     return PlaceDetailResponse(
         id=place.id,
@@ -109,11 +114,41 @@ def get_place(
         polygon=place.polygon,
         created_at=place.created_at,
         updated_at=place.updated_at,
+        relation=relation,
         trips=to_trip_list_responses(
             db, user, sorted(trips, key=lambda t: t.start_date, reverse=True)
         ),
         projects=sorted_project_rows,
     )
+
+
+@router.put("/{place_id}/relation", response_model=PlaceRelationResponse)
+def set_place_relation(
+    place_id: int,
+    payload: PlaceRelationInput,
+    db: Session = Depends(get_db),
+    user: User = Depends(validate_csrf),
+):
+    """Create or update the current user's personal mark on a place
+    (residence or frequent visits, with optional approximate year/range)."""
+    place = place_service.get_place_by_id(db, place_id)
+    if not place:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lugar não encontrado")
+    return place_service.upsert_user_place_relation(db, user.id, place.id, payload)
+
+
+@router.delete("/{place_id}/relation", status_code=status.HTTP_204_NO_CONTENT)
+def delete_place_relation(
+    place_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(validate_csrf),
+):
+    """Remove the current user's personal mark on a place."""
+    place = place_service.get_place_by_id(db, place_id)
+    if not place:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lugar não encontrado")
+    place_service.delete_user_place_relation(db, user.id, place.id)
+    return None
 
 
 @router.post("/import", response_model=PlaceResponse)

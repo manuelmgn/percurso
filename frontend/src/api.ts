@@ -20,6 +20,8 @@ import type {
   Place,
   PlaceDetail,
   PlaceOverviewItem,
+  PlaceRelation,
+  PlaceRelationInput,
   PlaceSearchResult,
   PlaceType,
   TripDeleteWarning,
@@ -75,6 +77,7 @@ const INVALIDATION_BY_RESOURCE: Record<string, string[]> = {
   trips: ['/api/trips', '/api/immich/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public', '/api/pins'],
   photos: ['/api/trips', '/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public'],
   projects: ['/api/projects', '/api/places', '/api/stats', '/api/search', '/api/activities', '/api/users/public', '/api/pins'],
+  places: ['/api/places', '/api/projects', '/api/stats', '/api/search', '/api/users/public'],
   pins: ['/api/pins'],
   // me/users rename or avatar changes: trip/project/activity/search payloads
   // embed usernames, so those caches must refresh too.
@@ -413,6 +416,13 @@ export const api = {
     get: (id: number) => fetchJson<PlaceDetail>(`/api/places/${id}`),
     visited: () => fetchJson<Place[]>('/api/places/visited'),
     overview: () => fetchJson<PlaceOverviewItem[]>('/api/places/overview'),
+    setRelation: (id: number, data: PlaceRelationInput) => fetchJson<PlaceRelation>(`/api/places/${id}/relation`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+    deleteRelation: (id: number) => fetchJson<void>(`/api/places/${id}/relation`, {
+      method: 'DELETE',
+    }),
   },
 
   immich: {
